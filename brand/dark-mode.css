@@ -1,0 +1,75 @@
+/* Middle Ground — Dark Mode Color Tokens (v2) */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Surfaces */
+    --mg-sand: #1E293B;
+    --mg-surface: #334155;
+    --mg-warm-gray-100: #475569;
+    --mg-warm-gray-200: #64748B;
+    --mg-warm-gray-400: #94A3B8;
+    --mg-warm-gray-600: #CBD5E1;
+    --mg-slate: #F8FAFC;
+
+    /* Accents — slightly lighter for dark surfaces */
+    --mg-indigo: #818CF8;
+    --mg-teal: #2DD4BF;
+    --mg-coral: #FDA4AF;
+    --mg-sunshine: #FDE68A;
+    --mg-lavender: #C4B5FD;
+    --mg-sky: #7DD3FC;
+
+    /* Semantic */
+    --mg-success: #2DD4BF;
+    --mg-warning: #FDE68A;
+    --mg-error: #FDA4AF;
+    --mg-negotiate: #C4B5FD;
+    --mg-reschedule: #7DD3FC;
+    --mg-saved: #FDA4AF;
+
+    /* Gradients */
+    --mg-gradient-middle: linear-gradient(135deg, #6366F1 0%, #818CF8 50%, #14B8A6 100%);
+    --mg-gradient-warm: linear-gradient(135deg, #FDA4AF 0%, #FDE68A 100%);
+    --mg-gradient-people: linear-gradient(135deg, #818CF8 0%, #2DD4BF 100%);
+
+    /* Shadows */
+    --mg-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
+    --mg-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32);
+    --mg-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.44);
+    --mg-shadow-glow: 0 8px 24px rgba(99, 102, 241, 0.22);
+  }
+}
+
+/* Manual dark mode toggle via data attribute */
+[data-theme="dark"] {
+  --mg-sand: #1E293B;
+  --mg-surface: #334155;
+  --mg-warm-gray-100: #475569;
+  --mg-warm-gray-200: #64748B;
+  --mg-warm-gray-400: #94A3B8;
+  --mg-warm-gray-600: #CBD5E1;
+  --mg-slate: #F8FAFC;
+
+  --mg-indigo: #818CF8;
+  --mg-teal: #2DD4BF;
+  --mg-coral: #FDA4AF;
+  --mg-sunshine: #FDE68A;
+  --mg-lavender: #C4B5FD;
+  --mg-sky: #7DD3FC;
+
+  --mg-success: #2DD4BF;
+  --mg-warning: #FDE68A;
+  --mg-error: #FDA4AF;
+  --mg-negotiate: #C4B5FD;
+  --mg-reschedule: #7DD3FC;
+  --mg-saved: #FDA4AF;
+
+  --mg-gradient-middle: linear-gradient(135deg, #6366F1 0%, #818CF8 50%, #14B8A6 100%);
+  --mg-gradient-warm: linear-gradient(135deg, #FDA4AF 0%, #FDE68A 100%);
+  --mg-gradient-people: linear-gradient(135deg, #818CF8 0%, #2DD4BF 100%);
+
+  --mg-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --mg-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.32);
+  --mg-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.44);
+  --mg-shadow-glow: 0 8px 24px rgba(99, 102, 241, 0.22);
+}

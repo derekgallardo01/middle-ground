@@ -1,0 +1,41 @@
+/* Middle Ground — Color Tokens (v2) */
+
+:root {
+  /* Primary brand colors */
+  --mg-indigo: #6366F1;
+  --mg-teal: #14B8A6;
+  --mg-coral: #FF8FA3;
+
+  /* Supporting accents */
+  --mg-sunshine: #FFC857;
+  --mg-lavender: #A78BFA;
+  --mg-sky: #7DD3FC;
+
+  /* Neutrals */
+  --mg-sand: #F7F6F3;
+  --mg-surface: #FFFFFF;
+  --mg-warm-gray-100: #F0EFEC;
+  --mg-warm-gray-200: #E4E3E0;
+  --mg-warm-gray-400: #A1A1AA;
+  --mg-warm-gray-600: #71717A;
+  --mg-slate: #334155;
+
+  /* Semantic colors */
+  --mg-success: #14B8A6;
+  --mg-warning: #FFC857;
+  --mg-error: #FF8FA3;
+  --mg-negotiate: #A78BFA;
+  --mg-reschedule: #7DD3FC;
+  --mg-saved: #FF8FA3;
+
+  /* Gradients */
+  --mg-gradient-middle: linear-gradient(135deg, #6366F1 0%, #818CF8 50%, #14B8A6 100%);
+  --mg-gradient-warm: linear-gradient(135deg, #FF8FA3 0%, #FFC857 100%);
+  --mg-gradient-people: linear-gradient(135deg, #6366F1 0%, #14B8A6 100%);
+
+  /* Shadows */
+  --mg-shadow-sm: 0 1px 2px rgba(51, 65, 85, 0.06);
+  --mg-shadow-md: 0 4px 12px rgba(51, 65, 85, 0.08);
+  --mg-shadow-lg: 0 12px 32px rgba(51, 65, 85, 0.12);
+  --mg-shadow-glow: 0 8px 24px rgba(99, 102, 241, 0.24);
+}

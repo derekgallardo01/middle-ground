@@ -1,0 +1,91 @@
+/* Middle Ground — Typography (v2) */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
+:root {
+  --mg-font-heading: 'Poppins', Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --mg-font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Type scale */
+  --mg-text-display-xl: 3rem;     /* 48px */
+  --mg-text-display-l: 2.25rem;   /* 36px */
+  --mg-text-h1: 1.75rem;          /* 28px */
+  --mg-text-h2: 1.375rem;         /* 22px */
+  --mg-text-h3: 1.125rem;         /* 18px */
+  --mg-text-body: 1rem;           /* 16px */
+  --mg-text-body-sm: 0.875rem;    /* 14px */
+  --mg-text-caption: 0.75rem;     /* 12px */
+
+  /* Line heights */
+  --mg-leading-tight: 1.1;
+  --mg-heading: 1.25;
+  --mg-body: 1.5;
+}
+
+body {
+  font-family: var(--mg-font-body);
+  font-size: var(--mg-text-body);
+  line-height: var(--mg-body);
+  color: var(--mg-slate);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.mg-display-xl {
+  font-family: var(--mg-font-heading);
+  font-size: var(--mg-text-display-xl);
+  font-weight: 700;
+  line-height: var(--mg-leading-tight);
+  letter-spacing: -0.02em;
+}
+
+.mg-display-l {
+  font-family: var(--mg-font-heading);
+  font-size: var(--mg-text-display-l);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.mg-h1 {
+  font-family: var(--mg-font-heading);
+  font-size: var(--mg-text-h1);
+  font-weight: 700;
+  line-height: var(--mg-heading);
+}
+
+.mg-h2 {
+  font-family: var(--mg-font-heading);
+  font-size: var(--mg-text-h2);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.mg-h3 {
+  font-family: var(--mg-font-heading);
+  font-size: var(--mg-text-h3);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.mg-body {
+  font-family: var(--mg-font-body);
+  font-size: var(--mg-text-body);
+  font-weight: 400;
+  line-height: var(--mg-body);
+}
+
+.mg-body-sm {
+  font-family: var(--mg-font-body);
+  font-size: var(--mg-text-body-sm);
+  font-weight: 400;
+  line-height: var(--mg-body);
+}
+
+.mg-caption {
+  font-family: var(--mg-font-body);
+  font-size: var(--mg-text-caption);
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}

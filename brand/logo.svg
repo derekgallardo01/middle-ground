@@ -1,0 +1,20 @@
+<svg width="900" height="200" viewBox="0 0 900 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Mark -->
+  <g transform="translate(40, 40)">
+    <svg width="120" height="120" viewBox="0 0 512 512" fill="none">
+      <circle cx="170" cy="130" r="48" fill="#6366F1"/>
+      <rect x="95" y="190" width="160" height="280" rx="80" fill="#6366F1"/>
+      <circle cx="342" cy="130" r="48" fill="#14B8A6"/>
+      <rect x="257" y="190" width="160" height="280" rx="80" fill="#14B8A6"/>
+      <path d="M256 340 C256 340, 190 285, 190 235 C190 185, 230 170, 256 210 C282 170, 322 185, 322 235 C322 285, 256 340, 256 340 Z" fill="#FF8FA3"/>
+    </svg>
+  </g>
+  
+  <!-- Wordmark -->
+  <text class="mg-wordmark" x="184" y="120" font-family="Poppins, Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" 
+        font-size="58" font-weight="700" fill="currentColor" letter-spacing="-0.02em">Middle Ground</text>
+  
+  <!-- Tagline -->
+  <text x="186" y="158" font-family="Poppins, Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" 
+        font-size="20" font-weight="500" fill="#6366F1" letter-spacing="0.02em">Meet in the Middle.</text>
+</svg>

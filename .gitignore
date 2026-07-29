@@ -1,0 +1,42 @@
+# macOS / Xcode
+.DS_Store
+xcuserdata/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+DerivedData/
+build/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# CocoaPods / Carthage
+Pods/
+Carthage/Build/
+
+# Firebase — never commit real app config or service accounts
+GoogleService-Info.plist
+google-services.json
+serviceAccountKey.json
+.firebase/
+firebase-debug.log
+
+# Node (CloudFunctions)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editor / tooling
+.vscode/
+.idea/
+.claude/settings.local.json

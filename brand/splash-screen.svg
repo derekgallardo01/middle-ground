@@ -1,0 +1,27 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="splashGradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6366F1"/>
+      <stop offset="0.55" stop-color="#818CF8"/>
+      <stop offset="1" stop-color="#14B8A6"/>
+    </linearGradient>
+  </defs>
+  
+  <rect width="512" height="512" fill="url(#splashGradient)"/>
+  
+  <!-- White mark centered -->
+  <g transform="translate(96, 80)">
+    <svg width="320" height="320" viewBox="0 0 512 512" fill="none">
+      <circle cx="170" cy="130" r="48" fill="white"/>
+      <rect x="95" y="190" width="160" height="280" rx="80" fill="white"/>
+      <circle cx="342" cy="130" r="48" fill="white"/>
+      <rect x="257" y="190" width="160" height="280" rx="80" fill="white"/>
+      <path d="M256 340 C256 340, 190 285, 190 235 C190 185, 230 170, 256 210 C282 170, 322 185, 322 235 C322 285, 256 340, 256 340 Z" fill="white"/>
+    </svg>
+  </g>
+  
+  <!-- Wordmark -->
+  <text x="256" y="470" text-anchor="middle" 
+        font-family="Poppins, Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" 
+        font-size="34" font-weight="700" fill="white" letter-spacing="-0.01em">Middle Ground</text>
+</svg>

@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Middle Ground — Brand Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="color-palette.css">
+  <link rel="stylesheet" href="typography.css">
+  <link rel="stylesheet" href="dark-mode.css">
+  <style>
+    :root {
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --space-10: 40px;
+      --space-12: 48px;
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --radius-full: 9999px;
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+      margin: 0;
+      background: var(--mg-sand);
+      color: var(--mg-slate);
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-6);
+    }
+    
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-8);
+    }
+    
+    .theme-toggle {
+      background: var(--mg-surface);
+      border: 1px solid var(--mg-warm-gray-200);
+      border-radius: var(--radius-full);
+      padding: 8px 16px;
+      font-family: var(--mg-font-body);
+      font-size: var(--mg-text-body-sm);
+      font-weight: 600;
+      color: var(--mg-slate);
+      cursor: pointer;
+      box-shadow: var(--mg-shadow-sm);
+    }
+    
+    section {
+      margin-bottom: var(--space-12);
+    }
+    
+    .card {
+      background: var(--mg-surface);
+      border-radius: var(--radius-lg);
+      padding: var(--space-8);
+      box-shadow: var(--mg-shadow-md);
+    }
+    
+    .section-title {
+      font-family: var(--mg-font-heading);
+      font-size: var(--mg-text-h2);
+      font-weight: 600;
+      margin: 0 0 var(--space-2) 0;
+      color: var(--mg-slate);
+    }
+    
+    .section-subtitle {
+      font-family: var(--mg-font-body);
+      font-size: var(--mg-text-body-sm);
+      color: var(--mg-warm-gray-600);
+      margin-bottom: var(--space-6);
+    }
+    
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: var(--space-12) var(--space-8);
+    }
+    
+    .hero-logo {
+      width: 180px;
+      height: auto;
+      margin-bottom: var(--space-6);
+    }
+    
+    .hero h1 {
+      margin: 0 0 var(--space-3) 0;
+    }
+    
+    .hero p {
+      font-size: var(--mg-text-h3);
+      color: var(--mg-indigo);
+      margin: 0;
+      font-weight: 500;
+    }
+    
+    /* App Icon */
+    .icon-sizes {
+      display: flex;
+      align-items: flex-end;
+      gap: var(--space-6);
+      flex-wrap: wrap;
+    }
+    
+    .icon-size {
+      text-align: center;
+    }
+    
+    .icon-size img {
+      display: block;
+      border-radius: 22.37%;
+      box-shadow: var(--mg-shadow-md);
+    }
+    
+    .icon-size span {
+      display: block;
+      margin-top: var(--space-2);
+      font-size: var(--mg-text-caption);
+      color: var(--mg-warm-gray-600);
+    }
+    
+    /* Logo lockups */
+    .lockup-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--space-6);
+      align-items: center;
+    }
+    
+    .lockup-item {
+      background: var(--mg-sand);
+      border-radius: var(--radius-md);
+      padding: var(--space-6);
+      text-align: center;
+    }
+    
+    .brand-logo {
+      color: var(--mg-slate);
+      display: block;
+    }
+    
+    .brand-logo .mg-wordmark {
+      fill: currentColor;
+    }
+    
+    /* Color swatches */
+    .swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: var(--space-4);
+    }
+    
+    .swatch {
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      box-shadow: var(--mg-shadow-sm);
+      background: var(--mg-surface);
+    }
+    
+    .swatch-color {
+      height: 72px;
+    }
+    
+    .swatch-info {
+      padding: var(--space-3);
+    }
+    
+    .swatch-name {
+      font-family: var(--mg-font-body);
+      font-size: var(--mg-text-caption);
+      font-weight: 700;
+      color: var(--mg-slate);
+    }
+    
+    .swatch-hex {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: var(--mg-warm-gray-600);
+    }
+    
+    /* Typography samples */
+    .type-sample {
+      padding: var(--space-4) 0;
+      border-bottom: 1px solid var(--mg-warm-gray-100);
+    }
+    
+    .type-sample:last-child {
+      border-bottom: none;
+    }
+    
+    .type-label {
+      font-family: var(--mg-font-body);
+      font-size: var(--mg-text-caption);
+      color: var(--mg-warm-gray-600);
+      margin-bottom: var(--space-1);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+    
+    /* Icon style */
+    .icon-row {
+      display: flex;
+      gap: var(--space-5);
+      flex-wrap: wrap;
+    }
+    
+    .icon-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+      width: 72px;
+    }
+    
+    .icon-item svg {
+      width: 32px;
+      height: 32px;
+      color: var(--mg-indigo);
+    }
+    
+    .icon-item span {
+      font-family: var(--mg-font-body);
+      font-size: var(--mg-text-caption);
+      font-weight: 600;
+      color: var(--mg-warm-gray-600);
+    }
+    
+    /* UI Components */
+    .component-row {
+      display: flex;
+      gap: var(--space-4);
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: var(--space-6);
+    }
+    
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: var(--radius-full);
+      font-family: var(--mg-font-heading);
+      font-size: var(--mg-text-body);
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+    
+    .btn-primary {
+      background: var(--mg-indigo);
+      color: white;
+      box-shadow: var(--mg-shadow-glow);
+    }
+    
+    .btn-outline {
+      background: transparent;
+      color: var(--mg-indigo);
+      border: 2px solid var(--mg-indigo);
+    }
+    
+    .btn-ghost {
+      background: var(--mg-warm-gray-100);
+      color: var(--mg-slate);
+    }
+    
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius-full);
+      font-family: var(--mg-font-body);
+      font-size: var(--mg-text-caption);
+      font-weight: 700;
+    }
+    
+    .badge-success { background: rgba(20, 184, 166, 0.12); color: #0F766E; }
+    .badge-warning { background: rgba(255, 200, 87, 0.18); color: #92400E; }
+    .badge-negotiate { background: rgba(167, 139, 250, 0.15); color: #6D28D9; }
+    .badge-reschedule { background: rgba(125, 211, 252, 0.18); color: #0369A1; }
+    .badge-saved { background: rgba(255, 143, 163, 0.12); color: #9F1239; }
+    .badge-streak { background: var(--mg-indigo); color: white; }
+    
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: var(--space-5);
+    }
+    
+    .request-card {
+      background: var(--mg-surface);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      box-shadow: var(--mg-shadow-sm);
+      border: 1px solid var(--mg-warm-gray-100);
+    }
+    
+    .request-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: var(--space-3);
+    }
+    
+    .request-card h3 {
+      margin: 0 0 var(--space-1) 0;
+    }
+    
+    .request-card p {
+      margin: 0 0 var(--space-4) 0;
+      color: var(--mg-warm-gray-600);
+    }
+    
+    .avatar-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: var(--space-4);
+    }
+    
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid var(--mg-surface);
+      margin-left: -8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      background: var(--mg-warm-gray-200);
+    }
+    
+    .avatar:first-child { margin-left: 0; }
+    
+    .request-actions {
+      display: flex;
+      gap: var(--space-3);
+    }
+    
+    .request-actions button {
+      flex: 1;
+      padding: 10px 0;
+      border-radius: var(--radius-md);
+      border: none;
+      font-family: var(--mg-font-heading);
+      font-size: var(--mg-text-body-sm);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    
+    .btn-yes { background: var(--mg-teal); color: white; }
+    .btn-compromise { background: var(--mg-lavender); color: white; }
+    .btn-decline { background: var(--mg-warm-gray-100); color: var(--mg-slate); }
+    
+    .message-bubble {
+      background: var(--mg-warm-gray-100);
+      border-radius: 12px 12px 12px 4px;
+      padding: 10px 14px;
+      margin-bottom: var(--space-2);
+      font-size: var(--mg-text-body-sm);
+      color: var(--mg-slate);
+      max-width: 220px;
+    }
+    
+    .message-bubble.reply {
+      background: var(--mg-indigo);
+      color: white;
+      border-radius: 12px 12px 4px 12px;
+      margin-left: auto;
+    }
+    
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: var(--space-4);
+    }
+    
+    .stat-card {
+      background: var(--mg-sand);
+      border-radius: var(--radius-md);
+      padding: var(--space-5);
+      text-align: center;
+    }
+    
+    .stat-label {
+      font-family: var(--mg-font-body);
+      font-size: var(--mg-text-caption);
+      font-weight: 700;
+      color: var(--mg-warm-gray-600);
+      margin-bottom: var(--space-2);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    
+    .stat-value {
+      font-family: var(--mg-font-heading);
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--mg-slate);
+    }
+    
+    .stat-unit {
+      font-size: var(--mg-text-body-sm);
+      color: var(--mg-warm-gray-600);
+      font-weight: 500;
+    }
+    
+    .growth-ring {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto var(--space-2);
+    }
+    
+    .growth-ring circle {
+      fill: none;
+      stroke-width: 8;
+    }
+    
+    .growth-ring .track { stroke: var(--mg-warm-gray-200); }
+    .growth-ring .fill { stroke: var(--mg-indigo); stroke-linecap: round; }
+    
+    /* Brand values */
+    .values-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--space-4);
+    }
+    
+    .value-item {
+      text-align: center;
+      padding: var(--space-5);
+      border-radius: var(--radius-md);
+      color: white;
+    }
+    
+    .value-item svg {
+      width: 32px;
+      height: 32px;
+      margin-bottom: var(--space-3);
+    }
+    
+    .value-item span {
+      display: block;
+      font-family: var(--mg-font-heading);
+      font-size: var(--mg-text-body-sm);
+      font-weight: 600;
+    }
+    
+    /* Celebration */
+    .celebration-card {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(20, 184, 166, 0.08) 100%);
+      border: 2px dashed var(--mg-indigo);
+      border-radius: var(--radius-lg);
+      padding: var(--space-8);
+      text-align: center;
+    }
+    
+    .celebration-card h3 {
+      color: var(--mg-indigo);
+      margin: var(--space-3) 0 var(--space-1);
+    }
+    
+    .celebration-card p {
+      color: var(--mg-warm-gray-600);
+      margin: 0;
+    }
+    
+    @media (max-width: 640px) {
+      .component-row { flex-direction: column; align-items: stretch; }
+      .request-actions { flex-direction: column; }
+      header { flex-direction: column; gap: var(--space-4); align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Hidden logo symbols for theme-aware coloring -->
+  <svg style="position:absolute; width:0; height:0; overflow:hidden;" aria-hidden="true">
+    <defs>
+      <symbol id="mg-logo-horizontal" viewBox="0 0 900 200" preserveAspectRatio="xMidYMid meet">
+        <g transform="translate(40, 40)">
+          <svg width="120" height="120" viewBox="0 0 512 512" fill="none">
+            <circle cx="170" cy="130" r="48" fill="#6366F1"/>
+            <rect x="95" y="190" width="160" height="280" rx="80" fill="#6366F1"/>
+            <circle cx="342" cy="130" r="48" fill="#14B8A6"/>
+            <rect x="257" y="190" width="160" height="280" rx="80" fill="#14B8A6"/>
+            <path d="M256 340 C256 340, 190 285, 190 235 C190 185, 230 170, 256 210 C282 170, 322 185, 322 235 C322 285, 256 340, 256 340 Z" fill="#FF8FA3"/>
+          </svg>
+        </g>
+        <text class="mg-wordmark" x="184" y="120" font-family="Poppins, Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="58" font-weight="700" fill="currentColor" letter-spacing="-0.02em">Middle Ground</text>
+        <text x="186" y="158" font-family="Poppins, Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="20" font-weight="500" fill="#6366F1" letter-spacing="0.02em">Meet in the Middle.</text>
+      </symbol>
+      <symbol id="mg-logo-stacked" viewBox="0 0 420 500" preserveAspectRatio="xMidYMid meet">
+        <g transform="translate(50, 40)">
+          <svg width="320" height="320" viewBox="0 0 512 512" fill="none">
+            <circle cx="170" cy="130" r="48" fill="#6366F1"/>
+            <rect x="95" y="190" width="160" height="280" rx="80" fill="#6366F1"/>
+            <circle cx="342" cy="130" r="48" fill="#14B8A6"/>
+            <rect x="257" y="190" width="160" height="280" rx="80" fill="#14B8A6"/>
+            <path d="M256 340 C256 340, 190 285, 190 235 C190 185, 230 170, 256 210 C282 170, 322 185, 322 235 C322 285, 256 340, 256 340 Z" fill="#FF8FA3"/>
+          </svg>
+        </g>
+        <text class="mg-wordmark" x="210" y="410" text-anchor="middle" font-family="Poppins, Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="42" font-weight="700" fill="currentColor" letter-spacing="-0.02em">Middle Ground</text>
+        <text x="210" y="450" text-anchor="middle" font-family="Poppins, Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="500" fill="#6366F1" letter-spacing="0.02em">Meet in the Middle.</text>
+      </symbol>
+    </defs>
+  </svg>
+
+  <div class="container">
+    <header>
+      <svg class="brand-logo" width="180" height="40"><use href="#mg-logo-horizontal"></use></svg>
+      <button class="theme-toggle">Dark mode</button>
+    </header>
+
+    <!-- Hero -->
+    <section class="card hero">
+      <svg class="brand-logo hero-logo" width="180" height="214"><use href="#mg-logo-stacked"></use></svg>
+      <h1 class="mg-display-l">Middle Ground helps people make decisions together.</h1>
+      <p>Meet in the Middle.</p>
+    </section>
+
+    <!-- App Icon -->
+    <section class="card">
+      <h2 class="section-title">App Icon</h2>
+      <p class="section-subtitle">Friendly, recognizable, calm.</p>
+      <div class="icon-sizes">
+        <div class="icon-size">
+          <img src="app-icon.svg" alt="App icon 60px" width="60" height="60">
+          <span>60pt</span>
+        </div>
+        <div class="icon-size">
+          <img src="app-icon.svg" alt="App icon 120px" width="120" height="120">
+          <span>120pt</span>
+        </div>
+        <div class="icon-size">
+          <img src="app-icon.svg" alt="App icon 180px" width="180" height="180">
+          <span>180pt</span>
+        </div>
+        <div class="icon-size">
+          <img src="app-icon.svg" alt="App icon 512px" width="200" height="200">
+          <span>512pt preview</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Logo Lockups -->
+    <section class="card">
+      <h2 class="section-title">Logo Lockups</h2>
+      <p class="section-subtitle">Horizontal, stacked, and mark-only.</p>
+      <div class="lockup-grid">
+        <div class="lockup-item">
+          <svg class="brand-logo" width="280" height="62"><use href="#mg-logo-horizontal"></use></svg>
+        </div>
+        <div class="lockup-item">
+          <svg class="brand-logo" width="140" height="167"><use href="#mg-logo-stacked"></use></svg>
+        </div>
+        <div class="lockup-item">
+          <img src="logo-mark.svg" alt="Middle Ground mark" width="80" height="80">
+        </div>
+      </div>
+    </section>
+
+    <!-- Color Palette -->
+    <section class="card">
+      <h2 class="section-title">Color Palette</h2>
+      <p class="section-subtitle">Indigo, teal, and coral with warm supporting accents.</p>
+      
+      <h3 class="mg-h3" style="margin:var(--space-6) 0 var(--space-4);">Primary</h3>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background:#6366F1"></div><div class="swatch-info"><div class="swatch-name">Indigo</div><div class="swatch-hex">#6366F1</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#14B8A6"></div><div class="swatch-info"><div class="swatch-name">Teal</div><div class="swatch-hex">#14B8A6</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#FF8FA3"></div><div class="swatch-info"><div class="swatch-name">Coral</div><div class="swatch-hex">#FF8FA3</div></div></div>
+      </div>
+      
+      <h3 class="mg-h3" style="margin:var(--space-6) 0 var(--space-4);">Supporting</h3>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background:#FFC857"></div><div class="swatch-info"><div class="swatch-name">Sunshine</div><div class="swatch-hex">#FFC857</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#A78BFA"></div><div class="swatch-info"><div class="swatch-name">Lavender</div><div class="swatch-hex">#A78BFA</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#7DD3FC"></div><div class="swatch-info"><div class="swatch-name">Sky</div><div class="swatch-hex">#7DD3FC</div></div></div>
+      </div>
+      
+      <h3 class="mg-h3" style="margin:var(--space-6) 0 var(--space-4);">Neutrals</h3>
+      <div class="swatch-grid">
+        <div class="swatch"><div class="swatch-color" style="background:#F7F6F3; border:1px solid var(--mg-warm-gray-200)"></div><div class="swatch-info"><div class="swatch-name">Sand</div><div class="swatch-hex">#F7F6F3</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#FFFFFF; border:1px solid var(--mg-warm-gray-200)"></div><div class="swatch-info"><div class="swatch-name">Surface</div><div class="swatch-hex">#FFFFFF</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#F0EFEC"></div><div class="swatch-info"><div class="swatch-name">Warm 100</div><div class="swatch-hex">#F0EFEC</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#E4E3E0"></div><div class="swatch-info"><div class="swatch-name">Warm 200</div><div class="swatch-hex">#E4E3E0</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#A1A1AA"></div><div class="swatch-info"><div class="swatch-name">Warm 400</div><div class="swatch-hex">#A1A1AA</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#71717A"></div><div class="swatch-info"><div class="swatch-name">Warm 600</div><div class="swatch-hex">#71717A</div></div></div>
+        <div class="swatch"><div class="swatch-color" style="background:#334155"></div><div class="swatch-info"><div class="swatch-name">Slate</div><div class="swatch-hex">#334155</div></div></div>
+      </div>
+    </section>
+
+    <!-- Typography -->
+    <section class="card">
+      <h2 class="section-title">Typography</h2>
+      <p class="section-subtitle">Poppins for headings, Inter for body text.</p>
+      
+      <div class="type-sample">
+        <div class="type-label">Display L — Poppins Bold 36/1.15</div>
+        <div class="mg-display-l">Meet in the Middle.</div>
+      </div>
+      <div class="type-sample">
+        <div class="type-label">H1 — Poppins Bold 28/1.25</div>
+        <div class="mg-h1">Plan your weekend together</div>
+      </div>
+      <div class="type-sample">
+        <div class="type-label">H2 — Poppins SemiBold 22/1.25</div>
+        <div class="mg-h2">New request</div>
+      </div>
+      <div class="type-sample">
+        <div class="type-label">H3 — Poppins SemiBold 18/1.3</div>
+        <div class="mg-h3">Weekend Getaway</div>
+      </div>
+      <div class="type-sample">
+        <div class="type-label">Body — Inter Regular 16/1.5</div>
+        <div class="mg-body">Middle Ground turns everyday conversations into simple requests that everyone can participate in. No more forgotten texts or endless back-and-forth.</div>
+      </div>
+      <div class="type-sample">
+        <div class="type-label">Caption — Inter SemiBold 12/1.4</div>
+        <div class="mg-caption">3 DAY STREAK · RELATIONSHIP XP +12</div>
+      </div>
+    </section>
+
+    <!-- Icon Style -->
+    <section class="card">
+      <h2 class="section-title">Icon Style</h2>
+      <p class="section-subtitle">Rounded 2px strokes, friendly silhouettes.</p>
+      <div class="icon-row">
+        <div class="icon-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Requests</span>
+        </div>
+        <div class="icon-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span>Calendar</span>
+        </div>
+        <div class="icon-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>People</span>
+        </div>
+        <div class="icon-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          <span>Activities</span>
+        </div>
+        <div class="icon-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16.01"/><line x1="16" y1="16" x2="16" y2="16.01"/></svg>
+          <span>AI Assistant</span>
+        </div>
+        <div class="icon-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span>Stats</span>
+        </div>
+        <div class="icon-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Profile</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- UI Components -->
+    <section class="card">
+      <h2 class="section-title">UI Components</h2>
+      <p class="section-subtitle">Buttons, badges, cards, and gamification.</p>
+      
+      <h3 class="mg-h3" style="margin-top:0">Buttons</h3>
+      <div class="component-row">
+        <button class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Request
+        </button>
+        <button class="btn btn-outline">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Create Spontaneous
+        </button>
+        <button class="btn btn-ghost">Maybe later</button>
+      </div>
+      
+      <h3 class="mg-h3">Badges</h3>
+      <div class="component-row">
+        <span class="badge badge-success">✅ Accepted</span>
+        <span class="badge badge-negotiate">🤝 Negotiated</span>
+        <span class="badge badge-reschedule">⏰ Rescheduled</span>
+        <span class="badge badge-warning">📝 Counter-offered</span>
+        <span class="badge badge-saved">❤️ Saved</span>
+        <span class="badge badge-streak">🔥 12 day streak</span>
+      </div>
+      
+      <h3 class="mg-h3">Request Cards</h3>
+      <div class="cards-grid">
+        <div class="request-card">
+          <div class="request-card-header">
+            <div>
+              <span class="badge badge-success">Accepted</span>
+            </div>
+          </div>
+          <h3 class="mg-h3">Weekend Getaway 🏖️</h3>
+          <p class="mg-body-sm">May 24 – May 26</p>
+          <div class="avatar-group">
+            <div class="avatar">👩</div>
+            <div class="avatar">👨</div>
+            <div class="avatar" style="background:var(--mg-indigo); color:white; font-size:12px;">+2</div>
+          </div>
+        </div>
+        
+        <div class="request-card">
+          <div class="request-card-header">
+            <div>
+              <span class="badge badge-negotiate">Negotiation</span>
+            </div>
+          </div>
+          <h3 class="mg-h3">Dinner Tonight? 🍕</h3>
+          <p class="mg-body-sm">Today • 7:00 PM</p>
+          <div class="message-bubble">Can we do 8 instead?</div>
+          <div class="message-bubble reply">Works for me!</div>
+        </div>
+      </div>
+      
+      <h3 class="mg-h3" style="margin-top:var(--space-6)">Response Actions</h3>
+      <div class="request-card" style="max-width:360px;">
+        <h3 class="mg-h3">Date night this Friday?</h3>
+        <p class="mg-body-sm">Alex sent this 20 minutes ago</p>
+        <div class="request-actions">
+          <button class="btn-yes">Accept</button>
+          <button class="btn-compromise">Compromise</button>
+          <button class="btn-decline">Decline</button>
+        </div>
+      </div>
+      
+      <h3 class="mg-h3" style="margin-top:var(--space-6)">Gamification</h3>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Daily Streak</div>
+          <div style="font-size:2.5rem;">🔥</div>
+          <div class="stat-value">12 <span class="stat-unit">days</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Relationship XP</div>
+          <div class="stat-value">2,450 <span class="stat-unit">xp</span></div>
+          <div class="mg-caption" style="color:var(--mg-warm-gray-600); margin-top:4px;">Level 8</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Growth Score</div>
+          <svg class="growth-ring" viewBox="0 0 100 100">
+            <circle class="track" cx="50" cy="50" r="42"/>
+            <circle class="fill" cx="50" cy="50" r="42" stroke-dasharray="220" stroke-dashoffset="55" transform="rotate(-90 50 50)"/>
+          </svg>
+          <div class="stat-value">85</div>
+          <div class="mg-caption" style="color:var(--mg-warm-gray-600);">Great job!</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Milestone</div>
+          <div style="font-size:2.5rem;">🏆</div>
+          <div class="mg-caption" style="color:var(--mg-indigo); font-weight:700;">Great Communicator</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Request Lifecycle -->
+    <section class="card">
+      <h2 class="section-title">Request Lifecycle</h2>
+      <p class="section-subtitle">Every request deserves a response — not every response is yes or no.</p>
+      <img src="request-lifecycle.svg" alt="Request lifecycle" style="width:100%; max-width:800px; display:block; margin:0 auto;">
+    </section>
+
+    <!-- Brand Values -->
+    <section class="card" style="padding:0; overflow:hidden;">
+      <div class="values-grid">
+        <div class="value-item" style="background:#6366F1;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Collaborative</span>
+        </div>
+        <div class="value-item" style="background:#14B8A6;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <span>Respectful</span>
+        </div>
+        <div class="value-item" style="background:#FFC857; color:#334155;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span>Positive</span>
+        </div>
+        <div class="value-item" style="background:#A78BFA;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h3v3h-3zM8 3h3v3H8zM5 8h14v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8zM12 12v6"/></svg>
+          <span>Flexible</span>
+        </div>
+        <div class="value-item" style="background:#FF8FA3;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+          <span>Fun</span>
+        </div>
+        <div class="value-item" style="background:#7DD3FC; color:#334155;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <span>Supportive</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Celebration -->
+    <section class="celebration-card">
+      <div style="font-size:3rem; margin-bottom:var(--space-3);">🎉</div>
+      <h3 class="mg-h2">You found Middle Ground!</h3>
+      <p class="mg-body">Great job working together.</p>
+    </section>
+
+    <footer style="text-align:center; color:var(--mg-warm-gray-600); padding:var(--space-8) 0;">
+      <p class="mg-body-sm">Middle Ground brand system · Generated for review</p>
+    </footer>
+  </div>
+
+  <script>
+    // Simple dark mode toggle
+    const toggle = document.querySelector('.theme-toggle');
+    const html = document.documentElement;
+    toggle.addEventListener('click', () => {
+      if (html.getAttribute('data-theme') === 'dark') {
+        html.removeAttribute('data-theme');
+        toggle.textContent = 'Dark mode';
+      } else {
+        html.setAttribute('data-theme', 'dark');
+        toggle.textContent = 'Light mode';
+      }
+    });
+  </script>
+</body>
+</html>

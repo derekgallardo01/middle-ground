@@ -1,0 +1,79 @@
+<svg width="800" height="240" viewBox="0 0 800 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Title -->
+  <text x="400" y="36" text-anchor="middle" font-family="Poppins, Inter, system-ui, sans-serif" 
+        font-size="20" font-weight="600" fill="#334155">Every request finds a response</text>
+  
+  <!-- Request bubble -->
+  <g transform="translate(60, 80)">
+    <rect width="120" height="72" rx="16" fill="#F7F6F3"/>
+    <text x="60" y="32" text-anchor="middle" font-family="Poppins, Inter, system-ui, sans-serif" 
+          font-size="14" font-weight="600" fill="#334155">Request</text>
+    <text x="60" y="54" text-anchor="middle" font-family="Inter, system-ui, sans-serif" 
+          font-size="12" fill="#71717A">Date night?</text>
+  </g>
+  
+  <!-- Arrow -->
+  <path d="M190 116 L230 116" stroke="#E4E3E0" stroke-width="3" stroke-linecap="round"/>
+  <path d="M224 110 L230 116 L224 122" stroke="#E4E3E0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- Response options -->
+  <g transform="translate(250, 70)">
+    <!-- Accept -->
+    <g transform="translate(0, 0)">
+      <circle cx="28" cy="28" r="28" fill="rgba(20, 184, 166, 0.12)"/>
+      <text x="28" y="34" text-anchor="middle" font-family="Inter, system-ui, sans-serif" 
+            font-size="20">✅</text>
+      <text x="28" y="76" text-anchor="middle" font-family="Poppins, Inter, system-ui, sans-serif" 
+            font-size="11" font-weight="600" fill="#0D9488">Accept</text>
+    </g>
+    
+    <!-- Decline -->
+    <g transform="translate(80, 0)">
+      <circle cx="28" cy="28" r="28" fill="rgba(255, 143, 163, 0.15)"/>
+      <text x="28" y="34" text-anchor="middle" font-family="Inter, system-ui, sans-serif" 
+            font-size="20">❌</text>
+      <text x="28" y="76" text-anchor="middle" font-family="Poppins, Inter, system-ui, sans-serif" 
+            font-size="11" font-weight="600" fill="#E11D48">Decline</text>
+    </g>
+    
+    <!-- Negotiate -->
+    <g transform="translate(160, 0)">
+      <circle cx="28" cy="28" r="28" fill="rgba(167, 139, 250, 0.15)"/>
+      <text x="28" y="34" text-anchor="middle" font-family="Inter, system-ui, sans-serif" 
+            font-size="20">🤝</text>
+      <text x="28" y="76" text-anchor="middle" font-family="Poppins, Inter, system-ui, sans-serif" 
+            font-size="11" font-weight="600" fill="#7C3AED">Negotiate</text>
+    </g>
+    
+    <!-- Reschedule -->
+    <g transform="translate(240, 0)">
+      <circle cx="28" cy="28" r="28" fill="rgba(125, 211, 252, 0.18)"/>
+      <text x="28" y="34" text-anchor="middle" font-family="Inter, system-ui, sans-serif" 
+            font-size="20">⏰</text>
+      <text x="28" y="76" text-anchor="middle" font-family="Poppins, Inter, system-ui, sans-serif" 
+            font-size="11" font-weight="600" fill="#0284C7">Reschedule</text>
+    </g>
+    
+    <!-- Counter -->
+    <g transform="translate(320, 0)">
+      <circle cx="28" cy="28" r="28" fill="rgba(255, 200, 87, 0.2)"/>
+      <text x="28" y="34" text-anchor="middle" font-family="Inter, system-ui, sans-serif" 
+            font-size="20">📝</text>
+      <text x="28" y="76" text-anchor="middle" font-family="Poppins, Inter, system-ui, sans-serif" 
+            font-size="11" font-weight="600" fill="#B45309">Counter</text>
+    </g>
+    
+    <!-- Save -->
+    <g transform="translate(400, 0)">
+      <circle cx="28" cy="28" r="28" fill="rgba(255, 143, 163, 0.12)"/>
+      <text x="28" y="34" text-anchor="middle" font-family="Inter, system-ui, sans-serif" 
+            font-size="20">❤️</text>
+      <text x="28" y="76" text-anchor="middle" font-family="Poppins, Inter, system-ui, sans-serif" 
+            font-size="11" font-weight="600" fill="#BE123C">Save</text>
+    </g>
+  </g>
+  
+  <!-- Bottom message -->
+  <text x="400" y="216" text-anchor="middle" font-family="Inter, system-ui, sans-serif" 
+        font-size="14" font-weight="500" fill="#71717A">Not every answer is yes or no. Sometimes it's "let's find a middle ground."</text>
+</svg>

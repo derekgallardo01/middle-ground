@@ -73,6 +73,15 @@ targets:
           CODE_SIGN_ENTITLEMENTS: MiddleGround.entitlements
           ENABLE_PREVIEWS: YES
         Release:
+          # NOTE: do not set CODE_SIGN_IDENTITY here. With CODE_SIGN_STYLE: Automatic, Xcode
+          # signs the *archive* with the development identity by design and refuses a manual
+          # distribution identity ("conflicting provisioning settings"). Distribution signing
+          # happens at export: `xcodebuild -exportArchive` with ExportOptions.plist
+          # (method: app-store-connect) re-signs the payload with the Apple Distribution
+          # certificate and a distribution profile. That export is what applies the
+          # entitlements file below — the archive itself showing `aps-environment:
+          # development` is expected and is not what gets uploaded.
+          #
           # A *separate*, hand-maintained file whose `aps-environment` is `production`.
           #
           # The old comment claimed "Xcode rewrites this to production for release builds",

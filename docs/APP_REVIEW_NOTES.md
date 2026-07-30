@@ -107,26 +107,63 @@ the user, none used for tracking:
 
 Answer **No** to "Do you or your third-party partners use data for tracking?"
 
-## Blocker: no Apple Distribution certificate
+## Building the upload
 
-`security find-identity -v -p codesigning` lists exactly one identity —
-**Apple Development: Derek Gallardo** — and no Apple Distribution certificate. Consequences:
+```sh
+cd ios/MiddleGround
+MG_P12_PASSWORD=... ./Scripts/export-ipa.sh
+```
 
-- `xcodebuild ... archive` **succeeds**, but automatic signing falls back to the development
-  "iOS Team Provisioning Profile". The resulting archive carries `get-task-allow: true` and
-  `aps-environment: development`, so it cannot be uploaded to App Store Connect, and push would
-  not work even if it could.
-- Fixing it needs the Apple Developer account: Xcode → Settings → Accounts → Manage
-  Certificates → **+** → Apple Distribution. (Or generate a CSR in Keychain Access and request
-  the certificate in the developer portal.)
+That archives, exports a distribution-signed `.ipa`, asserts the entitlements are right, and
+runs App Store Connect validation. It fails loudly if the payload comes out development-signed.
 
-Everything else on the build side is verified working: the Release configuration compiles, the
-archive is produced, `PrivacyInfo.xcprivacy` is embedded, `ITSAppUsesNonExemptEncryption` is
-present, and `CFBundleVersion` picks up `MG_BUILD_NUMBER` (`202607301940` on the last run).
+Verified output of the last run:
 
-The bundle ID's capabilities were missing entirely and have been enabled via the App Store
-Connect API — `PUSH_NOTIFICATIONS` and `APPLE_ID_AUTH` are now attached to
-`app.middleground.MiddleGround`, which is what unblocked the archive.
+| Check | Value |
+|---|---|
+| Signing authority | `Apple Distribution: Derek Gallardo (9U3ZSABZG7)` |
+| `aps-environment` | `production` |
+| `get-task-allow` | `false` |
+| `beta-reports-active` | `true` |
+| Profile | `iOS Team Store Provisioning Profile` |
+
+**Validation currently stops at one thing** — `Cannot determine the Apple ID from Bundle ID
+'app.middleground.MiddleGround'`. That is the missing App Store Connect app record, not a
+problem with the build. Create the record and the same command validates and uploads.
+
+The distribution certificate is backed up at `~/Desktop/MiddleGround-Distribution.p12`. Move it
+somewhere durable — if it is lost the certificate has to be revoked and reissued, and any build
+signed with it stops being reproducible.
+
+## Signing: what was wrong, and what fixed it
+
+Two things blocked the first archive, and one blocked the export. Recorded because none of them
+announce themselves clearly.
+
+**The App ID had no capabilities at all.** Not Push, not Sign in with Apple — so no provisioning
+profile could cover the entitlements, and the archive failed with "doesn't include the Push
+Notifications capability". Both were attached via the App Store Connect API.
+
+**There was no Apple Distribution certificate** in the account. One was created via the API
+(`POST /v1/certificates` with a locally generated CSR).
+
+**Importing the certificate and key separately into the login keychain produced an unusable
+identity.** `security find-identity` listed it happily, but every signing attempt died with
+`errSecInternalComponent` and a misleading "unable to build chain to self-signed root" warning.
+Ruled out along the way, all of which checked out fine:
+
+- the key and certificate matched (identical modulus)
+- both WWDR intermediates were present and unexpired (G3 → 2030, G6 → 2036)
+- `security verify-cert -p codeSign` passed for the certificate
+- the session was Aqua, not SSH, so a GUI prompt could have been shown
+
+The fix was to bundle key + leaf + intermediate into a **PKCS#12** and import that into a
+dedicated keychain with `security set-key-partition-list`. `Scripts/export-ipa.sh` does this.
+
+**Also worth knowing:** distribution signing happens at *export*, not at archive. Under
+`CODE_SIGN_STYLE: Automatic` Xcode signs the archive with the development identity by design and
+refuses a manually set `CODE_SIGN_IDENTITY`. An archive showing `aps-environment: development`
+is therefore expected and is not what gets uploaded.
 
 ## Known gaps at time of writing
 

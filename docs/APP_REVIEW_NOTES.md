@@ -89,6 +89,29 @@ Everything else here is context for us, not for Apple.
 
 ---
 
+## Submission checklist — live state
+
+| Item | State |
+|---|---|
+| Build 1.0.0 (202607302101) | Uploaded, VALID, attached to version 1.0 |
+| Description, keywords, support URL | Set |
+| Privacy Policy URL | Set |
+| Primary / secondary category | Lifestyle / Productivity |
+| Screenshots (5 × 1320×2868) | Uploaded, COMPLETE |
+| Age rating, price schedule | Set |
+| Review notes + contact | Set — includes three verified invite codes |
+| **App Privacy questionnaire** | **NOT DONE — web UI only** |
+
+App Privacy is not exposed by the App Store Connect API (`appPrivacyDetails`, `appDataUsages`
+and four related paths all return 404), so it has to be completed at
+App Store Connect → the app → **App Privacy**. A version cannot be submitted until it is
+published.
+
+**It must say data IS collected.** `App/PrivacyInfo.xcprivacy` declares seven data types, and
+Apple cross-checks the privacy manifest in the binary against the nutrition label. Answering
+"Data Not Collected" would contradict both the manifest and the published policy, and is caught
+at review.
+
 ## Answers that must match the privacy manifest
 
 App Store Connect's data-collection questionnaire has to agree with `App/PrivacyInfo.xcprivacy`

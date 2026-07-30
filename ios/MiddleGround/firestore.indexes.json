@@ -37,6 +37,17 @@
       ]
     }
   ],
-  "_comment_ttl": "A TTL policy on `events.at` belongs here — usage events are written on every user action and are never read after the reporting window, so the collection otherwise grows without bound while carrying personal data indefinitely. It is NOT declared yet because Firestore TTL requires the Blaze plan: the fieldOverride deploys with HTTP 403 'billing disabled' and takes the whole `firebase deploy --only firestore` down with it. Add it back once billing is enabled, and restore the 90-day retention sentence in docs/legal/privacy-policy.md at the same time. Until then, usage events are deleted only when the account is deleted (AccountDataPurger, plus onUserDeleted).",
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "_comment": "Usage events are written on every user action and are never read after the reporting window, so without a TTL the collection grows without bound while carrying personal data indefinitely. Firestore deletes each document 90 days after its `at` value. Requires Blaze — under Spark this returns HTTP 403 and fails the whole firestore deploy. The 90-day retention sentence in docs/legal/privacy-policy.md must stay in step with this.",
+      "collectionGroup": "events",
+      "fieldPath": "at",
+      "ttl": true,
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "arrayConfig": "CONTAINS", "queryScope": "COLLECTION" }
+      ]
+    }
+  ]
 }

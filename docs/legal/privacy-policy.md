@@ -130,8 +130,9 @@ above.
 
 ## Retention
 
-Your content, including usage events, is kept until you delete it or delete your account, and is
-erased when you do. We do not keep backups of deleted accounts for our own purposes.
+Your content is kept until you delete it or delete your account, and is erased when you do.
+**Usage events are additionally deleted automatically 90 days after they are recorded**, whether
+or not you delete your account. We do not keep backups of deleted accounts for our own purposes.
 
 ## Children
 

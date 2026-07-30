@@ -200,15 +200,9 @@ is therefore expected and is not what gets uploaded.
 - **App Check enforcement is off** in the Firebase console. The provider is wired
   (`MGAppCheckProviderFactory`), but App Attest cannot be exercised on a simulator and enabling
   enforcement unverified would lock every client out of Firestore.
-- **Cloud Functions are not deployed** — the project is still on the Spark plan. Account
-  deletion does not depend on them: `AccountDataPurger` performs the erasure from the client
-  before the auth account is removed. Push notifications *do* depend on them and will not be
-  delivered until Blaze is enabled and `firebase deploy --only functions` has run.
-- **No TTL on the `events` collection.** Firestore TTL policies require Blaze — the
-  `fieldOverride` deploys with HTTP 403 and fails the whole firestore deploy. Usage events are
-  currently deleted only when the account is deleted. The privacy policy is worded to match; if
-  you enable the TTL later, restore the 90-day retention sentence in
-  `docs/legal/privacy-policy.md` at the same time and re-run `build.py`.
+- **Push has never been delivered end to end.** Blaze is enabled and all three functions are
+  deployed, and the APNs key is uploaded — but no push has actually arrived on a device, because
+  no build has run on one.
 
 ## What is already live
 
@@ -219,4 +213,6 @@ is therefore expected and is not what gets uploaded.
 | Legal pages | Deployed. `/privacy`, `/terms`, `/support` all 200 with real content; unknown paths 404 |
 | Firestore rules | Deployed, 64/64 emulator tests passing |
 | Firestore indexes | Deployed — including `events (userID, at DESC)` and `requests (recipientIDs, status)` |
-| Cloud Functions | **Not** deployed (Spark plan) |
+| Cloud Functions | Deployed — notifyNewRequest, notifyRequestResponse, onUserDeleted (v1, us-central1) |
+| Blaze billing | Enabled |
+| `events` TTL | 90-day policy live |

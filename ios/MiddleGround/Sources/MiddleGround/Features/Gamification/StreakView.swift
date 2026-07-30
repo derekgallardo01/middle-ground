@@ -2,22 +2,23 @@ import SwiftUI
 
 struct StreakView: View {
     let days: Int
-    let weekDays: [Bool] = [true, true, true, true, false, true, true]
-    
+    /// Real per-day completion for the current week; defaults to an empty week.
+    var weekDays: [Bool] = Array(repeating: false, count: 7)
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 Text("🔥")
                     .font(.system(size: 40))
-                
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(days) day streak")
-                        .font(MGFonts.h2)
+                        .mgFont(.h2)
                     Text("You're building healthy habits together.")
-                        .font(MGFonts.bodySmall)
+                        .mgFont(.bodySmall)
                 }
             }
-            
+
             HStack(spacing: 8) {
                 ForEach(0..<7, id: \.self) { index in
                     let isCompleted = index < weekDays.count ? weekDays[index] : false
@@ -28,9 +29,9 @@ struct StreakView: View {
         .padding(20)
         .background(MGColors.surface)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: MGColors.slate.opacity(0.05), radius: 12, x: 0, y: 4)
+        .mgShadow(MGShadow.md)
     }
-    
+
     private func dayLetter(for index: Int) -> String {
         let days = ["S", "M", "T", "W", "T", "F", "S"]
         return days[index]
@@ -40,10 +41,10 @@ struct StreakView: View {
 struct DayPill: View {
     let day: String
     let isCompleted: Bool
-    
+
     var body: some View {
         Text(day)
-            .font(MGFonts.caption)
+            .mgFont(.caption)
             .fontWeight(.bold)
             .foregroundStyle(isCompleted ? .white : MGColors.warm600)
             .frame(maxWidth: .infinity)
@@ -54,7 +55,7 @@ struct DayPill: View {
 }
 
 #Preview {
-    StreakView(days: 12)
+    StreakView(days: 12, weekDays: [true, true, true, true, false, true, true])
         .padding()
         .background(MGColors.sand)
 }

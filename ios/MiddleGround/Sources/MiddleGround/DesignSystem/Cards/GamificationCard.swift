@@ -6,25 +6,25 @@ struct GamificationCard: View {
     let subtitle: String?
     let icon: String
     let color: Color
-    
+
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(size: 24))
                 .foregroundStyle(color)
-            
+
             Text(value)
-                .font(MGFonts.h2)
+                .mgFont(.h2)
                 .foregroundStyle(MGColors.slate)
-            
+
             Text(title)
-                .font(MGFonts.caption)
+                .mgFont(.caption)
                 .foregroundStyle(MGColors.warm600)
                 .multilineTextAlignment(.center)
-            
+
             if let subtitle {
                 Text(subtitle)
-                    .font(MGFonts.caption)
+                    .mgFont(.caption)
                     .foregroundStyle(color)
             }
         }
@@ -40,12 +40,12 @@ struct GrowthRing: View {
     let progress: Double // 0...1
     let size: CGFloat
     let lineWidth: CGFloat
-    
+
     var body: some View {
         ZStack {
             Circle()
                 .stroke(MGColors.warm200, lineWidth: lineWidth)
-            
+
             Circle()
                 .trim(from: 0, to: progress)
                 .stroke(MGColors.indigo, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
@@ -59,7 +59,13 @@ struct GrowthRing: View {
 #Preview {
     HStack(spacing: 12) {
         GamificationCard(title: "Daily Streak", value: "🔥 12", subtitle: "days", icon: "flame.fill", color: MGColors.coral)
-        GamificationCard(title: "Growth Score", value: "85", subtitle: "Great job!", icon: "chart.line.uptrend.xyaxis", color: MGColors.indigo)
+        GamificationCard(
+            title: "Growth Score",
+            value: "85",
+            subtitle: "Great job!",
+            icon: "chart.line.uptrend.xyaxis",
+            color: MGColors.indigo
+        )
     }
     .padding()
     .background(MGColors.sand)

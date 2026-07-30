@@ -4,23 +4,23 @@ struct RequestDetailView: View {
     @State private var viewModel: RequestDetailViewModel
     @Environment(\.dismiss) private var dismiss
     var namespace: Namespace.ID
-    
+
     init(request: Request, namespace: Namespace.ID) {
         _viewModel = State(wrappedValue: RequestDetailViewModel(request: request))
         self.namespace = namespace
     }
-    
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
-                
+
                 if viewModel.request.isPending {
                     quickResponseRow
                 }
-                
+
                 NegotiationView(viewModel: viewModel)
-                
+
                 Spacer(minLength: 40)
             }
             .padding()
@@ -45,7 +45,7 @@ struct RequestDetailView: View {
             Text(viewModel.errorMessage ?? "")
         }
     }
-    
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -54,21 +54,21 @@ struct RequestDetailView: View {
                 Spacer()
                 StatusBadge(status: viewModel.request.status)
             }
-            
+
             Text(viewModel.request.title)
-                .font(MGFonts.h1)
-            
+                .mgFont(.h1)
+
             if let details = viewModel.request.details, !details.isEmpty {
                 Text(details)
-                    .font(MGFonts.body)
+                    .mgFont(.body)
                     .foregroundStyle(MGColors.warm600)
             }
-            
+
             if let time = viewModel.request.proposedTime {
                 HStack(spacing: 6) {
                     Image(systemName: "clock")
                     Text(time, style: .date)
-                        .font(MGFonts.bodySmall)
+                        .mgFont(.bodySmall)
                 }
                 .foregroundStyle(MGColors.warm600)
             }
@@ -76,15 +76,15 @@ struct RequestDetailView: View {
         .padding(20)
         .background(MGColors.surface)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: MGColors.slate.opacity(0.05), radius: 12, x: 0, y: 4)
+        .mgShadow(MGShadow.md)
         .matchedGeometryEffect(id: "card_\(viewModel.request.id)", in: namespace, properties: .frame, anchor: .topLeading, isSource: false)
     }
-    
+
     private var quickResponseRow: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Respond")
-                .font(MGFonts.h3)
-            
+                .mgFont(.h3)
+
             HStack(spacing: 10) {
                 ResponseButton(type: .accept) {
                     Task { await viewModel.respond(with: .accept) }
@@ -101,8 +101,8 @@ struct RequestDetailView: View {
 }
 
 #Preview {
-    AppConfiguration.useMockRepositories = true
     @Previewable @Namespace var namespace
+    AppConfiguration.useMockRepositories = true
     return NavigationStack {
         RequestDetailView(request: .previewNegotiating, namespace: namespace)
     }

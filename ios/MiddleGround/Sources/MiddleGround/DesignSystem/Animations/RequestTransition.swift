@@ -7,7 +7,7 @@ extension AnyTransition {
             removal: .move(edge: .trailing).combined(with: .opacity)
         )
     }
-    
+
     static var cardExpand: AnyTransition {
         .scale(scale: 0.95, anchor: .center)
             .combined(with: .opacity)

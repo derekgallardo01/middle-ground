@@ -2,7 +2,7 @@ import SwiftUI
 
 struct CalendarView: View {
     @State private var viewModel = CalendarViewModel()
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -34,7 +34,7 @@ struct CalendarView: View {
             await viewModel.loadEvents()
         }
     }
-    
+
     private var monthHeader: some View {
         HStack {
             Button {
@@ -47,14 +47,14 @@ struct CalendarView: View {
                     .clipShape(Circle())
             }
             .buttonStyle(ScaleButtonStyle())
-            
+
             Spacer()
-            
+
             Text(viewModel.currentMonth, formatter: monthFormatter)
-                .font(MGFonts.h2)
-            
+                .mgFont(.h2)
+
             Spacer()
-            
+
             Button {
                 viewModel.changeMonth(by: 1)
             } label: {
@@ -67,18 +67,18 @@ struct CalendarView: View {
             .buttonStyle(ScaleButtonStyle())
         }
     }
-    
+
     private var calendarGrid: some View {
         VStack(spacing: 8) {
             HStack {
                 ForEach(Calendar.current.shortWeekdaySymbols, id: \.self) { day in
                     Text(day)
-                        .font(MGFonts.caption)
+                        .mgFont(.caption)
                         .foregroundStyle(MGColors.warm600)
                         .frame(maxWidth: .infinity)
                 }
             }
-            
+
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
                 ForEach(daysInMonth, id: \.self) { date in
                     DayCell(
@@ -99,14 +99,14 @@ struct CalendarView: View {
         .padding(16)
         .background(MGColors.surface)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: MGColors.slate.opacity(0.05), radius: 12, x: 0, y: 4)
+        .mgShadow(MGShadow.md)
     }
-    
+
     private var upcomingEvents: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Upcoming")
-                .font(MGFonts.h2)
-            
+                .mgFont(.h2)
+
             let upcoming = viewModel.events
                 .compactMap { request -> (Request, Date)? in
                     guard let date = request.proposedTime else { return nil }
@@ -116,7 +116,7 @@ struct CalendarView: View {
                 .sorted { $0.1 < $1.1 }
                 .prefix(5)
                 .map { $0.0 }
-            
+
             if upcoming.isEmpty {
                 ContentUnavailableView {
                     Label("No upcoming plans", systemImage: "calendar.badge.clock")
@@ -130,11 +130,11 @@ struct CalendarView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(request.title)
-                                .font(MGFonts.body)
+                                .mgFont(.body)
                                 .fontWeight(.semibold)
                             if let time = request.proposedTime {
                                 Text(time, style: .date)
-                                    .font(MGFonts.caption)
+                                    .mgFont(.caption)
                                     .foregroundStyle(MGColors.warm600)
                             }
                         }
@@ -148,27 +148,27 @@ struct CalendarView: View {
             }
         }
     }
-    
+
     private var daysInMonth: [Date] {
         let calendar = Calendar.current
         guard let monthInterval = calendar.dateInterval(of: .month, for: viewModel.currentMonth) else { return [] }
-        
+
         var dates: [Date] = []
         var date = monthInterval.start
-        
+
         // Add leading days from previous month
         let weekdayOffset = calendar.component(.weekday, from: date) - 1
         date = calendar.date(byAdding: .day, value: -weekdayOffset, to: date) ?? date
-        
+
         // Build 6 weeks of days
         for _ in 0..<42 {
             dates.append(date)
             date = calendar.date(byAdding: .day, value: 1, to: date) ?? date
         }
-        
+
         return dates
     }
-    
+
     private var monthFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
@@ -177,22 +177,25 @@ struct CalendarView: View {
 }
 
 struct DayCell: View {
+    @ScaledMetric(relativeTo: .caption) private var selectionSize: CGFloat = 36
+    @ScaledMetric(relativeTo: .caption) private var rowHeight: CGFloat = 44
+
     let date: Date
     let isSelected: Bool
     let hasEvents: Bool
     let isCurrentMonth: Bool
-    
+
     var body: some View {
         ZStack {
             Circle()
                 .fill(isSelected ? MGColors.indigo : Color.clear)
-                .frame(width: 36, height: 36)
-            
+                .frame(width: selectionSize, height: selectionSize)
+
             Text("\(Calendar.current.component(.day, from: date))")
-                .font(MGFonts.caption)
+                .mgFont(.caption)
                 .fontWeight(.semibold)
-                .foregroundStyle(isSelected ? .white : (isCurrentMonth ? MGColors.slate : MGColors.warm400))
-            
+                .foregroundStyle(isSelected ? .white : (isCurrentMonth ? MGColors.slate : MGColors.warm600))
+
             if hasEvents && !isSelected {
                 Circle()
                     .fill(MGColors.coral)
@@ -200,7 +203,7 @@ struct DayCell: View {
                     .offset(y: 10)
             }
         }
-        .frame(height: 44)
+        .frame(height: rowHeight)
     }
 }
 

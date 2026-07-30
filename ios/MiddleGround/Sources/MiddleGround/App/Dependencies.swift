@@ -6,31 +6,31 @@ extension Container {
     var modelContainer: Factory<ModelContainer> {
         Factory(self) { LocalStore.shared.container }
     }
-    
+
     var remoteRequestRepository: Factory<RequestRepository> {
         Factory(self) {
             AppConfiguration.useMockRepositories
-                ? MockRequestRepository()
+                ? MockRequestRepository() as RequestRepository
                 : FirestoreRequestRepository()
         }
     }
-    
+
     var remoteUserRepository: Factory<UserRepository> {
         Factory(self) {
             AppConfiguration.useMockRepositories
-                ? MockUserRepository()
+                ? MockUserRepository() as UserRepository
                 : FirestoreUserRepository()
         }
     }
-    
+
     var remoteRelationshipRepository: Factory<RelationshipRepository> {
         Factory(self) {
             AppConfiguration.useMockRepositories
-                ? MockRelationshipRepository()
+                ? MockRelationshipRepository() as RelationshipRepository
                 : FirestoreRelationshipRepository()
         }
     }
-    
+
     var requestRepository: Factory<RequestRepository> {
         Factory(self) {
             CachedRequestRepository(
@@ -39,7 +39,7 @@ extension Container {
             )
         }
     }
-    
+
     var userRepository: Factory<UserRepository> {
         Factory(self) {
             CachedUserRepository(
@@ -48,7 +48,7 @@ extension Container {
             )
         }
     }
-    
+
     var relationshipRepository: Factory<RelationshipRepository> {
         Factory(self) {
             CachedRelationshipRepository(
@@ -57,36 +57,43 @@ extension Container {
             )
         }
     }
-    
+
     var requestService: Factory<RequestService> {
         Factory(self) {
             RequestService(repository: self.requestRepository())
         }
     }
-    
-    var syncService: Factory<SyncService> {
+
+    var relationshipService: Factory<RelationshipService> {
         Factory(self) {
-            SyncService(
-                requestRepository: self.requestRepository(),
-                userRepository: self.userRepository(),
-                relationshipRepository: self.relationshipRepository()
+            RelationshipService(
+                repository: self.relationshipRepository(),
+                userRepository: self.userRepository()
             )
         }
     }
-    
+
     var authService: Factory<AuthServiceProtocol> {
-        Factory(self) { AuthService() }
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return PreviewAuthService()
+            }
+            #endif
+            return AuthService()
+        }
     }
-    
+
     var gamificationService: Factory<GamificationServiceProtocol> {
         Factory(self) {
             AppConfiguration.useMockRepositories
-                ? MockGamificationService()
+                ? MockGamificationService() as GamificationServiceProtocol
                 : GamificationService()
         }
     }
-    
+
     var signInWithAppleManager: Factory<SignInWithAppleManager> {
-        Factory(self) { SignInWithAppleManager() }
+        // Only ever resolved from @MainActor view models; the manager drives UIKit presentation.
+        Factory(self) { MainActor.assumeIsolated { SignInWithAppleManager() } }
     }
 }

@@ -3,16 +3,16 @@ import SwiftUI
 struct OnboardingView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = OnboardingViewModel()
-    
+
     var body: some View {
         ZStack {
             MGColors.sand.ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
                 stepIndicator
-                
+
                 Spacer()
-                
+
                 Group {
                     switch viewModel.currentStep {
                     case .welcome:
@@ -28,7 +28,7 @@ struct OnboardingView: View {
                     }
                 }
                 .frame(maxHeight: .infinity)
-                
+
                 Spacer()
             }
             .padding(.horizontal, 24)
@@ -41,7 +41,7 @@ struct OnboardingView: View {
             Text(viewModel.errorMessage ?? "")
         }
     }
-    
+
     private var stepIndicator: some View {
         HStack(spacing: 8) {
             ForEach(OnboardingViewModel.Step.allCases, id: \.self) { step in
@@ -52,94 +52,94 @@ struct OnboardingView: View {
             }
         }
     }
-    
+
     private var welcomeStep: some View {
         VStack(spacing: 28) {
             ZStack {
                 Circle()
                     .fill(MGColors.warm100)
                     .frame(width: 180, height: 180)
-                
+
                 Image(systemName: "heart.fill")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 72)
                     .foregroundStyle(MGColors.coral)
             }
-            
+
             VStack(spacing: 12) {
                 Text(viewModel.currentStep.title)
-                    .font(MGFonts.displayL)
+                    .mgFont(.displayL)
                     .multilineTextAlignment(.center)
-                
+
                 Text("Middle Ground helps people make decisions together — from date nights to dinner plans.")
-                    .font(MGFonts.body)
+                    .mgFont(.body)
                     .foregroundStyle(MGColors.warm600)
                     .multilineTextAlignment(.center)
             }
-            
+
             PrimaryButton(title: "Continue with Apple", systemImage: "person.fill.checkmark") {
                 viewModel.signInWithApple()
             }
             .disabled(viewModel.isLoading)
         }
     }
-    
+
     private var permissionsStep: some View {
         VStack(spacing: 28) {
             Image(systemName: "bell.badge.fill")
                 .font(.system(size: 72))
                 .foregroundStyle(MGColors.indigo)
-            
+
             VStack(spacing: 12) {
                 Text(viewModel.currentStep.title)
-                    .font(MGFonts.displayL)
+                    .mgFont(.displayL)
                     .multilineTextAlignment(.center)
-                
+
                 Text("Get notified when someone sends or responds to a request.")
-                    .font(MGFonts.body)
+                    .mgFont(.body)
                     .foregroundStyle(MGColors.warm600)
                     .multilineTextAlignment(.center)
             }
-            
+
             PrimaryButton(title: "Enable Notifications") {
                 viewModel.requestNotifications()
             }
-            
+
             Button("Skip for now") {
                 viewModel.advance()
             }
-            .font(MGFonts.body)
+            .mgFont(.body)
             .foregroundStyle(MGColors.warm600)
         }
     }
-    
+
     private var profileStep: some View {
         VStack(spacing: 28) {
             Text(viewModel.currentStep.title)
-                .font(MGFonts.displayL)
+                .mgFont(.displayL)
                 .multilineTextAlignment(.center)
-            
+
             TextField("Your name", text: $viewModel.userName)
-                .font(MGFonts.h2)
+                .mgFont(.h2)
                 .multilineTextAlignment(.center)
                 .padding()
                 .background(MGColors.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            
+
             PrimaryButton(title: "Continue") {
                 viewModel.advance()
             }
             .disabled(!viewModel.canContinue)
         }
     }
-    
+
     private var relationshipStep: some View {
         VStack(spacing: 28) {
             Text(viewModel.currentStep.title)
-                .font(MGFonts.displayL)
+                .mgFont(.displayL)
                 .multilineTextAlignment(.center)
-            
+
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 12) {
                 ForEach(RelationshipType.allCases) { type in
                     Button {
@@ -150,7 +150,7 @@ struct OnboardingView: View {
                             Image(systemName: type.iconName)
                                 .font(.system(size: 24))
                             Text(type.displayName)
-                                .font(MGFonts.caption)
+                                .mgFont(.caption)
                         }
                         .foregroundStyle(viewModel.selectedRelationshipType == type ? .white : MGColors.slate)
                         .frame(maxWidth: .infinity)
@@ -161,13 +161,38 @@ struct OnboardingView: View {
                     .buttonStyle(ScaleButtonStyle())
                 }
             }
-            
-            TextField("Partner/friend name (optional)", text: $viewModel.partnerName)
-                .font(MGFonts.body)
-                .padding()
-                .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            
+
+            Picker("Pairing", selection: $viewModel.pairingMode) {
+                ForEach(OnboardingViewModel.PairingMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if viewModel.pairingMode == .join {
+                TextField("Enter invite code", text: $viewModel.inviteCodeInput)
+                    .mgFont(.body)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .padding()
+                    .background(MGColors.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .accessibilityLabel("Invite code")
+                    .accessibilityHint("Enter the six character code shared with you")
+            } else {
+                Text("We'll give you a code to share once you're set up.")
+                    .mgFont(.caption)
+                    .foregroundStyle(MGColors.warm600)
+                    .multilineTextAlignment(.center)
+            }
+
+            if let errorMessage = viewModel.errorMessage {
+                Text(errorMessage)
+                    .mgFont(.caption)
+                    .foregroundStyle(MGColors.coral)
+                    .multilineTextAlignment(.center)
+            }
+
             PrimaryButton(title: "Get Started") {
                 Task {
                     if let user = await viewModel.completeOnboarding() {
@@ -178,20 +203,49 @@ struct OnboardingView: View {
             .disabled(!viewModel.canContinue || viewModel.isLoading)
         }
     }
-    
+
     private var doneStep: some View {
         VStack(spacing: 28) {
             Text("🎉")
                 .font(.system(size: 72))
-            
+
             Text(viewModel.currentStep.title)
-                .font(MGFonts.displayL)
+                .mgFont(.displayL)
                 .multilineTextAlignment(.center)
-            
-            Text("Start by sending your first request.")
-                .font(MGFonts.body)
-                .foregroundStyle(MGColors.warm600)
-                .multilineTextAlignment(.center)
+
+            if let code = viewModel.createdInviteCode {
+                VStack(spacing: 8) {
+                    Text("Share this code")
+                        .mgFont(.caption)
+                        .foregroundStyle(MGColors.warm600)
+
+                    Text(code)
+                        .font(.system(size: 32, weight: .bold, design: .monospaced))
+                        .foregroundStyle(MGColors.indigo)
+                        .tracking(4)
+
+                    ShareLink(item: "Join me on Middle Ground with code \(code)") {
+                        Label("Share invite", systemImage: "square.and.arrow.up")
+                            .mgFont(.body)
+                    }
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity)
+                .background(MGColors.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Your invite code is \(code.map(String.init).joined(separator: " "))")
+
+                Text("Once they join, you can send your first request.")
+                    .mgFont(.body)
+                    .foregroundStyle(MGColors.warm600)
+                    .multilineTextAlignment(.center)
+            } else {
+                Text("Start by sending your first request.")
+                    .mgFont(.body)
+                    .foregroundStyle(MGColors.warm600)
+                    .multilineTextAlignment(.center)
+            }
         }
     }
 }

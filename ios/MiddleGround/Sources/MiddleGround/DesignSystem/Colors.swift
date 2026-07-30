@@ -1,25 +1,31 @@
 import SwiftUI
+import UIKit
 
+/// Brand palette, ported from `brand/color-palette.css` and `brand/dark-mode.css`.
+///
+/// Every token is adaptive: it resolves per trait collection, so the app follows the
+/// system appearance. Previously these were fixed light values, which meant system chrome
+/// went dark while every card stayed white.
 enum MGColors {
-    // Primary
-    static let indigo = Color(hex: 0x6366F1)
-    static let teal = Color(hex: 0x14B8A6)
-    static let coral = Color(hex: 0xFF8FA3)
-    
+    // Primary — accents lift slightly in dark mode for contrast against dark surfaces.
+    static let indigo = Color(light: 0x6366F1, dark: 0x818CF8)
+    static let teal = Color(light: 0x14B8A6, dark: 0x2DD4BF)
+    static let coral = Color(light: 0xFF8FA3, dark: 0xFDA4AF)
+
     // Supporting
-    static let sunshine = Color(hex: 0xFFC857)
-    static let lavender = Color(hex: 0xA78BFA)
-    static let sky = Color(hex: 0x7DD3FC)
-    
+    static let sunshine = Color(light: 0xFFC857, dark: 0xFDE68A)
+    static let lavender = Color(light: 0xA78BFA, dark: 0xC4B5FD)
+    static let sky = Color(light: 0x7DD3FC, dark: 0x7DD3FC)
+
     // Neutrals
-    static let sand = Color(hex: 0xF7F6F3)
-    static let surface = Color.white
-    static let warm100 = Color(hex: 0xF0EFEC)
-    static let warm200 = Color(hex: 0xE4E3E0)
-    static let warm400 = Color(hex: 0xA1A1AA)
-    static let warm600 = Color(hex: 0x71717A)
-    static let slate = Color(hex: 0x334155)
-    
+    static let sand = Color(light: 0xF7F6F3, dark: 0x1E293B)
+    static let surface = Color(light: 0xFFFFFF, dark: 0x334155)
+    static let warm100 = Color(light: 0xF0EFEC, dark: 0x475569)
+    static let warm200 = Color(light: 0xE4E3E0, dark: 0x64748B)
+    static let warm400 = Color(light: 0xA1A1AA, dark: 0x94A3B8)
+    static let warm600 = Color(light: 0x71717A, dark: 0xCBD5E1)
+    static let slate = Color(light: 0x334155, dark: 0xF8FAFC)
+
     // Gradients
     static var middleGradient: LinearGradient {
         LinearGradient(
@@ -28,7 +34,7 @@ enum MGColors {
             endPoint: .bottomTrailing
         )
     }
-    
+
     static var warmGradient: LinearGradient {
         LinearGradient(
             gradient: Gradient(colors: [coral, sunshine]),
@@ -46,6 +52,24 @@ extension Color {
             green: Double((hex >> 8) & 0xFF) / 255,
             blue: Double(hex & 0xFF) / 255,
             opacity: alpha
+        )
+    }
+
+    /// Resolves per appearance, so a single token works in light and dark.
+    init(light: UInt, dark: UInt, alpha: Double = 1.0) {
+        self.init(uiColor: UIColor { traits in
+            UIColor(hex: traits.userInterfaceStyle == .dark ? dark : light, alpha: alpha)
+        })
+    }
+}
+
+extension UIColor {
+    convenience init(hex: UInt, alpha: Double = 1.0) {
+        self.init(
+            red: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: CGFloat(alpha)
         )
     }
 }

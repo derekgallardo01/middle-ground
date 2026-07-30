@@ -17,51 +17,40 @@ protocol AuthServiceProtocol: Sendable {
 
 actor AuthService: AuthServiceProtocol {
     private let userRepository = Container.shared.remoteUserRepository()
-    private var handle: AuthStateDidChangeListenerHandle?
-    private var continuation: AsyncStream<User?>.Continuation?
-    
-    init() {
-        self.handle = Auth.auth().addStateDidChangeListener { [weak self] _, firebaseUser in
-            Task {
-                let user = firebaseUser != nil ? try? await self?.fetchUser(id: firebaseUser!.uid) : nil
-                self?.continuation?.yield(user)
-            }
-        }
-    }
-    
+
     func currentUser() async -> User? {
         guard let firebaseUser = Auth.auth().currentUser else { return nil }
         return try? await fetchUser(id: firebaseUser.uid)
     }
-    
+
     func signInWithApple(idToken: String, nonce: String, fullName: PersonNameComponents?) async throws -> User {
         let credential = OAuthProvider.credential(
-            withProviderID: "apple.com",
+            providerID: .apple,
             idToken: idToken,
             rawNonce: nonce
         )
-        
+
         do {
             let result = try await Auth.auth().signIn(with: credential)
             let firebaseUser = result.user
-            
+
             let displayName = fullName?.formatted()
                 ?? firebaseUser.displayName
                 ?? "New User"
-            
+
             let user = User(
                 id: firebaseUser.uid,
                 name: displayName,
                 avatarURL: firebaseUser.photoURL
             )
-            
+
             try await userRepository.saveUser(user)
             return user
         } catch {
             throw AuthError.firebaseError(error.localizedDescription)
         }
     }
-    
+
     func signOut() async throws {
         do {
             try Auth.auth().signOut()
@@ -69,16 +58,27 @@ actor AuthService: AuthServiceProtocol {
             throw AuthError.firebaseError(error.localizedDescription)
         }
     }
-    
-    func authStateStream() -> AsyncStream<User?> {
+
+    /// Each stream owns its own Firebase listener and removes it when the stream terminates,
+    /// so no auth-state is held as actor storage.
+    nonisolated func authStateStream() -> AsyncStream<User?> {
         AsyncStream { continuation in
-            self.continuation = continuation
-            continuation.onTermination = { [weak self] _ in
-                self?.continuation = nil
+            let handle = Auth.auth().addStateDidChangeListener { _, firebaseUser in
+                let uid = firebaseUser?.uid
+                Task {
+                    var user: User?
+                    if let uid {
+                        user = try? await self.fetchUser(id: uid)
+                    }
+                    continuation.yield(user)
+                }
+            }
+            continuation.onTermination = { _ in
+                Auth.auth().removeStateDidChangeListener(handle)
             }
         }
     }
-    
+
     private func fetchUser(id: String) async throws -> User? {
         try await userRepository.user(id: id)
     }

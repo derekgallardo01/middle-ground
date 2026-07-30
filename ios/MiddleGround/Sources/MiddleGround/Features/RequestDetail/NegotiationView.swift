@@ -1,17 +1,19 @@
 import SwiftUI
 
 struct NegotiationView: View {
+    @ScaledMetric(relativeTo: .body) private var sendButton: CGFloat = 44
+
     @Bindable var viewModel: RequestDetailViewModel
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if viewModel.request.negotiationChain.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "bubble.left.and.bubble.right")
                         .font(.system(size: 32))
-                        .foregroundStyle(MGColors.warm400)
+                        .foregroundStyle(MGColors.warm600)
                     Text("No responses yet")
-                        .font(MGFonts.body)
+                        .mgFont(.body)
                         .foregroundStyle(MGColors.warm600)
                 }
                 .frame(maxWidth: .infinity)
@@ -23,22 +25,22 @@ struct NegotiationView: View {
                     }
                 }
             }
-            
+
             if viewModel.request.isPending {
                 HStack(spacing: 12) {
                     TextField("Suggest another time or idea...", text: $viewModel.counterText, axis: .vertical)
-                        .font(MGFonts.body)
+                        .mgFont(.body)
                         .padding(12)
                         .background(MGColors.warm100)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    
+
                     Button {
                         Task { await viewModel.sendCounter() }
                     } label: {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(.white)
-                            .frame(width: 44, height: 44)
+                            .frame(width: sendButton, height: sendButton)
                             .background(viewModel.isCounterEmpty ? MGColors.warm400 : MGColors.indigo)
                             .clipShape(Circle())
                     }
@@ -53,19 +55,19 @@ struct NegotiationView: View {
 struct NegotiationBubble: View {
     let message: NegotiationMessage
     let currentUserID: String?
-    
+
     private var isCurrentUser: Bool {
         message.senderID == currentUserID
     }
-    
+
     var body: some View {
         HStack {
             if isCurrentUser { Spacer(minLength: 40) }
-            
+
             VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: 4) {
                 if let text = message.text, !text.isEmpty {
                     Text(text)
-                        .font(MGFonts.body)
+                        .mgFont(.body)
                         .foregroundStyle(isCurrentUser ? .white : MGColors.slate)
                         .padding(12)
                         .background(isCurrentUser ? MGColors.indigo : MGColors.warm100)
@@ -74,15 +76,15 @@ struct NegotiationBubble: View {
                             style: .continuous
                         ))
                 }
-                
+
                 HStack(spacing: 4) {
                     Text(message.responseType.emoji)
                     Text(message.responseType.displayName)
-                        .font(MGFonts.caption)
+                        .mgFont(.caption)
                         .foregroundStyle(MGColors.warm600)
                 }
             }
-            
+
             if !isCurrentUser { Spacer(minLength: 40) }
         }
     }

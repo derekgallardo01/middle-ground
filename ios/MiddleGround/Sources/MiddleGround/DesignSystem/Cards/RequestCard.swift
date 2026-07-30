@@ -3,42 +3,42 @@ import SwiftUI
 struct RequestCard: View {
     let request: Request
     let onRespond: ((ResponseType) -> Void)?
-    
+
     @State private var showActions = false
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: request.category.iconName)
                     .foregroundStyle(MGColors.indigo)
                     .font(.system(size: 14, weight: .semibold))
-                
+
                 Spacer()
-                
+
                 StatusBadge(status: request.status)
             }
-            
+
             Text(request.title)
-                .font(MGFonts.h3)
+                .mgFont(.h3)
                 .foregroundStyle(MGColors.slate)
-            
+
             if let details = request.details, !details.isEmpty {
                 Text(details)
-                    .font(MGFonts.bodySmall)
+                    .mgFont(.bodySmall)
                     .foregroundStyle(MGColors.warm600)
                     .lineLimit(2)
             }
-            
+
             if let time = request.proposedTime {
                 HStack(spacing: 4) {
                     Image(systemName: "clock")
                         .font(.system(size: 12))
                     Text(time, style: .date)
-                        .font(MGFonts.caption)
+                        .mgFont(.caption)
                 }
                 .foregroundStyle(MGColors.warm600)
             }
-            
+
             if request.isPending && onRespond != nil {
                 HStack(spacing: 8) {
                     ResponseButton(type: .accept) {
@@ -68,10 +68,10 @@ struct RequestCard: View {
 
 struct StatusBadge: View {
     let status: RequestStatus
-    
+
     var body: some View {
         Text(status.displayName)
-            .font(MGFonts.caption)
+            .mgFont(.caption)
             .fontWeight(.bold)
             .foregroundStyle(status.color)
             .padding(.horizontal, 10)

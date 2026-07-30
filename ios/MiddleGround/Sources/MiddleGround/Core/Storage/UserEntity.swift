@@ -8,7 +8,7 @@ final class UserEntity {
     var avatarURLString: String?
     var createdAt: Date
     var needsSync: Bool
-    
+
     init(from user: User) {
         self.id = user.id
         self.name = user.name
@@ -16,13 +16,13 @@ final class UserEntity {
         self.createdAt = user.createdAt
         self.needsSync = false
     }
-    
+
     func update(from user: User) {
         self.name = user.name
         self.avatarURLString = user.avatarURL?.absoluteString
         self.createdAt = user.createdAt
     }
-    
+
     func toModel() -> User {
         User(
             id: id,

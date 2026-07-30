@@ -9,35 +9,36 @@ final class HomeViewModelTests: XCTestCase {
         AppConfiguration.useMockRepositories = true
         Container.shared.authService.register { MockAuthService() }
     }
-    
+
     override func tearDown() {
         Container.shared.authService.reset()
         AppConfiguration.useMockRepositories = false
         super.tearDown()
     }
-    
+
     func testLoadCurrentUserPopulatesUser() async {
         let viewModel = HomeViewModel()
         await viewModel.loadCurrentUser()
-        
+
         XCTAssertNotNil(viewModel.currentUser)
-        XCTAssertEqual(viewModel.currentUser?.name, "Test User")
+        XCTAssertEqual(viewModel.currentUser?.id, User.preview.id)
     }
-    
+
     func testLoadRequestsPopulatesRequests() async {
         let viewModel = HomeViewModel()
         await viewModel.loadCurrentUser()
         await viewModel.loadRequests()
-        
+
         XCTAssertFalse(viewModel.isLoading)
         XCTAssertNil(viewModel.errorMessage)
+        XCTAssertFalse(viewModel.requests.isEmpty, "mock repository seeds requests")
     }
-    
+
     func testLoadStatsPopulatesStats() async {
         let viewModel = HomeViewModel()
         await viewModel.loadCurrentUser()
         await viewModel.loadStats()
-        
+
         XCTAssertGreaterThanOrEqual(viewModel.stats.level, 1)
     }
 }

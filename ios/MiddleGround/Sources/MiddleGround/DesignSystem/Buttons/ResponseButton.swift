@@ -3,14 +3,14 @@ import SwiftUI
 struct ResponseButton: View {
     let type: ResponseType
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Text(type.emoji)
                     .font(.system(size: 22))
                 Text(type.displayName)
-                    .font(MGFonts.caption)
+                    .mgFont(.caption)
                     .foregroundStyle(type.color)
             }
             .frame(maxWidth: .infinity)

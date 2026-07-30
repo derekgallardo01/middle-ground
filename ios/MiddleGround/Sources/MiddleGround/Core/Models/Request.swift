@@ -7,9 +7,9 @@ enum RequestCategory: String, Codable, CaseIterable, Identifiable {
     case daily
     case travel
     case spontaneous
-    
+
     var id: String { rawValue }
-    
+
     var displayName: String {
         switch self {
         case .relationship: return "Relationship"
@@ -20,7 +20,7 @@ enum RequestCategory: String, Codable, CaseIterable, Identifiable {
         case .spontaneous: return "Spontaneous"
         }
     }
-    
+
     var iconName: String {
         switch self {
         case .relationship: return "heart.fill"
@@ -40,9 +40,9 @@ enum ResponseType: String, Codable, CaseIterable, Identifiable {
     case reschedule
     case counter
     case save
-    
+
     var id: String { rawValue }
-    
+
     var displayName: String {
         switch self {
         case .accept: return "Accept"
@@ -53,7 +53,7 @@ enum ResponseType: String, Codable, CaseIterable, Identifiable {
         case .save: return "Save"
         }
     }
-    
+
     var emoji: String {
         switch self {
         case .accept: return "✅"
@@ -62,6 +62,18 @@ enum ResponseType: String, Codable, CaseIterable, Identifiable {
         case .reschedule: return "⏰"
         case .counter: return "📝"
         case .save: return "❤️"
+        }
+    }
+
+    /// Past-tense phrasing for the activity feed.
+    var activityDescription: String {
+        switch self {
+        case .accept: return "Accepted a request"
+        case .decline: return "Declined a request"
+        case .negotiate: return "Found a middle ground"
+        case .reschedule: return "Rescheduled a plan"
+        case .counter: return "Sent a counter-offer"
+        case .save: return "Saved a request for later"
         }
     }
 }
@@ -75,9 +87,9 @@ enum RequestStatus: String, Codable, Identifiable {
     case countered
     case saved
     case completed
-    
+
     var id: String { rawValue }
-    
+
     var displayName: String {
         switch self {
         case .pending: return "Pending"
@@ -98,7 +110,7 @@ struct NegotiationMessage: Identifiable, Hashable, Codable {
     let responseType: ResponseType
     let text: String?
     let timestamp: Date
-    
+
     init(id: String = UUID().uuidString,
          senderID: String,
          responseType: ResponseType,
@@ -126,7 +138,7 @@ struct Request: Identifiable, Hashable, Codable {
     var savedForLater: Bool
     var createdAt: Date
     var updatedAt: Date
-    
+
     init(id: String = UUID().uuidString,
          creatorID: String,
          recipientIDs: [String],
@@ -154,15 +166,15 @@ struct Request: Identifiable, Hashable, Codable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
-    
+
     var allParticipantIDs: [String] {
         Array(Set([creatorID] + recipientIDs))
     }
-    
+
     var isPending: Bool {
         status == .pending
     }
-    
+
     mutating func addResponse(_ message: NegotiationMessage) {
         negotiationChain.append(message)
         status = message.responseType.statusMapping
@@ -194,7 +206,7 @@ extension Request {
         proposedTime: Date().addingTimeInterval(86400 * 3),
         status: .pending
     )
-    
+
     static let previewNegotiating = Request(
         id: "req_2",
         creatorID: User.preview.id,
@@ -208,7 +220,7 @@ extension Request {
             NegotiationMessage(senderID: User.preview.id, responseType: .accept, text: "Works for me!")
         ]
     )
-    
+
     static let previewAccepted = Request(
         id: "req_3",
         creatorID: User.preview.id,

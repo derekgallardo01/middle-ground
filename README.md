@@ -10,6 +10,7 @@ Middle Ground is an iOS app for shared decisions. It turns everyday requests —
 |------|----------|
 | [`ios/MiddleGround/`](ios/MiddleGround/) | The SwiftUI app — Swift package, sample app target, and Firebase Cloud Functions. See its [README](ios/MiddleGround/README.md) for setup. |
 | [`brand/`](brand/) | Brand and design system — logos, app icon, color palette, typography, and an HTML [preview](brand/preview.html). Start with [`design-system.md`](brand/design-system.md). |
+| [`docs/`](docs/) | Engineering notes. [`DIAGNOSIS.md`](docs/DIAGNOSIS.md) is a verified audit of the current state — build blockers, inert features, and a recommended fix order. |
 
 ## Stack
 
@@ -31,9 +32,12 @@ Firebase configuration (`GoogleService-Info.plist`) is intentionally not committ
 
 ## Tests
 
+The package targets iOS, so run tests against a simulator rather than `swift test`
+(which builds for the host and cannot import UIKit):
+
 ```bash
 cd ios/MiddleGround
-swift test
+xcodebuild -scheme MiddleGround -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
 ## License

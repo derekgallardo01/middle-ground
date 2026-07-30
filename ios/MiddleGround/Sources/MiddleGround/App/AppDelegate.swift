@@ -3,29 +3,31 @@ import FirebaseCore
 import FirebaseMessaging
 import UserNotifications
 
-final class AppDelegate: NSObject, UIApplicationDelegate {
+public final class AppDelegate: NSObject, UIApplicationDelegate {
+    override public init() { super.init() }
+
     let notificationService = NotificationService.shared
-    
-    func application(
+
+    public func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         FirebaseApp.configure()
-        notificationService.requestAuthorization()
+        Task { _ = await notificationService.requestAuthorization() }
         return true
     }
-    
-    func application(
+
+    public func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
         Messaging.messaging().apnsToken = deviceToken
     }
-    
-    func application(
+
+    public func application(
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
-        print("Failed to register for remote notifications: \(error.localizedDescription)")
+        MGLog.notifications.error("Failed to register for remote notifications: \(error.localizedDescription, privacy: .public)")
     }
 }

@@ -1,0 +1,106 @@
+rules_version = '2';
+
+// Middle Ground — Firestore security rules.
+//
+// Model: every document is scoped to the people it belongs to. Requests are readable only
+// by their participants, relationships only by their members, and device tokens only by
+// their owner. Nothing is world-readable, and there is no default-open fallthrough.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    // Fields a client must never change after creation.
+    function immutable(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    // ---------------------------------------------------------------- users
+    // Profiles hold only a display name and avatar URL. Any signed-in user may read one
+    // (needed to show a partner's name); only the owner may write their own.
+    match /users/{userId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if signedIn() && uid() == userId;
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------- relationships
+    function isParticipant(data) {
+      return signedIn() && uid() in data.participantIDs;
+    }
+
+    // A non-member may add *only themselves* to a relationship that is not yet paired,
+    // and only when they hold a valid invite code for it. Everything else stays fixed.
+    function isRedeemingInvite(relationshipId) {
+      return signedIn()
+        && !(uid() in resource.data.participantIDs)
+        && resource.data.participantIDs.size() == 1
+        && request.resource.data.participantIDs == resource.data.participantIDs.concat([uid()])
+        && immutable('inviteCode')
+        && immutable('type')
+        && immutable('createdAt')
+        && exists(/databases/$(database)/documents/invites/$(resource.data.inviteCode))
+        && get(/databases/$(database)/documents/invites/$(resource.data.inviteCode)).data.relationshipID == relationshipId;
+    }
+
+    match /relationships/{relationshipId} {
+      allow get, list: if isParticipant(resource.data);
+      allow create: if signedIn()
+                    && request.resource.data.participantIDs == [uid()];
+      allow update: if isParticipant(resource.data) || isRedeemingInvite(relationshipId);
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------- invites
+    // Keyed by the invite code itself. `get` is allowed so a code you were told can be
+    // redeemed; `list` is denied so codes cannot be enumerated.
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if signedIn() && request.resource.data.ownerID == uid();
+      allow delete: if signedIn() && resource.data.ownerID == uid();
+    }
+
+    // ------------------------------------------------------------- requests
+    // `allParticipantIDs` is denormalised on write specifically so this rule (and the
+    // Cloud Functions fan-out) can check membership in one comparison.
+    match /requests/{requestId} {
+      allow get, list: if signedIn() && uid() in resource.data.allParticipantIDs;
+
+      allow create: if signedIn()
+                    && request.resource.data.creatorID == uid()
+                    && uid() in request.resource.data.allParticipantIDs;
+
+      // Participants may respond, but nobody may rewrite authorship or move a request
+      // to a different set of people.
+      allow update: if signedIn()
+                    && uid() in resource.data.allParticipantIDs
+                    && immutable('creatorID')
+                    && immutable('allParticipantIDs');
+
+      allow delete: if signedIn() && resource.data.creatorID == uid();
+    }
+
+    // ---------------------------------------------------------- user_tokens
+    // FCM device tokens. Written by the client, read only by Cloud Functions via the
+    // Admin SDK (which bypasses these rules), so clients never read anyone's tokens.
+    match /user_tokens/{userId} {
+      allow read: if false;
+      allow create, update: if signedIn() && uid() == userId;
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    // Deny everything not matched above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

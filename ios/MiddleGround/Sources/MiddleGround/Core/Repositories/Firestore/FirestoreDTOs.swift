@@ -18,7 +18,7 @@ struct RequestDTO: Codable, Identifiable {
     var allParticipantIDs: [String]
     var createdAt: Timestamp
     var updatedAt: Timestamp
-    
+
     init(from request: Request) {
         self.id = request.id
         self.creatorID = request.creatorID
@@ -35,14 +35,14 @@ struct RequestDTO: Codable, Identifiable {
         self.createdAt = Timestamp(date: request.createdAt)
         self.updatedAt = Timestamp(date: request.updatedAt)
     }
-    
+
     func toModel() -> Request? {
         guard let id,
               let categoryEnum = RequestCategory(rawValue: category),
               let statusEnum = RequestStatus(rawValue: status) else {
             return nil
         }
-        
+
         return Request(
             id: id,
             creatorID: creatorID,
@@ -67,7 +67,7 @@ struct NegotiationMessageDTO: Codable, Identifiable {
     var responseType: String
     var text: String?
     var timestamp: Timestamp
-    
+
     init(from message: NegotiationMessage) {
         self.id = message.id
         self.senderID = message.senderID
@@ -75,7 +75,7 @@ struct NegotiationMessageDTO: Codable, Identifiable {
         self.text = message.text
         self.timestamp = Timestamp(date: message.timestamp)
     }
-    
+
     func toModel() -> NegotiationMessage? {
         guard let responseEnum = ResponseType(rawValue: responseType) else { return nil }
         return NegotiationMessage(
@@ -95,14 +95,14 @@ struct UserDTO: Codable, Identifiable {
     var name: String
     var avatarURL: String?
     var createdAt: Timestamp
-    
+
     init(from user: User) {
         self.id = user.id
         self.name = user.name
         self.avatarURL = user.avatarURL?.absoluteString
         self.createdAt = Timestamp(date: user.createdAt)
     }
-    
+
     func toModel() -> User? {
         guard let id else { return nil }
         return User(
@@ -122,15 +122,17 @@ struct RelationshipDTO: Codable, Identifiable {
     var type: String
     var createdAt: Timestamp
     var growthScore: Int
-    
+    var inviteCode: String
+
     init(from relationship: Relationship) {
         self.id = relationship.id
         self.participantIDs = relationship.participantIDs
         self.type = relationship.type.rawValue
         self.createdAt = Timestamp(date: relationship.createdAt)
         self.growthScore = relationship.growthScore
+        self.inviteCode = relationship.inviteCode
     }
-    
+
     func toModel() -> Relationship? {
         guard let id,
               let typeEnum = RelationshipType(rawValue: type) else {
@@ -141,7 +143,8 @@ struct RelationshipDTO: Codable, Identifiable {
             participantIDs: participantIDs,
             type: typeEnum,
             createdAt: createdAt.dateValue(),
-            growthScore: growthScore
+            growthScore: growthScore,
+            inviteCode: inviteCode
         )
     }
 }

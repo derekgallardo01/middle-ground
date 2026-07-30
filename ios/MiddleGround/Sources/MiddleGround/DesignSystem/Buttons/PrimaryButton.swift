@@ -2,10 +2,10 @@ import SwiftUI
 
 struct PrimaryButton: View {
     let title: String
-    let systemImage: String?
+    var systemImage: String?
     let action: () -> Void
     var accessibilityLabel: String?
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
@@ -14,7 +14,7 @@ struct PrimaryButton: View {
                         .font(.system(size: 16, weight: .semibold))
                 }
                 Text(title)
-                    .font(MGFonts.body)
+                    .mgFont(.body)
                     .fontWeight(.semibold)
             }
             .foregroundStyle(.white)
@@ -31,7 +31,7 @@ struct PrimaryButton: View {
 
 struct ScaleButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(reduceMotion ? 1.0 : (configuration.isPressed ? 0.97 : 1.0))
@@ -43,11 +43,11 @@ struct ScaleButtonStyle: ButtonStyle {
 struct GhostButton: View {
     let title: String
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(MGFonts.body)
+                .mgFont(.body)
                 .fontWeight(.semibold)
                 .foregroundStyle(MGColors.slate)
                 .padding(.vertical, 14)

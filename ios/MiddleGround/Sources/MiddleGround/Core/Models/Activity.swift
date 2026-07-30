@@ -7,7 +7,7 @@ enum ActivityType: String, Codable, Identifiable {
     case milestoneReached
     case moodLogged
     case memoryAdded
-    
+
     var id: String { rawValue }
 }
 
@@ -19,7 +19,7 @@ struct Activity: Identifiable, Hashable, Codable {
     let subtitle: String?
     let value: Int
     let timestamp: Date
-    
+
     init(id: String = UUID().uuidString,
          userID: String,
          type: ActivityType,
@@ -44,7 +44,7 @@ struct Achievement: Identifiable, Hashable, Codable {
     let iconName: String
     let requiredValue: Int
     var unlockedAt: Date?
-    
+
     var isUnlocked: Bool { unlockedAt != nil }
 }
 

@@ -6,14 +6,15 @@ struct HomeView: View {
     @State private var showCreateRequest = false
     @State private var showSpontaneous = false
     @Namespace private var animationNamespace
-    
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    
+    @ScaledMetric(relativeTo: .title) private var fabSize: CGFloat = 60
+
     var body: some View {
         NavigationStack {
             ZStack {
                 MGColors.sand.ignoresSafeArea()
-                
+
                 ScrollView {
                     LazyVStack(spacing: 20) {
                         header
@@ -26,9 +27,9 @@ struct HomeView: View {
                 .refreshable {
                     await viewModel.loadRequests()
                 }
-                
+
                 floatingButton
-                
+
                 if viewModel.showCelebration {
                     CelebrationView(
                         title: viewModel.celebrationTitle,
@@ -40,31 +41,24 @@ struct HomeView: View {
             }
             .navigationTitle("Middle Ground")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: {}) {
-                        Image(systemName: "bell")
-                            .foregroundStyle(MGColors.slate)
-                    }
-                    .accessibilityLabel("Notifications")
-                }
-            }
             .navigationDestination(item: $selectedRequest) { request in
                 RequestDetailView(request: request, namespace: animationNamespace)
             }
             .sheet(isPresented: $showCreateRequest) {
-                CreateRequestView { request in
+                CreateRequestView { _ in
                     Task { await viewModel.loadRequests() }
                 }
             }
             .sheet(isPresented: $showSpontaneous) {
-                SpontaneousRequestView { request in
+                SpontaneousRequestView { _ in
                     Task { await viewModel.loadRequests() }
                 }
             }
         }
         .task {
+            // Fast first paint from cache, then stay subscribed to live updates.
             await viewModel.loadRequests()
+            await viewModel.observeRequests()
         }
         .onReceive(NotificationCenter.default.publisher(for: .didReceiveRequestNotification)) { notification in
             if let requestID = notification.userInfo?["request_id"] as? String,
@@ -79,7 +73,7 @@ struct HomeView: View {
             }
         }
     }
-    
+
     private var floatingButton: some View {
         VStack {
             Spacer()
@@ -92,7 +86,7 @@ struct HomeView: View {
                     } label: {
                         Label("New Request", systemImage: "plus")
                     }
-                    
+
                     Button {
                         showSpontaneous = true
                         Haptics.shared.impact(.medium)
@@ -103,10 +97,10 @@ struct HomeView: View {
                     Image(systemName: "plus")
                         .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(.white)
-                        .frame(width: 60, height: 60)
+                        .frame(width: fabSize, height: fabSize)
                         .background(MGColors.indigo)
                         .clipShape(Circle())
-                        .shadow(color: MGColors.indigo.opacity(0.3), radius: 16, x: 0, y: 8)
+                        .mgShadow(MGShadow.glow(MGColors.indigo))
                 }
                 .buttonStyle(ScaleButtonStyle())
                 .accessibilityLabel("Create new request or spontaneous invite")
@@ -115,30 +109,42 @@ struct HomeView: View {
             }
         }
     }
-    
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Hello, \(viewModel.currentUser?.name ?? "there")")
-                .font(MGFonts.h1)
+                .mgFont(.h1)
             Text("You have \(viewModel.requests.filter(\.isPending).count) active requests")
-                .font(MGFonts.body)
+                .mgFont(.body)
                 .foregroundStyle(MGColors.warm600)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
-    
+
     private var statsRow: some View {
         HStack(spacing: 12) {
-            GamificationCard(title: "Daily Streak", value: "🔥 \(viewModel.stats.streakDays)", subtitle: "days", icon: "flame.fill", color: MGColors.coral)
-            GamificationCard(title: "Growth Score", value: "\(viewModel.stats.growthScore)", subtitle: "Great job!", icon: "chart.line.uptrend.xyaxis", color: MGColors.indigo)
+            GamificationCard(
+                title: "Daily Streak",
+                value: "🔥 \(viewModel.stats.streakDays)",
+                subtitle: "days",
+                icon: "flame.fill",
+                color: MGColors.coral
+            )
+            GamificationCard(
+                title: "Growth Score",
+                value: "\(viewModel.stats.growthScore)",
+                subtitle: "Great job!",
+                icon: "chart.line.uptrend.xyaxis",
+                color: MGColors.indigo
+            )
         }
     }
-    
+
     private var feedSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Requests")
-                .font(MGFonts.h2)
-            
+                .mgFont(.h2)
+
             if viewModel.isLoading && viewModel.requests.isEmpty {
                 LoadingSkeleton(type: .list)
             } else if let errorMessage = viewModel.errorMessage {

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct RequestTypePicker: View {
     @Binding var selected: RequestCategory
-    
+
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 90))], spacing: 12) {
             ForEach(RequestCategory.allCases) { category in
@@ -16,7 +16,7 @@ struct RequestTypePicker: View {
                         Image(systemName: category.iconName)
                             .font(.system(size: 24, weight: .semibold))
                         Text(category.displayName)
-                            .font(MGFonts.caption)
+                            .mgFont(.caption)
                     }
                     .foregroundStyle(selected == category ? .white : MGColors.slate)
                     .frame(maxWidth: .infinity)

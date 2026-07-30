@@ -7,23 +7,23 @@ final class SpontaneousRequestViewModel {
     private let requestService = Container.shared.requestService()
     private let authService = Container.shared.authService()
     private let relationshipRepository = Container.shared.relationshipRepository()
-    
+
     var currentUser: User?
     var relationships: [Relationship] = []
-    
+
     var title: String = ""
     var details: String = ""
     var expiresInMinutes: Int = 20
     var recipientID: String = ""
-    
+
     var isLoading = false
     var isLoadingPartners = false
     var errorMessage: String?
-    
+
     var canSubmit: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty && !recipientID.isEmpty
     }
-    
+
     func loadCurrentUserAndPartners() async {
         isLoadingPartners = true
         currentUser = await authService.currentUser()
@@ -39,12 +39,12 @@ final class SpontaneousRequestViewModel {
         }
         isLoadingPartners = false
     }
-    
+
     func sendRequest() async -> Request? {
         guard canSubmit, let currentUser else { return nil }
         isLoading = true
         errorMessage = nil
-        
+
         let request = Request(
             creatorID: currentUser.id,
             recipientIDs: [recipientID],
@@ -53,7 +53,7 @@ final class SpontaneousRequestViewModel {
             details: details.isEmpty ? nil : details,
             proposedTime: Date().addingTimeInterval(TimeInterval(expiresInMinutes * 60))
         )
-        
+
         do {
             try await requestService.createRequest(request)
             isLoading = false

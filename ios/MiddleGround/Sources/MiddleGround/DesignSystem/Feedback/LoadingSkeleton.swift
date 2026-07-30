@@ -6,11 +6,11 @@ struct LoadingSkeleton: View {
         case calendar
         case gamification
     }
-    
+
     let type: SkeletonType
     @State private var isAnimating = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    
+
     var body: some View {
         VStack(spacing: 16) {
             switch type {
@@ -30,57 +30,57 @@ struct LoadingSkeleton: View {
             }
         }
     }
-    
+
     private var listSkeleton: some View {
         VStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(placeholderColor)
                 .frame(height: 120)
-            
+
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(placeholderColor)
                 .frame(height: 120)
-            
+
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(placeholderColor)
                 .frame(height: 120)
         }
     }
-    
+
     private var calendarSkeleton: some View {
         VStack(spacing: 20) {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(placeholderColor)
                 .frame(height: 320)
-            
+
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(placeholderColor)
                 .frame(height: 140)
         }
     }
-    
+
     private var gamificationSkeleton: some View {
         VStack(spacing: 20) {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(placeholderColor)
                 .frame(height: 180)
-            
+
             HStack(spacing: 12) {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(placeholderColor)
                     .frame(height: 120)
-                
+
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(placeholderColor)
                     .frame(height: 120)
             }
-            
+
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(placeholderColor)
                 .frame(height: 200)
         }
     }
-    
+
     private var placeholderColor: some ShapeStyle {
         reduceMotion
             ? MGColors.warm100

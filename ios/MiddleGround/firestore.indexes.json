@@ -1,0 +1,31 @@
+{
+  "indexes": [
+    {
+      "_comment": "FirestoreRequestRepository queries requests with an OR filter (creatorID == uid OR recipientIDs contains uid) ordered by updatedAt. Firestore executes a disjunction as separate index scans, so each branch needs its own composite index.",
+      "collectionGroup": "requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "creatorID", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "recipientIDs", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "_comment": "FirestoreRelationshipRepository.fetchRelationships filters by membership and orders by createdAt.",
+      "collectionGroup": "relationships",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participantIDs", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

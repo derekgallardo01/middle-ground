@@ -17,7 +17,7 @@ final class RequestEntity {
     var createdAt: Date
     var updatedAt: Date
     var needsSync: Bool
-    
+
     init(from request: Request) {
         self.id = request.id
         self.creatorID = request.creatorID
@@ -34,7 +34,7 @@ final class RequestEntity {
         self.needsSync = false
         self.negotiationChainData = try? JSONEncoder().encode(request.negotiationChain)
     }
-    
+
     func update(from request: Request) {
         self.creatorID = request.creatorID
         self.recipientIDs = request.recipientIDs
@@ -49,20 +49,20 @@ final class RequestEntity {
         self.updatedAt = request.updatedAt
         self.negotiationChainData = try? JSONEncoder().encode(request.negotiationChain)
     }
-    
+
     func toModel() -> Request? {
         guard let category = RequestCategory(rawValue: categoryRaw),
               let status = RequestStatus(rawValue: statusRaw) else {
             return nil
         }
-        
+
         let negotiationChain: [NegotiationMessage]
         if let data = negotiationChainData {
             negotiationChain = (try? JSONDecoder().decode([NegotiationMessage].self, from: data)) ?? []
         } else {
             negotiationChain = []
         }
-        
+
         return Request(
             id: id,
             creatorID: creatorID,

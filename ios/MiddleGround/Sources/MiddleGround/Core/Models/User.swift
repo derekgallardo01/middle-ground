@@ -5,7 +5,7 @@ struct User: Identifiable, Hashable, Codable {
     var name: String
     var avatarURL: URL?
     var createdAt: Date
-    
+
     init(id: String, name: String, avatarURL: URL? = nil, createdAt: Date = Date()) {
         self.id = id
         self.name = name

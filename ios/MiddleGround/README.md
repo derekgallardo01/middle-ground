@@ -19,14 +19,15 @@ Sources/MiddleGround/
 ├── Core/             // Models, repositories, services, utilities
 │   ├── Repositories/
 │   │   ├── Firestore/    // Firebase-backed implementations
-│   │   ├── Cached/       // SwiftData cache wrappers
-│   │   └── Mock/         // In-memory implementations for previews/tests
+│   │   └── Cached/       // SwiftData cache wrappers
+│   │                     // (mock implementations live at the bottom of each protocol file)
 │   └── Storage/          // SwiftData entities + LocalStore
 ├── DesignSystem/     // Colors, typography, buttons, cards, animations
 └── Features/         // Onboarding, Home, Requests, Calendar, etc.
 
-AppTarget/
-└── MiddleGroundApp.swift   // Sample @main app entry point
+App/
+├── project.yml             // XcodeGen spec (Info.plist + entitlement keys live here)
+└── MiddleGroundApp.swift   // @main app entry point
 
 CloudFunctions/
 ├── index.js                // Firebase Cloud Functions for push notifications
@@ -41,33 +42,72 @@ CloudFunctions/
 2. Add an iOS app and download `GoogleService-Info.plist`.
 3. Add `GoogleService-Info.plist` to your app target (not the package).
 4. Enable Firestore, Authentication, and Cloud Messaging in Firebase Console.
-5. Add Firestore composite index for the requests query:
-   - Collection: `requests`
-   - Fields:
-     - `creatorID` Ascending
-     - `recipientIDs` Array
-     - `updatedAt` Descending
-   - Or just run the app once and click the link in the Xcode console error.
+5. Deploy Firestore rules and indexes (both are committed at the package root):
+   ```bash
+   firebase deploy --only firestore:rules,firestore:indexes
+   ```
+   The requests query is an OR filter (`creatorID == uid` OR `recipientIDs` contains `uid`),
+   which Firestore runs as separate index scans — so it needs **two** composite indexes, not
+   one three-field index. Both are declared in `firestore.indexes.json`.
 
-### 2. Xcode Project
+### 2. App target
 
-**Option A: Swift Package Manager (recommended)**
+The app target is generated from `project.yml` with [XcodeGen](https://github.com/yonaskolb/XcodeGen),
+so it is reproducible from source rather than assembled by hand:
 
-1. Open `ios/MiddleGround` in Xcode 15+.
-2. Create a new iOS App target in the same workspace (or add this package to an existing app).
-3. Add `MiddleGround` as a local package dependency.
-4. Copy `AppTarget/MiddleGroundApp.swift` into your app target as the `@main` entry point.
-5. Add your `GoogleService-Info.plist` to the app target.
-6. Build and run on iOS 17+ simulator or device.
+```bash
+brew install xcodegen
+cd ios/MiddleGround/App
+xcodegen generate
+open MiddleGround.xcodeproj
+```
 
-**Option B: Direct Xcode Project**
+The project is generated inside `App/` on purpose: an `.xcodeproj` sitting next to
+`Package.swift` shadows the package's own scheme and breaks `xcodebuild ... test`.
 
-1. Create a new iOS App project in Xcode.
-2. Drag `Sources/MiddleGround` into the project.
-3. Add the Factory and Firebase packages via Swift Package Manager.
-4. Copy `AppTarget/MiddleGroundApp.swift` into the app target.
-5. Add `GoogleService-Info.plist`.
-6. Build and run.
+Then:
+
+1. Set `DEVELOPMENT_TEAM` in `project.yml` (or pick your team in Xcode's Signing pane) —
+   Sign in with Apple and push notifications both require a real team.
+2. Drop your `GoogleService-Info.plist` into the app target.
+3. Build and run on an iOS 17+ simulator or device.
+
+`App/` contains everything else the target needs:
+
+| File | Purpose |
+|------|---------|
+| `project.yml` | XcodeGen spec — **the source of truth**, including all Info.plist and entitlement keys |
+| `MiddleGroundApp.swift` | `@main` entry point |
+
+`Info.plist` (with `UIBackgroundModes: remote-notification`) and `MiddleGround.entitlements`
+(`com.apple.developer.applesignin`, `aps-environment`) are **generated from `project.yml`** on
+every run, along with the `.xcodeproj`. All three are gitignored — edit `project.yml`, since
+anything hand-written into the generated files is silently overwritten.
+
+### Running the tests
+
+The package targets iOS, so tests run against a simulator (`swift test` builds for the
+host and cannot import UIKit):
+
+```bash
+cd ios/MiddleGround
+xcodebuild -scheme MiddleGround -destination 'platform=iOS Simulator,name=iPhone 17' test
+```
+
+Linting (`swiftlint lint --strict` from the repo root) and the Firestore rules tests both run
+in CI; see `.github/workflows/ci.yml`.
+
+### Testing the security rules
+
+`firestore.rules` is covered by emulator tests — the privacy model is easy to get subtly
+wrong and impossible to verify by reading:
+
+```bash
+cd CloudFunctions && npm install && cd ..
+npx firebase-tools emulators:exec --only firestore "cd CloudFunctions && npm test"
+```
+
+Requires a Java runtime for the Firestore emulator.
 
 ## Offline-First Sync
 
@@ -76,7 +116,7 @@ The app uses a two-tier data layer:
 1. **Local:** SwiftData entities (`RequestEntity`, `UserEntity`, `RelationshipEntity`) stored on device.
 2. **Remote:** Firestore-backed repositories that stream live updates.
 
-`Cached*Repository` classes merge remote data into SwiftData and return local data first, so the UI is never blocked by network latency. When the user creates or updates a request, the change is written locally first, pushed to Firestore, then marked as synced.
+`Cached*Repository` classes merge remote data into SwiftData before returning, and fall back to the local cache when the network is unavailable. Live updates arrive through `observeRequests`, which `HomeView` subscribes to in its `.task`. When the user creates or updates a request, the change is written locally first, pushed to Firestore, then marked as synced.
 
 ## Mock Mode
 
@@ -86,7 +126,9 @@ For UI previews and unit tests without Firebase configured, set:
 AppConfiguration.useMockRepositories = true
 ```
 
-All previews and tests in this package already do this. The app target uses Firestore by default once `FirebaseApp.configure()` runs.
+This swaps in in-memory repositories *and* a `PreviewAuthService`, so no Firebase project is
+required — previews and tests run standalone. The app target uses Firestore by default once
+`FirebaseApp.configure()` runs.
 
 ## Push Notifications
 

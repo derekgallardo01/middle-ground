@@ -27,15 +27,15 @@ Update the iOS app to write the user's FCM token to this document on app launch.
    firebase login
    ```
 
-2. Initialize functions in your Firebase project (or use the existing `firebase.json`):
+2. `firebase.json` is committed at the package root and already points at this directory,
+   so there is no need to run `firebase init functions`. Just select your project:
    ```bash
-   firebase init functions
+   firebase use --add
    ```
 
 3. Install dependencies and deploy:
    ```bash
-   cd CloudFunctions
-   npm install
+   cd CloudFunctions && npm install && cd ..
    firebase deploy --only functions
    ```
 

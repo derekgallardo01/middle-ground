@@ -6,26 +6,27 @@ import Factory
 final class RequestDetailViewModel {
     private let requestService = Container.shared.requestService()
     private let authService = Container.shared.authService()
-    
+    private let gamificationService = Container.shared.gamificationService()
+
     var request: Request
     var currentUser: User?
     var counterText: String = ""
     var isSending = false
     var errorMessage: String?
-    
+
     init(request: Request) {
         self.request = request
         Task { await loadCurrentUser() }
     }
-    
+
     func loadCurrentUser() async {
         currentUser = await authService.currentUser()
     }
-    
+
     var isCounterEmpty: Bool {
         counterText.trimmingCharacters(in: .whitespaces).isEmpty
     }
-    
+
     func respond(with response: ResponseType, text: String? = nil) async {
         guard let currentUser else {
             errorMessage = "Not signed in."
@@ -34,8 +35,10 @@ final class RequestDetailViewModel {
         isSending = true
         errorMessage = nil
         do {
+            let previous = request
             request = try await requestService.respond(to: request, with: response, text: text, by: currentUser.id)
             counterText = ""
+            await gamificationService.recordResponse(response, to: previous, for: currentUser.id)
             Haptics.shared.notification(.success)
         } catch {
             errorMessage = "Failed to send response."
@@ -43,12 +46,12 @@ final class RequestDetailViewModel {
         }
         isSending = false
     }
-    
+
     func sendCounter() async {
         guard !isCounterEmpty else { return }
         await respond(with: .counter, text: counterText)
     }
-    
+
     func saveForLater() async {
         await respond(with: .save)
     }

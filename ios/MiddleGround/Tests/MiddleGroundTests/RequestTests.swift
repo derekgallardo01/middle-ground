@@ -9,19 +9,19 @@ final class RequestTests: XCTestCase {
             category: .relationship,
             title: "Date night?"
         )
-        
+
         XCTAssertEqual(request.status, .pending)
-        
+
         let message = NegotiationMessage(
             senderID: "user_2",
             responseType: .accept
         )
         request.addResponse(message)
-        
+
         XCTAssertEqual(request.status, .accepted)
         XCTAssertEqual(request.negotiationChain.count, 1)
     }
-    
+
     func testCounterResponseMapsToCounteredStatus() async {
         var request = Request(
             creatorID: "user_1",
@@ -29,24 +29,24 @@ final class RequestTests: XCTestCase {
             category: .friends,
             title: "Dinner tonight?"
         )
-        
+
         let message = NegotiationMessage(
             senderID: "user_2",
             responseType: .counter,
             text: "How about 8pm?"
         )
         request.addResponse(message)
-        
+
         XCTAssertEqual(request.status, .countered)
         XCTAssertEqual(request.negotiationChain.first?.text, "How about 8pm?")
     }
-    
+
     func testRequestStatusDisplayName() {
         XCTAssertEqual(RequestStatus.pending.displayName, "Pending")
         XCTAssertEqual(RequestStatus.accepted.displayName, "Accepted")
         XCTAssertEqual(RequestStatus.declined.displayName, "Declined")
     }
-    
+
     func testRequestStatusColor() {
         XCTAssertEqual(RequestStatus.accepted.color, MGColors.teal)
         XCTAssertEqual(RequestStatus.declined.color, MGColors.coral)

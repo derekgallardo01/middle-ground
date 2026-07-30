@@ -23,6 +23,7 @@ final class AdminViewModel {
         case overview = "Overview"
         case users = "Users"
         case requests = "Requests"
+        case reports = "Reports"
         case events = "Events"
         case audit = "Audit"
 
@@ -42,6 +43,7 @@ final class AdminViewModel {
     var requests: [Request] = []
     var events: [AnalyticsEvent] = []
     var auditEntries: [AdminAuditEntry] = []
+    var reports: [ContentReport] = []
     var statsByUser: [String: GamificationStats] = [:]
 
     // Detail
@@ -79,6 +81,8 @@ final class AdminViewModel {
                 statsByUser = (try? await gamificationRepository.allStats(limit: 200)) ?? [:]
             case .requests:
                 requests = try await adminRepository.allRequests(limit: 200)
+            case .reports:
+                reports = try await eventRepository.recentReports(limit: 200)
             case .events:
                 events = try await eventRepository.recentEvents(limit: 200)
             case .audit:

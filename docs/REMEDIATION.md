@@ -456,25 +456,93 @@ original launch crash. All three new repositories now resolve the handle lazily.
 
 ---
 
+## Round 6 — ship readiness
+
+A sweep for what stood between the app and an App Store submission, rather than between it and
+compiling. Every claim below was verified against source before being acted on.
+
+### Rejection risks that were real
+
+1. **`ProfileView` never rendered `errorMessage`.** The view model set it for create-group,
+   join-group, sign-out and delete-account; the view had one alert, for delete confirmation, and
+   no binding to it. A wrong invite code stopped the spinner and did nothing else — on the exact
+   flow App Review would be asked to use. Now bound with the same alert pattern as
+   `OnboardingView`.
+2. **No way to leave a group, report content, or block anyone.** `allow delete: if false` on
+   relationships and nothing calling `removeParticipant` meant the only escape from an abusive
+   partner was deleting your entire account — an App Review guideline 1.2 gap and an obvious
+   product hole. Added `RelationshipService.leave`, a `reports` collection with an in-app Report
+   action, and a Reports queue in the admin panel.
+3. **Invite codes were permanent and single-use.** `isRedeemingInvite` requires
+   `participantIDs.size() == 1`, so a code dies the moment it is redeemed — which would silently
+   break a rejection/resubmit cycle. Codes can now be regenerated from Profile, and
+   `Scripts/seed-review-data.mjs` mints several for the review notes.
+4. **Account deletion did not delete data.** `onUserDeleted` cannot run on the Spark plan, so
+   deletion removed the auth record and left every document. `AccountDataPurger` now performs
+   the erasure client-side before the auth account goes, with the function kept as the durable
+   backstop.
+5. **`aps-environment` was hardcoded to `development`** with a comment claiming Xcode rewrites it
+   for release — true only for Xcode-managed export. Split into per-configuration entitlements.
+6. **`PrivacyInfo.xcprivacy` omitted Email**, which `SignInWithAppleManager` requests and the
+   policy says is stored. Crash data added alongside it for Crashlytics.
+7. **A missing composite index made an admin feature silently dead.**
+   `events(forUser:)` needs `(userID, at DESC)`; `AdminViewModel` wraps the call in `try?`, so
+   the user-detail Activity section always reported "No events recorded" rather than erroring.
+
+### Two bugs introduced and caught here
+
+- **`didSet` clamping recursed infinitely under `@Observable`.** The macro rewrites a stored
+  property into a computed one, so assigning inside its own `didSet` re-enters the setter
+  instead of being suppressed as plain Swift would. The test process died with SIGSEGV — a
+  stack of `title.setter → _title.didset` repeated to overflow. Rewritten as computed
+  properties over private storage. This is worth remembering: `didSet` that reassigns itself is
+  not safe on an `@Observable` type.
+- **XcodeGen's `entitlements:` block silently overrode per-configuration
+  `CODE_SIGN_ENTITLEMENTS`**, so the first attempt at the fix above pointed *both* Debug and
+  Release at the development file — the exact bug the split existed to prevent. The block was
+  removed and both files are now committed and hand-maintained.
+
+### Verified
+
+- 65 unit tests (was 45 discoverable before this round), `swiftlint --strict` clean across 94
+  files, Release configuration compiled for the first time.
+- **64/64 Firestore rules tests pass against the emulator.** These had never been executed
+  locally — a JDK was missing, and `npm test` (`node --test test/`) additionally died with
+  MODULE_NOT_FOUND on Node 26, which resolves a bare directory as a module path. Both fixed.
+- Legal pages live: `/privacy`, `/terms`, `/support` each return 200 with distinct real titles,
+  and a nonsense path returns 404 — the previous host answered every path with the same
+  "Coming Soon" placeholder.
+- Rules and indexes deployed, including the two indexes the code needed and the project did not
+  have.
+
+### One thing that could not be deployed
+
+A TTL policy on `events.at` requires Blaze; the `fieldOverride` returns HTTP 403 and fails the
+entire `firebase deploy --only firestore`. It has been removed from `firestore.indexes.json`
+with a comment explaining how to restore it. The published privacy policy briefly claimed 90-day
+automatic expiry — that sentence was corrected before it could be untrue in production.
+
+---
+
 ## Still outstanding
 
-1. **Privacy Policy content.** The link resolves to `middleground.app/privacy`; that page must
-   exist before App Store submission.
-2. **Sign in with Apple is unexercised.** Simulators have no Apple ID (`AuthorizationError
+1. **Sign in with Apple is unexercised.** Simulators have no Apple ID (`AuthorizationError
    1000`), so the real SIWA path — and `revokeToken` during account deletion — needs one run on
-   a physical device. The DEBUG email/password test accounts are a harness only and compile out
-   of release builds.
-3. **Push notifications unexercised.** Cloud Functions need the Blaze plan to deploy, and APNs
-   needs a key uploaded to Firebase. `onUserDeleted` (the account-deletion purge) is therefore
-   also undeployed — deletion currently removes the auth record and the client-side data only.
-4. **Rules emulator tests unexecuted locally** — needs a Java runtime; they run in CI.
-3. **No localization** — ~120 hardcoded English strings, zero `LocalizedStringKey`.
-4. **Brand assets not shipped** — no `.xcassets`, no app icon, no Poppins/Inter font files. The
-   type scale still uses the system rounded face, and the "two figures with a coral heart" logo
-   still does not appear in the app (splash uses `Image(systemName: "heart.fill")`).
-5. **Design tokens only partially adopted.** `MGSpacing`/`MGRadius` exist but call sites still
-   inline most padding and corner radii; only the shadow and one motion token were migrated.
-6. **`CelebrationView` particles** still spawn from a hardcoded `CGPoint(x: 200, y: 300)` with
-   no stagger, so the origin is wrong on any device that isn't ~400pt wide.
-7. **Spontaneous-request expiry is still decorative** — stored in `proposedTime`, and nothing
-   expires anything.
+   a physical device. It is the only sign-in method Release ships, and no test can cover it.
+2. **Push notifications unexercised.** Cloud Functions need the Blaze plan to deploy, and APNs
+   needs a key uploaded to Firebase. Account deletion no longer depends on them; delivery does.
+3. **App Check enforcement is off.** The provider is wired, but App Attest cannot be exercised
+   on a simulator and enabling enforcement unverified would lock every client out of Firestore.
+4. **No App Store Connect record yet** — the API is read-only for app creation, so it has to be
+   made in the web UI.
+5. **No localization** — ~120 hardcoded English strings, zero `LocalizedStringKey`.
+6. **`SWIFT_STRICT_CONCURRENCY: complete` is effectively a no-op.** It is set at project level,
+   which reaches only the 12-line app shell; all 79 sources are in the SPM package, which
+   declares no `swiftSettings`.
+7. **Design tokens only partially adopted.** `MGSpacing`/`MGRadius` exist but call sites still
+   inline most padding and corner radii.
+8. **Spontaneous-request expiry is still decorative** — stored in `proposedTime`, and nothing
+   expires anything, so a request set to "expire in 30 minutes" appears in Calendar as an event
+   30 minutes from now.
+9. **`needsSync` is written but never read.** No reconciliation on reconnect, no backoff, no
+   retry — the field implies a sync engine that does not exist.

@@ -56,6 +56,53 @@ actor FirestoreRelationshipRepository: RelationshipRepository {
         ])
     }
 
+    func removeParticipant(_ userID: String, from relationshipID: String) async throws {
+        // arrayRemove is the mirror of addParticipant: `isLeaving` in firestore.rules checks
+        // `participantIDs == old.removeAll([uid()])`, and every other field stays byte-identical
+        // so the immutability guards hold.
+        try await db.collection(collection).document(relationshipID).updateData([
+            "participantIDs": FieldValue.arrayRemove([userID])
+        ])
+    }
+
+    func rotateInviteCode(
+        to newCode: String,
+        from oldCode: String?,
+        relationshipID: String,
+        ownerID: String
+    ) async throws {
+        let batch = db.batch()
+
+        // Only `inviteCode` moves. A full DTO write would change `createdAt` (Timestamp →
+        // Date loses nanoseconds) and be refused by the rules.
+        batch.updateData(
+            ["inviteCode": newCode],
+            forDocument: db.collection(collection).document(relationshipID)
+        )
+
+        batch.setData(
+            [
+                "relationshipID": relationshipID,
+                "ownerID": ownerID,
+                "createdAt": Timestamp(date: Date())
+            ],
+            forDocument: db.collection(Self.inviteCollection).document(newCode),
+            merge: true
+        )
+
+        // Retiring the old document is the point: without it the previous code keeps working
+        // forever, and a code shared with someone you have since removed still lets them in.
+        if let oldCode, oldCode != newCode {
+            batch.deleteDocument(db.collection(Self.inviteCollection).document(oldCode))
+        }
+
+        try await batch.commit()
+    }
+
+    func revokeInvite(code: String) async throws {
+        try await db.collection(Self.inviteCollection).document(code).delete()
+    }
+
     func invite(forCode code: String) async throws -> RelationshipInvite? {
         let normalized = Relationship.normalizeInviteCode(code)
         guard !normalized.isEmpty else { return nil }

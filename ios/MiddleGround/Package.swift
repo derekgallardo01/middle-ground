@@ -19,7 +19,15 @@ let package = Package(
                 .product(name: "FirebaseAuth", package: "firebase-ios-sdk"),
                 // FirebaseFirestoreSwift was merged into FirebaseFirestore in Firebase 11.
                 .product(name: "FirebaseFirestore", package: "firebase-ios-sdk"),
-                .product(name: "FirebaseMessaging", package: "firebase-ios-sdk")
+                .product(name: "FirebaseMessaging", package: "firebase-ios-sdk"),
+                // App Attest. The API key in GoogleService-Info is public by design, so
+                // without App Check any client holding it plus a valid token talks straight
+                // to Firestore — which matters most for `invites`, a 6-character space that
+                // `allow get: if signedIn()` lets anyone probe with no rate limit.
+                .product(name: "FirebaseAppCheck", package: "firebase-ios-sdk"),
+                // Crash reporting. There was none: MGLog writes to the device's unified log,
+                // which is only readable with the device attached to a Mac.
+                .product(name: "FirebaseCrashlytics", package: "firebase-ios-sdk")
             ],
             path: "Sources/MiddleGround"
         ),

@@ -35,10 +35,18 @@ enum AppConfiguration {
 
     // MARK: - Legal & support destinations
     //
-    // A reachable Privacy Policy is required for App Store review. These point at the
-    // marketing site; update the host before submitting.
+    // A reachable Privacy Policy, Terms and Support page are required for App Store review,
+    // and these links are also surfaced in-app from Profile → About.
+    //
+    // These pointed at middleground.app, where every path — including nonsense ones — served
+    // the same "Coming Soon" placeholder, so all three links were effectively dead. The pages
+    // in `docs/legal/` are now published to Firebase Hosting, which needs no billing and no
+    // DNS (see the `hosting` block in firebase.json).
+    //
+    // To move to middleground.app later: add it as a custom domain in the Firebase console,
+    // then change this one constant. Nothing else refers to the host.
 
-    private static let webRoot = URL(string: "https://middleground.app")!
+    private static let webRoot = URL(string: "https://middle-ground-8fd13.web.app")!
 
     static let privacyPolicyURL = webRoot.appending(path: "privacy")
     static let termsURL = webRoot.appending(path: "terms")

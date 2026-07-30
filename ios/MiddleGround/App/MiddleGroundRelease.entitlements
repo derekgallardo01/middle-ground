@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Release entitlements. Committed by hand, NOT generated.
+
+	  XcodeGen emits one entitlements file per target (see `entitlements:` in project.yml),
+	  and rewrites it on every run — so the Release variant cannot live there. project.yml
+	  points CODE_SIGN_ENTITLEMENTS at this file for the Release configuration only.
+
+	  The difference that matters is `aps-environment`. Xcode only rewrites it to
+	  `production` when it manages the distribution export itself; an `xcodebuild
+	  -exportArchive` with an exportOptions.plist ships whatever the file says. A
+	  development entitlement uploads without complaint and then push simply never arrives
+	  in production, with nothing anywhere to explain why.
+
+	  Keep this in step with the generated MiddleGround.entitlements — any capability added
+	  there has to be added here too, or it will work in Debug and vanish in Release.
+	-->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+	<key>aps-environment</key>
+	<string>production</string>
+</dict>
+</plist>

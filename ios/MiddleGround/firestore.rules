@@ -61,11 +61,42 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/invites/$(resource.data.inviteCode)).data.relationshipID == relationshipId;
     }
 
+    // A member may remove *only themselves* — the escape hatch from a group, and the
+    // "block an abusive user" half of App Review guideline 1.2. Removing anybody else, or
+    // touching any other field, is refused.
+    function isLeaving() {
+      return isParticipant(resource.data)
+        && request.resource.data.participantIDs == resource.data.participantIDs.removeAll([uid()])
+        && immutable('inviteCode')
+        && immutable('type')
+        && immutable('createdAt');
+    }
+
+    // The first participant owns the group and may rotate its shareable code. Codes used to
+    // be permanent, so anyone who ever saw one kept indefinite access.
+    function isRotatingCode() {
+      return signedIn()
+        && resource.data.participantIDs[0] == uid()
+        && request.resource.data.participantIDs == resource.data.participantIDs
+        && immutable('type')
+        && immutable('createdAt');
+    }
+
     match /relationships/{relationshipId} {
       allow get, list: if isParticipant(resource.data) || isAdmin();
       allow create: if signedIn()
                     && request.resource.data.participantIDs == [uid()];
-      allow update: if isParticipant(resource.data) || isRedeemingInvite(relationshipId);
+      // Narrowed from a blanket `isParticipant` update. That let either member rewrite
+      // `inviteCode`, `type` and `createdAt` freely, and — worse — evict the *other* person
+      // from the group. Every legitimate write is one of these four shapes.
+      allow update: if isRedeemingInvite(relationshipId)
+                    || isLeaving()
+                    || isRotatingCode()
+                    || (isParticipant(resource.data)
+                        && request.resource.data.participantIDs == resource.data.participantIDs
+                        && immutable('inviteCode')
+                        && immutable('type')
+                        && immutable('createdAt'));
       allow delete: if false;
     }
 
@@ -113,13 +144,20 @@ service cloud.firestore {
     }
 
     // --------------------------------------------------------------- events
-    // Product-usage events. A user may only ever write events attributed to themselves, and
-    // cannot read any — including their own — so the log cannot be mined from a client.
+    // Product-usage events. A user may write, read and delete events attributed to
+    // themselves, and nobody else's — so the log still cannot be mined from a client.
     // Disclosed in the Privacy Policy.
+    //
+    // Self-read and self-delete exist so account deletion can erase this collection from the
+    // client (Guideline 5.1.1(v)) while Cloud Functions are undeployed: without `list` the
+    // app cannot discover its own document IDs to remove them. It also happens to be the
+    // right answer for a GDPR access or erasure request.
     match /events/{eventId} {
-      allow read: if isAdmin();
+      allow get, list: if isAdmin() || (signedIn() && resource.data.userID == uid());
       allow create: if signedIn() && request.resource.data.userID == uid();
-      allow update, delete: if false;
+      // Still no updates: an event log you can rewrite is not an event log.
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.userID == uid();
     }
 
     // ---------------------------------------------------------- gamification
@@ -128,6 +166,18 @@ service cloud.firestore {
       allow read: if (signedIn() && uid() == userId) || isAdmin();
       allow create, update: if signedIn() && uid() == userId;
       allow delete: if signedIn() && uid() == userId;
+    }
+
+    // -------------------------------------------------------------- reports
+    // Abuse reports (App Review guideline 1.2). A user files one against content they can
+    // see; only an admin can read them. Write-only from the reporter's side on purpose —
+    // being able to list reports would expose who reported whom.
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if signedIn()
+                    && request.resource.data.reporterID == uid()
+                    && request.resource.data.reportedUserID != uid();
+      allow update, delete: if false;
     }
 
     // ----------------------------------------------------------- admin_audit

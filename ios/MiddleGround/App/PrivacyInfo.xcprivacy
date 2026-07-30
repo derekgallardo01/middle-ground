@@ -44,6 +44,24 @@
 			</array>
 		</dict>
 
+		<!-- Email address from Sign in with Apple (SignInWithAppleManager requests .email),
+		     held by Firebase Authentication. May be an Apple private relay address if the
+		     user chose to hide theirs. Declared here because the privacy policy says we
+		     store it — the manifest, the policy and the App Store nutrition label have to
+		     agree, and this was the one that did not. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeEmailAddress</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
 		<!-- Firebase Auth UID, used to scope every document the user can read or write. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
@@ -89,7 +107,24 @@
 			</array>
 		</dict>
 
-		<!-- Request titles, notes and negotiation messages the user writes. -->
+		<!-- Crashlytics: stack trace, device model, OS and app version at the time of a
+		     crash. Firebase ships its own manifest for the SDK; this declares that the app
+		     has opted into collecting it. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCrashData</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
+		<!-- Request titles, notes and negotiation messages the user writes. Also covers the
+		     optional free-text note on an abuse report. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>

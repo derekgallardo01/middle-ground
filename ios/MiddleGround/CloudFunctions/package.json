@@ -6,7 +6,8 @@
   },
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/",
+    "_comment_test": "Explicit glob rather than `node --test test/`: Node 26 resolves a bare directory as a module path and dies with MODULE_NOT_FOUND. The glob works on 20 and 26 alike.",
+    "test": "node --test \"test/*.test.js\"",
     "test:rules": "cd .. && firebase emulators:exec --only firestore \"cd CloudFunctions && npm test\""
   },
   "dependencies": {

@@ -23,7 +23,10 @@ options:
 settings:
   base:
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "1"
+    # App Store Connect rejects a re-upload that reuses a build number, so a literal "1"
+    # means the first resubmission after a rejection fails at upload. Override per archive:
+    #   xcodebuild ... MG_BUILD_NUMBER=$(date -u +%Y%m%d%H%M) archive
+    CURRENT_PROJECT_VERSION: "$(MG_BUILD_NUMBER:default=1)"
     SWIFT_VERSION: "5.10"
     DEVELOPMENT_LANGUAGE: en
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -45,6 +48,7 @@ targets:
           - project.yml
           - Info.plist
           - MiddleGround.entitlements
+          - MiddleGroundRelease.entitlements
           # Generated into this same directory — without this it is copied into the bundle.
           - MiddleGround.xcodeproj
           # Belongs to the UI test target; compiling it into the app fails on `import XCTest`.
@@ -60,12 +64,26 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.middleground.MiddleGround
         PRODUCT_NAME: Middle Ground
         INFOPLIST_FILE: Info.plist
-        CODE_SIGN_ENTITLEMENTS: MiddleGround.entitlements
         # Sign in with Apple and push both require a real team; set yours here or in Xcode.
         DEVELOPMENT_TEAM: 9U3ZSABZG7
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        ENABLE_PREVIEWS: YES
+      configs:
+        Debug:
+          CODE_SIGN_ENTITLEMENTS: MiddleGround.entitlements
+          ENABLE_PREVIEWS: YES
+        Release:
+          # A *separate*, hand-maintained file whose `aps-environment` is `production`.
+          #
+          # The old comment claimed "Xcode rewrites this to production for release builds",
+          # which only holds for Xcode-managed distribution export. Any `xcodebuild
+          # -exportArchive` driven by an exportOptions.plist ships whatever is in the file —
+          # so a development entitlement would upload happily and push would be silently
+          # dead in production, with no error anywhere to explain it.
+          CODE_SIGN_ENTITLEMENTS: MiddleGroundRelease.entitlements
+          # Previews compile the ten `#Preview` bodies — each of which flips
+          # `AppConfiguration.useMockRepositories` — into the shipping binary.
+          ENABLE_PREVIEWS: NO
     # XcodeGen *generates* these files from the spec on every run, so the keys must live
     # here — anything hand-edited into AppTarget/Info.plist would be silently clobbered.
     info:
@@ -96,14 +114,16 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
 
-    entitlements:
-      path: MiddleGround.entitlements
-      properties:
-        # Required by SignInWithAppleManager / AuthService.signInWithApple.
-        com.apple.developer.applesignin:
-          - Default
-        # Required for push. Xcode rewrites this to "production" for release builds.
-        aps-environment: development
+    # NOTE: there is deliberately no `entitlements:` block.
+    #
+    # XcodeGen writes exactly one entitlements file per target and sets
+    # CODE_SIGN_ENTITLEMENTS at the *base* level, which silently overrides the per-config
+    # values above — both Debug and Release ended up pointing at the development file, which
+    # is precisely the bug this split exists to prevent. Both files are therefore committed
+    # and hand-maintained; `configs:` above is the only thing that selects between them.
+    #
+    # Adding a capability means editing BOTH MiddleGround.entitlements and
+    # MiddleGroundRelease.entitlements, or it will work in Debug and vanish in Release.
 
   # Drives the app on a simulator so flows are verified by running, not just compiling.
   # The package's unit tests cover logic; this covers the things only a launch can prove.

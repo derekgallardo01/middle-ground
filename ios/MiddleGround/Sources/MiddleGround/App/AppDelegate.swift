@@ -1,5 +1,7 @@
 import UIKit
+import FirebaseAppCheck
 import FirebaseCore
+import FirebaseCrashlytics
 import FirebaseMessaging
 import UserNotifications
 
@@ -23,6 +25,10 @@ public final class AppDelegate: NSObject, UIApplicationDelegate {
             return true
         }
 
+        // App Check must be installed BEFORE configure() — the provider factory is read
+        // during configuration, and setting it afterwards silently has no effect.
+        AppCheck.setAppCheckProviderFactory(MGAppCheckProviderFactory())
+
         FirebaseApp.configure()
         // Only now is it safe to touch anything Firebase-backed.
         NotificationService.shared.start()
@@ -33,6 +39,27 @@ public final class AppDelegate: NSObject, UIApplicationDelegate {
         // Re-register for remote notifications only if the user already granted it.
         Task { await NotificationService.shared.registerIfAlreadyAuthorized() }
         return true
+    }
+}
+
+/// Chooses an App Check attestation provider.
+///
+/// App Attest is hardware-backed and only exists on a real device; the simulator has no
+/// attestation key, so a debug provider is used there. The debug token it prints has to be
+/// registered in the Firebase console before it is accepted.
+///
+/// IMPORTANT: enforcement is currently OFF in the Firebase console, so an unattested request
+/// is still served. Turning it on before App Attest has been proven on physical hardware
+/// would lock every real client out of Firestore with no way to recover from the client side.
+/// Verify via TestFlight on a device first, then enable enforcement.
+final class MGAppCheckProviderFactory: NSObject, AppCheckProviderFactory {
+    func createProvider(with app: FirebaseApp) -> AppCheckProvider? {
+        #if targetEnvironment(simulator)
+        return AppCheckDebugProvider(app: app)
+        #else
+        // App Attest needs iOS 14+; the deployment target is 17.
+        return AppAttestProvider(app: app)
+        #endif
     }
 
     public func application(

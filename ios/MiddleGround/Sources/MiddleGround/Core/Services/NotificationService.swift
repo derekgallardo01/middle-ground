@@ -99,6 +99,19 @@ extension NotificationService {
         await Self.persist(token: token)
     }
 
+    /// Clears the app-icon badge.
+    ///
+    /// Cloud Functions set the badge to the recipient's real pending count, and nothing in the
+    /// app ever reset it — so once a push arrived the icon carried a number indefinitely, even
+    /// after every request had been answered. Called when the app becomes active.
+    func clearBadge() async {
+        do {
+            try await UNUserNotificationCenter.current().setBadgeCount(0)
+        } catch {
+            MGLog.notifications.error("Could not clear badge: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     /// Detach this device on sign-out so it stops receiving the previous account's pushes.
     func removeTokenForCurrentUser() async {
         guard AppConfiguration.isBackendEnabled,

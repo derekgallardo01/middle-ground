@@ -55,6 +55,7 @@ struct AdminView: View {
                     case .overview: overviewSection
                     case .users: usersSection
                     case .requests: requestsSection
+                    case .reports: reportsSection
                     case .events: eventsSection
                     case .audit: auditSection
                     }
@@ -185,6 +186,45 @@ struct AdminView: View {
                     AdminRequestRow(request: request)
                 }
                 .task { await viewModel.auditRequestView(request) }
+            }
+        }
+    }
+
+    // MARK: - Reports
+
+    /// Abuse reports. The queue that makes the in-app Report button mean something — App Review
+    /// guideline 1.2 asks for reports to be acted on, not merely collected.
+    private var reportsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Reported content. Newest first — review within 24 hours.")
+                .mgFont(.caption)
+                .foregroundStyle(MGColors.warm600)
+
+            if viewModel.reports.isEmpty {
+                emptyNote("Nothing reported.")
+            }
+            ForEach(viewModel.reports) { report in
+                adminCard {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Label(report.reason.displayName, systemImage: "flag.fill")
+                                .mgFont(.bodySmall)
+                                .foregroundStyle(MGColors.coral)
+                            Spacer()
+                            Text(report.at.formatted(date: .abbreviated, time: .shortened))
+                                .mgFont(.caption)
+                                .foregroundStyle(MGColors.warm600)
+                        }
+                        if let note = report.note, !note.isEmpty {
+                            Text(note)
+                                .mgFont(.bodySmall)
+                                .foregroundStyle(MGColors.slate)
+                        }
+                        row("Reported user", report.reportedUserID)
+                        row("Reported by", report.reporterID)
+                        row("Request", report.requestID)
+                    }
+                }
             }
         }
     }

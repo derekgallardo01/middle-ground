@@ -202,6 +202,159 @@ describe('relationships and invite redemption', () => {
   });
 });
 
+describe('leaving a group', () => {
+  // The only escape from an abusive partner short of deleting your whole account, so the
+  // rule has to permit exactly one shape: removing yourself and nothing else.
+  beforeEach(() => seed(async (db) => {
+    await setDoc(doc(db, 'relationships/rel1'), relationship({ participantIDs: [ALICE, BOB] }));
+    await setDoc(doc(db, 'invites/MG24KT'), { relationshipID: 'rel1', ownerID: ALICE });
+  }));
+
+  test('a member can remove themselves', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'relationships/rel1'), { participantIDs: [ALICE] }),
+    );
+  });
+
+  test('the owner can also remove themselves', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asAlice(), 'relationships/rel1'), { participantIDs: [BOB] }),
+    );
+  });
+
+  test('a member cannot evict the other person', async () => {
+    await assertFails(
+      updateDoc(doc(asAlice(), 'relationships/rel1'), { participantIDs: [ALICE] }),
+    );
+    await assertFails(
+      updateDoc(doc(asBob(), 'relationships/rel1'), { participantIDs: [BOB] }),
+    );
+  });
+
+  test('a non-member cannot remove anyone', async () => {
+    await assertFails(
+      updateDoc(doc(asMallory(), 'relationships/rel1'), { participantIDs: [ALICE] }),
+    );
+  });
+
+  test('leaving cannot smuggle in a change to another field', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'relationships/rel1'), {
+        participantIDs: [ALICE],
+        type: 'coworkers',
+      }),
+    );
+  });
+
+  test('the owner can revoke their own invite code on the way out', async () => {
+    await assertSucceeds(deleteDoc(doc(asAlice(), 'invites/MG24KT')));
+  });
+
+  test('a non-owner cannot revoke the invite code', async () => {
+    await assertFails(deleteDoc(doc(asBob(), 'invites/MG24KT')));
+  });
+});
+
+describe('rotating an invite code', () => {
+  beforeEach(() => seed(async (db) => {
+    await setDoc(doc(db, 'relationships/rel1'), relationship());
+    await setDoc(doc(db, 'invites/MG24KT'), { relationshipID: 'rel1', ownerID: ALICE });
+  }));
+
+  test('the owner can change the code', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asAlice(), 'relationships/rel1'), { inviteCode: 'NEWXYZ' }),
+    );
+  });
+
+  test('a non-owner cannot change the code', async () => {
+    await seed((db) => setDoc(doc(db, 'relationships/rel1'), relationship({
+      participantIDs: [ALICE, BOB],
+    })));
+    await assertFails(
+      updateDoc(doc(asBob(), 'relationships/rel1'), { inviteCode: 'NEWXYZ' }),
+    );
+  });
+
+  test('rotating cannot change who is in the group', async () => {
+    await assertFails(
+      updateDoc(doc(asAlice(), 'relationships/rel1'), {
+        inviteCode: 'NEWXYZ',
+        participantIDs: [ALICE, MALLORY],
+      }),
+    );
+  });
+});
+
+describe('abuse reports', () => {
+  const report = (overrides = {}) => ({
+    reporterID: BOB,
+    requestID: 'r1',
+    reportedUserID: ALICE,
+    reason: 'harassment',
+    note: null,
+    at: new Date(),
+    ...overrides,
+  });
+
+  test('a user can file a report', async () => {
+    await assertSucceeds(setDoc(doc(asBob(), 'reports/rep1'), report()));
+  });
+
+  test('a report cannot be filed in someone else name', async () => {
+    await assertFails(
+      setDoc(doc(asMallory(), 'reports/rep2'), report({ reporterID: BOB })),
+    );
+  });
+
+  test('you cannot report yourself', async () => {
+    await assertFails(
+      setDoc(doc(asBob(), 'reports/rep3'), report({ reportedUserID: BOB })),
+    );
+  });
+
+  test('a reporter cannot read reports back', async () => {
+    // Deliberate: being able to list reports would expose who reported whom.
+    await seed((db) => setDoc(doc(db, 'reports/rep1'), report()));
+    await assertFails(getDoc(doc(asBob(), 'reports/rep1')));
+  });
+
+  test('reports cannot be edited or deleted', async () => {
+    await seed((db) => setDoc(doc(db, 'reports/rep1'), report()));
+    await assertFails(updateDoc(doc(asBob(), 'reports/rep1'), { reason: 'spam' }));
+    await assertFails(deleteDoc(doc(asBob(), 'reports/rep1')));
+  });
+});
+
+describe('events are self-readable and self-erasable', () => {
+  // Account deletion has to be able to erase these from the client while Cloud Functions
+  // are undeployed, which needs list access to discover the document IDs.
+  beforeEach(() => seed(async (db) => {
+    await setDoc(doc(db, 'events/e1'), { userID: BOB, type: 'app_opened', at: new Date() });
+    await setDoc(doc(db, 'events/e2'), { userID: ALICE, type: 'app_opened', at: new Date() });
+  }));
+
+  test('a user can read their own event', async () => {
+    await assertSucceeds(getDoc(doc(asBob(), 'events/e1')));
+  });
+
+  test('a user cannot read somebody else event', async () => {
+    await assertFails(getDoc(doc(asBob(), 'events/e2')));
+  });
+
+  test('a user can delete their own event', async () => {
+    await assertSucceeds(deleteDoc(doc(asBob(), 'events/e1')));
+  });
+
+  test('a user cannot delete somebody else event', async () => {
+    await assertFails(deleteDoc(doc(asBob(), 'events/e2')));
+  });
+
+  test('events still cannot be rewritten', async () => {
+    await assertFails(updateDoc(doc(asBob(), 'events/e1'), { type: 'signed_up' }));
+  });
+});
+
 describe('invites', () => {
   beforeEach(() => seed((db) => setDoc(doc(db, 'invites/MG24KT'), {
     relationshipID: 'rel1',

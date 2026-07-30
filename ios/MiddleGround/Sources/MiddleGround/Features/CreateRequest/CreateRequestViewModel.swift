@@ -23,8 +23,27 @@ final class CreateRequestViewModel {
     }
 
     var category: RequestCategory
-    var title: String
-    var details: String
+
+    // Clamped on assignment rather than checked at submit time, so the cap applies no matter
+    // which view binds to it and the user sees the limit as they type instead of losing a
+    // long paste at send.
+    //
+    // Written as a computed property over private storage, NOT `didSet`. Under @Observable the
+    // macro rewrites a stored property into a computed one backed by `_title`, so assigning
+    // inside its own `didSet` re-enters the setter instead of being suppressed the way plain
+    // Swift would — infinite recursion, and the test process dies with SIGSEGV.
+    private var titleStorage: String = ""
+    var title: String {
+        get { titleStorage }
+        set { titleStorage = RequestLimits.clamp(newValue, to: RequestLimits.title) }
+    }
+
+    private var detailsStorage: String = ""
+    var details: String {
+        get { detailsStorage }
+        set { detailsStorage = RequestLimits.clamp(newValue, to: RequestLimits.details) }
+    }
+
     var proposedTime: Date = Date()
     var includeTime: Bool = false
     var recipientID: String = ""
@@ -35,8 +54,8 @@ final class CreateRequestViewModel {
 
     init(category: RequestCategory = .relationship, title: String = "", details: String = "") {
         self.category = category
-        self.title = title
-        self.details = details
+        self.titleStorage = RequestLimits.clamp(title, to: RequestLimits.title)
+        self.detailsStorage = RequestLimits.clamp(details, to: RequestLimits.details)
     }
 
     var canSubmit: Bool {

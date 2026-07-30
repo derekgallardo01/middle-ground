@@ -21,17 +21,7 @@ exports.notifyNewRequest = functions.firestore
 
     const senderName = await getUserName(request.creatorID);
 
-    const tokens = [];
-    for (const userId of request.recipientIDs) {
-      const userTokens = await getUserTokens(userId);
-      tokens.push(...userTokens);
-    }
-
-    if (tokens.length === 0) {
-      return null;
-    }
-
-    const payload = {
+    return notifyUsers(request.recipientIDs, {
       notification: {
         title: `New request from ${senderName}`,
         body: request.title,
@@ -40,17 +30,7 @@ exports.notifyNewRequest = functions.firestore
         request_id: requestId,
         type: 'new_request',
       },
-      apns: {
-        payload: {
-          aps: {
-            sound: 'default',
-            badge: 1,
-          },
-        },
-      },
-    };
-
-    return sendToTokens(tokens, payload);
+    });
   });
 
 /**
@@ -75,20 +55,11 @@ exports.notifyRequestResponse = functions.firestore
     const responderName = await getUserName(latestMessage.senderID);
 
     // Notify everyone except the responder
-    const notifyUserIds = after.allParticipantIDs || [];
-    const tokens = [];
+    const notifyUserIds = (after.allParticipantIDs || []).filter(
+      (id) => id !== latestMessage.senderID
+    );
 
-    for (const userId of notifyUserIds) {
-      if (userId === latestMessage.senderID) continue;
-      const userTokens = await getUserTokens(userId);
-      tokens.push(...userTokens);
-    }
-
-    if (tokens.length === 0) {
-      return null;
-    }
-
-    const payload = {
+    return notifyUsers(notifyUserIds, {
       notification: {
         title: `${responderName} responded`,
         body: latestMessage.text || latestMessage.responseType,
@@ -97,17 +68,7 @@ exports.notifyRequestResponse = functions.firestore
         request_id: requestId,
         type: 'request_response',
       },
-      apns: {
-        payload: {
-          aps: {
-            sound: 'default',
-            badge: 1,
-          },
-        },
-      },
-    };
-
-    return sendToTokens(tokens, payload);
+    });
   });
 
 async function getUserName(userId) {
@@ -132,16 +93,93 @@ async function getUserTokens(userId) {
   }
 }
 
-async function sendToTokens(tokens, payload) {
-  const response = await messaging.sendEachForMulticast({ tokens, ...payload });
-  console.log(`Sent ${response.successCount} messages successfully`);
+/**
+ * How many requests are waiting on this user right now.
+ *
+ * The badge used to be a hardcoded `1`, and nothing in the app ever cleared it — so after
+ * the first push the icon carried a permanent 1 forever. Sending the real count means the
+ * number is meaningful, and the app resets it to this same value on foreground.
+ */
+async function pendingCountFor(userId) {
+  try {
+    const snapshot = await db
+      .collection('requests')
+      .where('recipientIDs', 'array-contains', userId)
+      .where('status', '==', 'pending')
+      .count()
+      .get();
+    return snapshot.data().count;
+  } catch (error) {
+    console.error(`Could not count pending for ${userId}:`, error);
+    return 0;
+  }
+}
 
-  if (response.failureCount > 0) {
-    response.responses.forEach((resp, idx) => {
-      if (!resp.success) {
-        console.error(`Failed to send to ${tokens[idx]}:`, resp.error);
-      }
+/**
+ * Delivers to each user separately.
+ *
+ * This used to pool everyone's tokens into one multicast, which made a per-recipient badge
+ * impossible and gave no way to attribute a failed token back to the user who owns it.
+ */
+async function notifyUsers(userIds, payload) {
+  await Promise.all(userIds.map((userId) => notifyUser(userId, payload)));
+  return null;
+}
+
+async function notifyUser(userId, payload) {
+  const tokens = await getUserTokens(userId);
+  if (tokens.length === 0) return;
+
+  const badge = await pendingCountFor(userId);
+
+  // sendEachForMulticast caps at 500 tokens per call.
+  for (let i = 0; i < tokens.length; i += 500) {
+    const slice = tokens.slice(i, i + 500);
+    const response = await messaging.sendEachForMulticast({
+      tokens: slice,
+      ...payload,
+      apns: { payload: { aps: { sound: 'default', badge } } },
     });
+
+    console.log(`Sent ${response.successCount}/${slice.length} to ${userId}`);
+    if (response.failureCount > 0) {
+      await pruneDeadTokens(userId, slice, response.responses);
+    }
+  }
+}
+
+/**
+ * Drops tokens APNs has told us are gone.
+ *
+ * `user_tokens/{uid}.tokens` is only ever appended to with arrayUnion — a new install, a
+ * restore from backup, or a routine token rotation each add an entry and none is ever
+ * removed. Left alone the array grows past the 500-token send limit and every delivery
+ * wastes work on addresses that cannot receive.
+ */
+async function pruneDeadTokens(userId, tokens, responses) {
+  const dead = [];
+  responses.forEach((resp, idx) => {
+    if (resp.success) return;
+    const code = resp.error && resp.error.code;
+    console.error(`Failed to send to ${tokens[idx]}:`, code);
+    if (
+      code === 'messaging/registration-token-not-registered' ||
+      code === 'messaging/invalid-registration-token' ||
+      code === 'messaging/invalid-argument'
+    ) {
+      dead.push(tokens[idx]);
+    }
+  });
+
+  if (dead.length === 0) return;
+  try {
+    await db
+      .collection('user_tokens')
+      .doc(userId)
+      .update({ tokens: admin.firestore.FieldValue.arrayRemove(...dead) });
+    console.log(`Pruned ${dead.length} dead token(s) for ${userId}`);
+  } catch (error) {
+    console.error(`Could not prune tokens for ${userId}:`, error);
   }
 }
 
@@ -160,9 +198,11 @@ exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
   const results = await Promise.allSettled([
     db.collection('users').doc(uid).delete(),
     db.collection('user_tokens').doc(uid).delete(),
+    db.collection('gamification').doc(uid).delete(),
     purgeInvites(uid),
     purgeRelationships(uid),
     purgeRequests(uid),
+    purgeEvents(uid),
   ]);
 
   results.forEach((r, i) => {
@@ -173,6 +213,24 @@ exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
 
   console.log(`Finished purging ${uid}`);
 });
+
+/**
+ * Usage events attributed to the user.
+ *
+ * The client purges these too (AccountDataPurger), but only what it managed to reach before
+ * the process ended. Reports are deliberately NOT purged: a report is a safety record about
+ * somebody else's conduct, and deleting your account should not erase what you reported.
+ */
+async function purgeEvents(uid) {
+  const snapshot = await db.collection('events').where('userID', '==', uid).get();
+  const batches = [];
+  for (let i = 0; i < snapshot.docs.length; i += 450) {
+    const batch = db.batch();
+    snapshot.docs.slice(i, i + 450).forEach((doc) => batch.delete(doc.ref));
+    batches.push(batch.commit());
+  }
+  await Promise.all(batches);
+}
 
 /** Invite codes the user owns are meaningless once they're gone. */
 async function purgeInvites(uid) {

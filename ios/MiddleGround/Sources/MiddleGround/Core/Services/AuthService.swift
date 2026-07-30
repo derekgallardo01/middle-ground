@@ -32,7 +32,8 @@ protocol AuthServiceProtocol: Sendable {
     /// Required by App Store Guideline 5.1.1(v): any app that creates an account must let
     /// the user delete it in-app. Pass the `authorizationCode` from a *fresh* Sign in with
     /// Apple authorization so the Apple token can be revoked, which Apple also requires.
-    /// Firestore data is purged server-side by the `onUserDeleted` Cloud Function.
+    /// Firestore data is purged by `AccountDataPurger` before the auth account goes, with the
+    /// `onUserDeleted` Cloud Function as the durable backstop for what a client cannot reach.
     func deleteAccount(appleAuthorizationCode: String?) async throws
 
     /// Whether the signed-in user carries the server-issued `admin` custom claim.
@@ -101,7 +102,14 @@ actor AuthService: AuthServiceProtocol {
             throw AuthError.notAuthenticated
         }
 
-        // Revoke first: once the Firebase user is gone we can no longer authenticate the
+        // Purge Firestore *first*: every one of those writes is authorised as this user, so
+        // none of it is possible once the auth account is gone. Until Blaze is enabled the
+        // `onUserDeleted` function does not run, and without this the account would be
+        // deleted while all of its data stayed — which is exactly what Guideline 5.1.1(v)
+        // forbids.
+        await AccountDataPurger().purge(userID: firebaseUser.uid)
+
+        // Revoke next: once the Firebase user is gone we can no longer authenticate the
         // revocation, and Apple requires the token to be revoked on deletion.
         if let code = appleAuthorizationCode, !code.isEmpty {
             do {

@@ -17,7 +17,26 @@
         { "fieldPath": "participantIDs", "arrayConfig": "CONTAINS" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "_comment": "CloudFunctions pendingCountFor() — the push badge is the recipient's real pending count, which needs an array-contains plus an equality.",
+      "collectionGroup": "requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "recipientIDs", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "_comment": "FirestoreEventRepository.events(forUser:) — equality on userID plus an order on `at` needs a composite index. Without it the query fails FAILED_PRECONDITION, and AdminViewModel swallows that in a `try?`, so the admin Activity section silently reported 'No events recorded' instead of erroring.",
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userID", "order": "ASCENDING" },
+        { "fieldPath": "at", "order": "DESCENDING" }
+      ]
     }
   ],
+  "_comment_ttl": "A TTL policy on `events.at` belongs here — usage events are written on every user action and are never read after the reporting window, so the collection otherwise grows without bound while carrying personal data indefinitely. It is NOT declared yet because Firestore TTL requires the Blaze plan: the fieldOverride deploys with HTTP 403 'billing disabled' and takes the whole `firebase deploy --only firestore` down with it. Add it back once billing is enabled, and restore the 90-day retention sentence in docs/legal/privacy-policy.md at the same time. Until then, usage events are deleted only when the account is deleted (AccountDataPurger, plus onUserDeleted).",
   "fieldOverrides": []
 }

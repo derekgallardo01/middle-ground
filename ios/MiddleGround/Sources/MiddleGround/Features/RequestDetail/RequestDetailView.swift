@@ -47,11 +47,40 @@ struct RequestDetailView: View {
                     .accessibilityLabel(viewModel.request.status == .saved ? "Saved for later" : "Save for later")
                 }
             }
+            // Reporting content is required of any app carrying user-generated content
+            // (App Review guideline 1.2). Leaving the group — the other required half — is
+            // in Profile, and the confirmation below points there.
+            if viewModel.canReport {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button(role: .destructive) {
+                            viewModel.showReportSheet = true
+                        } label: {
+                            Label("Report this", systemImage: "flag")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .foregroundStyle(MGColors.warm600)
+                    }
+                    .accessibilityLabel("More actions")
+                }
+            }
         }
         .alert("Oops", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("OK") { viewModel.errorMessage = nil }
         } message: {
             Text(viewModel.errorMessage ?? "")
+        }
+        .sheet(isPresented: $viewModel.showReportSheet) {
+            ReportSheet(viewModel: viewModel)
+        }
+        .alert("Report sent", isPresented: $viewModel.didSubmitReport) {
+            Button("OK") {}
+        } message: {
+            Text("""
+            Thanks — we review every report within 24 hours. If you want this person to stop \
+            reaching you entirely, leave the group from your Profile.
+            """)
         }
     }
 

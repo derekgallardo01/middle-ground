@@ -1,9 +1,9 @@
 import Foundation
 
-/// Persistence for product-usage events and the admin audit trail.
+/// Persistence for product-usage events, abuse reports, and the admin audit trail.
 ///
-/// Reads are admin-only and writes are self-only; both are enforced in `firestore.rules`, not
-/// here — this protocol is just the shape.
+/// All three are operator-facing records written by the client and read only by an admin;
+/// that asymmetry is enforced in `firestore.rules`, not here — this protocol is just the shape.
 protocol EventRepository: Sendable {
     /// Records an event for the signed-in user. Never throws into a caller: analytics must not
     /// be able to fail a user action.
@@ -20,6 +20,66 @@ protocol EventRepository: Sendable {
     /// Appends an immutable record that an admin viewed something. Rules forbid update/delete.
     func recordAudit(_ entry: AdminAuditEntry) async
     func recentAudit(limit: Int) async throws -> [AdminAuditEntry]
+
+    // MARK: - Abuse reports
+
+    /// Files a report. Throws, unlike `record` — the user is told whether it went through.
+    func submitReport(_ report: ContentReport) async throws
+    func recentReports(limit: Int) async throws -> [ContentReport]
+}
+
+/// A user's report of content someone sent them.
+///
+/// Required by App Review guideline 1.2: an app carrying user-generated content needs a way to
+/// report it and a way to get away from the person who sent it. The second half is
+/// `RelationshipService.leave`.
+struct ContentReport: Identifiable, Hashable, Codable, Sendable {
+    let id: String
+    let reporterID: String
+    let requestID: String
+    /// Kept so an admin can find the content without the reporter having to describe it.
+    let reportedUserID: String
+    let reason: ReportReason
+    let note: String?
+    let at: Date
+
+    init(
+        id: String = UUID().uuidString,
+        reporterID: String,
+        requestID: String,
+        reportedUserID: String,
+        reason: ReportReason,
+        note: String? = nil,
+        at: Date = Date()
+    ) {
+        self.id = id
+        self.reporterID = reporterID
+        self.requestID = requestID
+        self.reportedUserID = reportedUserID
+        self.reason = reason
+        self.note = note
+        self.at = at
+    }
+}
+
+enum ReportReason: String, Codable, CaseIterable, Identifiable, Sendable {
+    case harassment
+    case sexualContent
+    case threat
+    case spam
+    case other
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .harassment: return "Harassment or bullying"
+        case .sexualContent: return "Unwanted sexual content"
+        case .threat: return "Threat or violence"
+        case .spam: return "Spam"
+        case .other: return "Something else"
+        }
+    }
 }
 
 /// One admin access to user data. Append-only by design: this is the record of who looked at
@@ -77,5 +137,15 @@ actor MockEventRepository: EventRepository {
 
     func recentAudit(limit: Int) async throws -> [AdminAuditEntry] {
         Array(audit.sorted { $0.at > $1.at }.prefix(limit))
+    }
+
+    private var reports: [ContentReport] = []
+
+    func submitReport(_ report: ContentReport) async throws {
+        reports.append(report)
+    }
+
+    func recentReports(limit: Int) async throws -> [ContentReport] {
+        Array(reports.sorted { $0.at > $1.at }.prefix(limit))
     }
 }

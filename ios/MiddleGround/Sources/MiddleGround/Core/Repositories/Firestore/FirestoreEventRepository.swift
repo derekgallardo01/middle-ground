@@ -7,6 +7,7 @@ actor FirestoreEventRepository: EventRepository {
     private var db: Firestore { Firestore.firestore() }
     private static let eventCollection = "events"
     private static let auditCollection = "admin_audit"
+    private static let reportCollection = "reports"
 
     // MARK: - Writes
 
@@ -67,6 +68,23 @@ actor FirestoreEventRepository: EventRepository {
             .getDocuments()
         return snapshot.documents.compactMap { try? $0.data(as: AuditDTO.self).toModel() }
     }
+
+    // MARK: - Reports
+
+    /// Throws on purpose, unlike `record`: a user who taps Report is told whether it worked.
+    func submitReport(_ report: ContentReport) async throws {
+        try db.collection(Self.reportCollection)
+            .document(report.id)
+            .setData(from: ReportDTO(from: report))
+    }
+
+    func recentReports(limit: Int) async throws -> [ContentReport] {
+        let snapshot = try await db.collection(Self.reportCollection)
+            .order(by: "at", descending: true)
+            .limit(to: limit)
+            .getDocuments()
+        return snapshot.documents.compactMap { try? $0.data(as: ReportDTO.self).toModel() }
+    }
 }
 
 // MARK: - DTOs
@@ -99,6 +117,39 @@ private struct EventDTO: Codable {
             requestID: requestID,
             relationshipID: relationshipID,
             metadata: metadata,
+            at: at.dateValue()
+        )
+    }
+}
+
+private struct ReportDTO: Codable {
+    @DocumentID var id: String?
+    var reporterID: String
+    var requestID: String
+    var reportedUserID: String
+    var reason: String
+    var note: String?
+    var at: Timestamp
+
+    init(from report: ContentReport) {
+        self.id = report.id
+        self.reporterID = report.reporterID
+        self.requestID = report.requestID
+        self.reportedUserID = report.reportedUserID
+        self.reason = report.reason.rawValue
+        self.note = report.note
+        self.at = Timestamp(date: report.at)
+    }
+
+    func toModel() -> ContentReport? {
+        guard let id, let reason = ReportReason(rawValue: reason) else { return nil }
+        return ContentReport(
+            id: id,
+            reporterID: reporterID,
+            requestID: requestID,
+            reportedUserID: reportedUserID,
+            reason: reason,
+            note: note,
             at: at.dateValue()
         )
     }

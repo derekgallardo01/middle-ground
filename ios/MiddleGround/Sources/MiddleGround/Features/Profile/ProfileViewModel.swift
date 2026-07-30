@@ -87,6 +87,62 @@ final class ProfileViewModel {
     func loadRelationships() async {
         guard let user else { return }
         relationships = (try? await relationshipService.relationships(for: user.id)) ?? []
+        await repairInviteIfNeeded()
+    }
+
+    /// Republishes the invite document when the displayed code no longer resolves.
+    ///
+    /// Reachable after the group's owner leaves: they revoke their code on the way out, which
+    /// would otherwise leave the remaining member showing a code nobody can redeem.
+    private func repairInviteIfNeeded() async {
+        guard let user,
+              let relationship = relationships.first(where: { !$0.isPaired }),
+              relationship.participantIDs.first == user.id
+        else { return }
+
+        guard let repaired = try? await relationshipService.repairInvite(
+            for: relationship, userID: user.id
+        ), repaired != relationship.inviteCode else { return }
+
+        relationships = (try? await relationshipService.relationships(for: user.id)) ?? relationships
+    }
+
+    // MARK: - Leaving
+
+    var isLeavingGroup = false
+
+    /// Removes the user from a group.
+    ///
+    /// The only way out short of deleting the whole account — which is what App Review
+    /// guideline 1.2 wants as the "block an abusive user" path, and what anyone whose
+    /// relationship ends needs regardless.
+    func leaveGroup(_ relationship: Relationship) async -> Bool {
+        guard let user else { return false }
+        isLeavingGroup = true
+        errorMessage = nil
+        defer { isLeavingGroup = false }
+        do {
+            try await relationshipService.leave(relationshipID: relationship.id, userID: user.id)
+            await loadRelationships()
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Issues a new invite code, retiring the old one.
+    func regenerateInviteCode() async {
+        guard let user, let relationship = relationships.first(where: { !$0.isPaired }) else { return }
+        isPairing = true
+        errorMessage = nil
+        defer { isPairing = false }
+        do {
+            _ = try await relationshipService.regenerateInviteCode(for: relationship, userID: user.id)
+            await loadRelationships()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     func loadUser() async {

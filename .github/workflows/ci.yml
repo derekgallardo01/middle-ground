@@ -61,6 +61,23 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build | xcbeautify
 
+      # The Release configuration had never been compiled anywhere. That matters because it
+      # is the only build where the `#if DEBUG` guards actually take effect — the anonymous
+      # test-user sign-in, PreviewAuthService, and the mock repository registrations all
+      # compile out here and nowhere else. A break in that path is invisible in Debug.
+      - name: Build Release configuration
+        run: |
+          cd ios/MiddleGround/App
+          set -o pipefail
+          xcodebuild \
+            -project MiddleGround.xcodeproj \
+            -scheme MiddleGroundApp \
+            -configuration Release \
+            -destination "$DESTINATION" \
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/.spm" \
+            CODE_SIGNING_ALLOWED=NO \
+            build | xcbeautify
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

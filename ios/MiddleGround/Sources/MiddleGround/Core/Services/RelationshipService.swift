@@ -82,6 +82,68 @@ actor RelationshipService {
         return relationship
     }
 
+    /// Removes `userID` from a group.
+    ///
+    /// This is the only way out of a group short of deleting your account, so it is also what
+    /// backs the "block an abusive user" requirement in App Review guideline 1.2.
+    ///
+    /// If the leaver owns the invite code, it is revoked: leaving drops the group back to a
+    /// single member, which is precisely the state `isRedeemingInvite` accepts, so a live code
+    /// would let anyone holding it walk into the group of the person who stayed.
+    func leave(relationshipID: String, userID: String) async throws {
+        let mine = try await repository.fetchRelationships(for: userID)
+        let relationship = mine.first { $0.id == relationshipID }
+        let ownsInvite = relationship?.participantIDs.first == userID
+
+        try await repository.removeParticipant(userID, from: relationshipID)
+
+        if ownsInvite, let code = relationship?.inviteCode {
+            // Best-effort: having left is the user-visible outcome, and a failure here must not
+            // make it look like leaving failed. The stale code is repaired by `repairInvite`
+            // on the remaining member's next Profile load.
+            try? await repository.revokeInvite(code: code)
+        }
+
+        await analytics.track(.relationshipLeft, userID: userID, relationshipID: relationshipID)
+    }
+
+    /// Issues a new shareable code and retires the old one.
+    ///
+    /// Codes never expired and were never deleted after pairing, so anyone who saw one kept
+    /// indefinite access. This is the manual revocation path.
+    @discardableResult
+    func regenerateInviteCode(for relationship: Relationship, userID: String) async throws -> String {
+        let newCode = Relationship.generateInviteCode()
+        try await repository.rotateInviteCode(
+            to: newCode,
+            from: relationship.inviteCode,
+            relationshipID: relationship.id,
+            ownerID: userID
+        )
+        return newCode
+    }
+
+    /// Republishes the invite document if the relationship's code no longer resolves.
+    ///
+    /// Reachable when the code's owner left: they revoked it on the way out, leaving the
+    /// remaining member holding a code that Profile still displays but nobody can redeem.
+    /// Returns the working code, which may be a new one.
+    @discardableResult
+    func repairInvite(for relationship: Relationship, userID: String) async throws -> String {
+        guard relationship.participantIDs.first == userID else { return relationship.inviteCode }
+        if try await repository.invite(forCode: relationship.inviteCode) != nil {
+            return relationship.inviteCode
+        }
+        let newCode = Relationship.generateInviteCode()
+        try await repository.rotateInviteCode(
+            to: newCode,
+            from: nil,
+            relationshipID: relationship.id,
+            ownerID: userID
+        )
+        return newCode
+    }
+
     /// Resolves a display label per relationship: the partner's name when known,
     /// falling back to the relationship type so the UI never shows an empty row.
     func displayLabels(for relationships: [Relationship], currentUserID: String) async -> [String: String] {

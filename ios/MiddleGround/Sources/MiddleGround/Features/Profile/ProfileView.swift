@@ -7,6 +7,7 @@ struct ProfileView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = ProfileViewModel()
     @State private var showDeleteConfirmation = false
+    @State private var relationshipToLeave: Relationship?
 
     var body: some View {
         NavigationStack {
@@ -15,6 +16,7 @@ struct ProfileView: View {
                     profileHeader
                     pairingSection
                     inviteSection
+                    groupsSection
                     settingsSection
                     aboutSection
                     dangerSection
@@ -25,6 +27,15 @@ struct ProfileView: View {
             .background(MGColors.sand.ignoresSafeArea())
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
+            // Every failure on this screen used to be silent: the view model set
+            // `errorMessage` for create-group, join-group, sign-out and delete-account, and
+            // nothing rendered it. A wrong invite code just stopped the spinner. Same alert
+            // pattern as OnboardingView.
+            .alert("Oops", isPresented: .constant(viewModel.errorMessage != nil)) {
+                Button("OK") { viewModel.errorMessage = nil }
+            } message: {
+                Text(viewModel.errorMessage ?? "")
+            }
         }
     }
 
@@ -144,12 +155,92 @@ struct ProfileView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(MGColors.indigo)
+
+                    // Codes used to be permanent and were never deleted after pairing, so
+                    // anyone who ever saw one kept indefinite access. This is the revoke.
+                    Button {
+                        Task { await viewModel.regenerateInviteCode() }
+                    } label: {
+                        Label("Generate a new code", systemImage: "arrow.clockwise")
+                            .mgFont(.bodySmall)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(MGColors.indigo)
+                    .disabled(viewModel.isPairing)
+                    .accessibilityHint("Replaces your invite code so the old one stops working")
                 }
                 .padding()
                 .background(MGColors.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Your invite code is \(code.map(String.init).joined(separator: " "))")
+            }
+        }
+    }
+
+    /// Leaving is the only way out of a group short of deleting your account, and it is what
+    /// backs the "block an abusive user" requirement in App Review guideline 1.2.
+    @ViewBuilder
+    private var groupsSection: some View {
+        if !viewModel.relationships.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Your groups")
+                    .mgFont(.h2)
+
+                VStack(spacing: 0) {
+                    ForEach(viewModel.relationships) { relationship in
+                        HStack(spacing: 12) {
+                            Image(systemName: relationship.type.iconName)
+                                .foregroundStyle(MGColors.indigo)
+                                .frame(width: 24)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(relationship.type.displayName)
+                                    .mgFont(.body)
+                                Text(relationship.isPaired ? "Paired" : "Waiting for someone to join")
+                                    .mgFont(.caption)
+                                    .foregroundStyle(MGColors.warm600)
+                            }
+
+                            Spacer()
+
+                            Button(role: .destructive) {
+                                relationshipToLeave = relationship
+                            } label: {
+                                Text("Leave")
+                                    .mgFont(.bodySmall)
+                                    .foregroundStyle(MGColors.coral)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(viewModel.isLeavingGroup)
+                            .accessibilityLabel("Leave \(relationship.type.displayName) group")
+                        }
+                        .padding()
+                        .background(MGColors.surface)
+                    }
+                }
+                .mgCard(radius: MGRadius.lg)
+
+                Text("Leaving removes you from the group and stops anyone in it from reaching you.")
+                    .mgFont(.caption)
+                    .foregroundStyle(MGColors.warm600)
+            }
+            .alert(
+                "Leave this group?",
+                isPresented: .constant(relationshipToLeave != nil),
+                presenting: relationshipToLeave
+            ) { relationship in
+                Button("Stay", role: .cancel) { relationshipToLeave = nil }
+                Button("Leave", role: .destructive) {
+                    relationshipToLeave = nil
+                    Task { await viewModel.leaveGroup(relationship) }
+                }
+            } message: { _ in
+                Text("""
+                You'll stop seeing each other's requests and they won't be able to send you \
+                new ones. This can't be undone.
+                """)
             }
         }
     }

@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct MiddleGroundRootView: View {
     @State private var appState = AppState()
+    @Environment(\.scenePhase) private var scenePhase
 
     public init() {}
 
@@ -16,6 +17,12 @@ public struct MiddleGroundRootView: View {
             }
         }
         .environment(appState)
+        // Cloud Functions set the badge to the user's pending count; without this it would
+        // never come back down, so the icon kept a number long after everything was answered.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await NotificationService.shared.clearBadge() }
+        }
     }
 
     private var splashScreen: some View {

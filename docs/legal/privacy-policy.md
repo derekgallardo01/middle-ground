@@ -17,6 +17,8 @@ actually does — every item below corresponds to real behaviour in the app.
 - Your requests are visible to you, the person you paired with, **and to authorised Middle
   Ground staff** who may access accounts for support, safety and debugging. Every such access is
   recorded in a tamper-evident log.
+- We collect **crash diagnostics** so we can fix crashes. They contain no request content.
+- You can **report** abusive content and **leave a group** at any time, from inside the app.
 - You can delete your account, and everything tied to it, from inside the app.
 
 ## What we collect, and why
@@ -31,9 +33,14 @@ actually does — every item below corresponds to real behaviour in the app.
 | **Notification token** | `user_tokens/{your-id}` | Lets us send a push notification when your partner sends or answers a request. Only if you grant notification permission |
 | **Progress data** — XP, streak, achievements | On your device, and mirrored to `gamification/{your-id}` | Powers the Activities tab, and means your progress survives changing phone |
 | **Usage events** — that you signed up, paired, created a request, or responded, with a timestamp | `events` | Lets us understand how the product is actually used and where people get stuck. Records the *action*, not the words you wrote |
+| **Reports you file** — which request you reported, who sent it, the reason, and your optional note | `reports/{id}` | So we can act on harassment and abuse. Readable only by staff |
+| **Crash diagnostics** — stack trace, device model, OS version, and the app version at the time of a crash | Firebase Crashlytics | So we can find and fix crashes. Contains no request content and no message text |
 
 We do **not** collect: contacts, photos, location, calendars, health data, advertising
 identifiers, or device fingerprints.
+
+You can read the usage events recorded about you at any time — they are readable by your own
+account and by nobody else's.
 
 ## Who can see your content
 
@@ -63,9 +70,27 @@ information is at <https://firebase.google.com/support/privacy>.
 Push notifications are delivered through **Apple Push Notification service**. If you sign in with
 Apple, Apple handles that authentication; see <https://www.apple.com/legal/privacy/>.
 
+Crash diagnostics are collected by **Firebase Crashlytics**, also part of Google Firebase. It
+reports crashes only — stack traces and device/OS/app-version details. It does not see request
+titles, notes, or messages.
+
 These are the only third parties involved. Usage events are recorded in our own Firestore
-database — there are no third-party analytics, attribution, or advertising SDKs in the app, and
-no usage data is shared with anyone else.
+database — there are no advertising, attribution, or third-party marketing-analytics SDKs in the
+app, and no usage data is shared with anyone else.
+
+## Reporting abuse, and leaving a group
+
+If someone sends you something abusive, you can act on it from inside the app without contacting
+us first:
+
+- **Report it.** Open the request, tap the menu, and choose **Report this**. We review every
+  report within 24 hours.
+- **Leave the group.** Open **Profile → Your groups → Leave**. You immediately stop seeing each
+  other's requests and they can no longer send you any. If the invite code was yours, it is
+  revoked at the same time so nobody can use it to reach you again.
+
+Reports are kept even if you later delete your account, because a report is a record about
+somebody else's conduct and erasing it would remove the evidence of what you reported.
 
 ## Sign in with Apple
 
@@ -93,18 +118,20 @@ Open **Profile → Delete Account**. After you confirm:
   events, and requests that involved only you are erased from our database. Requests shared with your partner have your
   participation removed so they keep their own history.
 
+The erasure happens while you are still signed in, as part of the deletion itself — not on a
+delay and not in a queue. An automated server-side job runs the same cleanup afterwards to catch
+anything the app could not reach (for example if your phone lost connectivity mid-way).
+
 Deletion is permanent and cannot be undone. There is no waiting period and you do not need to
 contact us to do it.
 
-> **Current status:** the server-side erasure step described above runs as an automated cleanup
-> job. If that job is not yet enabled on our backend at the time you delete, your account and
-> on-device data are removed immediately and the shared records are erased as soon as it runs.
-> We will remove this note once the job is permanently enabled.
+The one thing not erased is any **report you filed about someone else**, for the reason given
+above.
 
 ## Retention
 
-Your content is kept until you delete it or delete your account. We do not keep backups of
-deleted accounts for our own purposes.
+Your content, including usage events, is kept until you delete it or delete your account, and is
+erased when you do. We do not keep backups of deleted accounts for our own purposes.
 
 ## Children
 

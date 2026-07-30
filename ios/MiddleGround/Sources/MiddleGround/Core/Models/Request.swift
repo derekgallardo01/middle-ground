@@ -138,6 +138,24 @@ enum RequestError: LocalizedError, Equatable {
     }
 }
 
+/// Caps on anything a user types.
+///
+/// Only "not empty" was ever checked, so a long paste sailed through to Firestore and failed
+/// against the 1 MB document limit — surfacing as a generic "Failed to send" with the text
+/// lost. The negotiation chain makes that worse: every message is appended to the *same*
+/// document, so the ceiling is shared across the whole conversation.
+enum RequestLimits {
+    static let title = 120
+    static let details = 1_000
+    static let message = 1_000
+    static let reportNote = 500
+
+    /// Trims to `limit` without splitting a grapheme cluster (an emoji stays whole).
+    static func clamp(_ text: String, to limit: Int) -> String {
+        text.count <= limit ? text : String(text.prefix(limit))
+    }
+}
+
 struct Request: Identifiable, Hashable, Codable {
     let id: String
     var creatorID: String

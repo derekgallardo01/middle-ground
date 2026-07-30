@@ -34,6 +34,7 @@ final class AppState {
         currentUser = await authService.currentUser()
         isOnboarded = currentUser != nil
         isCheckingAuth = false
+        MGLog.setCrashReportingUser(currentUser?.id)
         if currentUser != nil {
             isAdmin = await authService.isAdmin()
             await NotificationService.shared.syncTokenForCurrentUser()

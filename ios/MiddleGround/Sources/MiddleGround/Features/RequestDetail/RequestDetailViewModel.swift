@@ -8,10 +8,19 @@ final class RequestDetailViewModel {
     private let authService = Container.shared.authService()
     private let gamificationService = Container.shared.gamificationService()
     private let userRepository = Container.shared.userRepository()
+    private let eventRepository = Container.shared.eventRepository()
+    private let analytics = Container.shared.analyticsService()
 
     var request: Request
     var currentUser: User?
-    var counterText: String = ""
+    // Computed over private storage, not `didSet` — see the note in CreateRequestViewModel:
+    // under @Observable a `didSet` that reassigns its own property recurses until the stack
+    // overflows.
+    private var counterTextStorage: String = ""
+    var counterText: String {
+        get { counterTextStorage }
+        set { counterTextStorage = RequestLimits.clamp(newValue, to: RequestLimits.message) }
+    }
     var isSending = false
     var errorMessage: String?
     var partnerName: String?
@@ -142,5 +151,64 @@ final class RequestDetailViewModel {
 
     func saveForLater() async {
         await respond(with: .save)
+    }
+
+    // MARK: - Reporting
+
+    var showReportSheet = false
+    var reportReason: ReportReason = .harassment
+    private var reportNoteStorage: String = ""
+    var reportNote: String {
+        get { reportNoteStorage }
+        set { reportNoteStorage = RequestLimits.clamp(newValue, to: RequestLimits.reportNote) }
+    }
+    var didSubmitReport = false
+
+    /// You cannot report your own request — there is nobody else to report.
+    var canReport: Bool {
+        guard let currentUser else { return false }
+        return reportedUserID(from: currentUser.id) != nil
+    }
+
+    private func reportedUserID(from userID: String) -> String? {
+        request.allParticipantIDs.first { $0 != userID }
+    }
+
+    /// Files an abuse report (App Review guideline 1.2). Leaving the group is the other half
+    /// and lives in Profile — reporting alone does not stop the person contacting you.
+    func submitReport() async {
+        guard let currentUser, let reportedUserID = reportedUserID(from: currentUser.id) else {
+            errorMessage = "Not signed in."
+            return
+        }
+        isSending = true
+        errorMessage = nil
+        defer { isSending = false }
+
+        let note = reportNote.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            try await eventRepository.submitReport(
+                ContentReport(
+                    reporterID: currentUser.id,
+                    requestID: request.id,
+                    reportedUserID: reportedUserID,
+                    reason: reportReason,
+                    note: note.isEmpty ? nil : note
+                )
+            )
+            await analytics.track(
+                .contentReported,
+                userID: currentUser.id,
+                requestID: request.id,
+                metadata: ["reason": reportReason.rawValue]
+            )
+            showReportSheet = false
+            didSubmitReport = true
+            reportNote = ""
+            Haptics.shared.notification(.success)
+        } catch {
+            errorMessage = "Couldn't send that report. Please try again."
+            Haptics.shared.notification(.error)
+        }
     }
 }

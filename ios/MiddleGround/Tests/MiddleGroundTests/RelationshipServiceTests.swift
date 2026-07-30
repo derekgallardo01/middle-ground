@@ -105,6 +105,80 @@ final class RelationshipServiceTests: XCTestCase {
         XCTAssertEqual(soloLabels[solo.id], RelationshipType.roommates.displayName)
     }
 
+    // MARK: - Leaving
+
+    func testLeavingRemovesOnlyTheCaller() async throws {
+        let (service, repository) = makeService()
+        let created = try await service.createRelationship(type: .couple, ownerID: "owner")
+        _ = try await service.join(inviteCode: created.inviteCode, userID: "partner")
+
+        try await service.leave(relationshipID: created.id, userID: "partner")
+
+        let ownerView = try await repository.fetchRelationships(for: "owner")
+        XCTAssertEqual(ownerView.first?.participantIDs, ["owner"])
+        let partnerView = try await repository.fetchRelationships(for: "partner")
+        XCTAssertTrue(partnerView.isEmpty)
+    }
+
+    /// Leaving drops the group back to one member — exactly the state `isRedeemingInvite`
+    /// accepts — so a live code would let anyone holding it join whoever stayed behind.
+    func testOwnerLeavingRevokesTheInviteCode() async throws {
+        let (service, repository) = makeService()
+        let created = try await service.createRelationship(type: .couple, ownerID: "owner")
+        _ = try await service.join(inviteCode: created.inviteCode, userID: "partner")
+
+        try await service.leave(relationshipID: created.id, userID: "owner")
+
+        let resolved = try await repository.invite(forCode: created.inviteCode)
+        XCTAssertNil(resolved, "the departing owner's code must stop resolving")
+    }
+
+    func testNonOwnerLeavingKeepsTheCodeAlive() async throws {
+        let (service, repository) = makeService()
+        let created = try await service.createRelationship(type: .couple, ownerID: "owner")
+        _ = try await service.join(inviteCode: created.inviteCode, userID: "partner")
+
+        try await service.leave(relationshipID: created.id, userID: "partner")
+
+        // The owner is unpaired again and their own code should still work.
+        let resolved = try await repository.invite(forCode: created.inviteCode)
+        XCTAssertEqual(resolved?.relationshipID, created.id)
+    }
+
+    // MARK: - Code rotation
+
+    func testRegeneratingRetiresTheOldCode() async throws {
+        let (service, repository) = makeService()
+        let created = try await service.createRelationship(type: .couple, ownerID: "owner")
+
+        let newCode = try await service.regenerateInviteCode(for: created, userID: "owner")
+
+        XCTAssertNotEqual(newCode, created.inviteCode)
+        let old = try await repository.invite(forCode: created.inviteCode)
+        XCTAssertNil(old, "the previous code must stop working")
+    }
+
+    func testRepairIssuesANewCodeWhenTheInviteIsGone() async throws {
+        let (service, repository) = makeService()
+        let created = try await service.createRelationship(type: .couple, ownerID: "owner")
+        try await repository.revokeInvite(code: created.inviteCode)
+
+        let repaired = try await service.repairInvite(for: created, userID: "owner")
+
+        XCTAssertNotEqual(repaired, created.inviteCode)
+        let resolved = try await repository.invite(forCode: repaired)
+        XCTAssertEqual(resolved?.relationshipID, created.id)
+    }
+
+    func testRepairIsANoOpWhenTheCodeStillResolves() async throws {
+        let (service, _) = makeService()
+        let created = try await service.createRelationship(type: .couple, ownerID: "owner")
+
+        let repaired = try await service.repairInvite(for: created, userID: "owner")
+
+        XCTAssertEqual(repaired, created.inviteCode)
+    }
+
     func testGeneratedCodesAvoidAmbiguousCharacters() {
         let ambiguous = Set("O0I1L")
         for _ in 0..<200 {

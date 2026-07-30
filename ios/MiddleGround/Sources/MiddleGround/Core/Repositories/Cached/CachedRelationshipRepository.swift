@@ -29,6 +29,39 @@ actor CachedRelationshipRepository: RelationshipRepository {
         try await remote.addParticipant(userID, to: relationshipID)
     }
 
+    func removeParticipant(_ userID: String, from relationshipID: String) async throws {
+        try await remote.removeParticipant(userID, from: relationshipID)
+        // The local copy has to go too. `fetchLocal` filters on membership, but the row would
+        // otherwise sit in the store and reappear for this user on any later merge.
+        let ctx = context
+        let descriptor = FetchDescriptor<RelationshipEntity>(predicate: #Predicate { $0.id == relationshipID })
+        for entity in try ctx.fetch(descriptor) {
+            ctx.delete(entity)
+        }
+        try ctx.save()
+    }
+
+    func rotateInviteCode(
+        to newCode: String,
+        from oldCode: String?,
+        relationshipID: String,
+        ownerID: String
+    ) async throws {
+        try await remote.rotateInviteCode(
+            to: newCode, from: oldCode, relationshipID: relationshipID, ownerID: ownerID
+        )
+        let ctx = context
+        let descriptor = FetchDescriptor<RelationshipEntity>(predicate: #Predicate { $0.id == relationshipID })
+        if let existing = try ctx.fetch(descriptor).first {
+            existing.inviteCode = newCode
+            try ctx.save()
+        }
+    }
+
+    func revokeInvite(code: String) async throws {
+        try await remote.revokeInvite(code: code)
+    }
+
     func invite(forCode code: String) async throws -> RelationshipInvite? {
         // Invites point at relationships the user is not part of yet, so there is nothing
         // useful to cache — go straight to the remote.

@@ -73,7 +73,7 @@ struct AdminView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 metric("Users", "\(viewModel.overview.userCount)", "person.2", MGColors.indigo)
                 metric("Groups", "\(viewModel.overview.relationshipCount)", "link", MGColors.teal)
-                metric("Paired", "\(viewModel.overview.pairedCount)", "checkmark.circle", MGColors.teal)
+                metric("Paired", viewModel.overview.pairedDisplay, "checkmark.circle", MGColors.teal)
                 metric("Unpaired", "\(viewModel.overview.unpairedCount)", "clock", MGColors.sunshine)
                 metric("Requests", "\(viewModel.overview.requestCount)", "bubble.left.and.bubble.right", MGColors.indigo)
                 metric(
@@ -84,6 +84,8 @@ struct AdminView: View {
                 )
             }
 
+            funnelCard
+
             breakdown("Requests by status", viewModel.overview.requestsByStatus)
             breakdown("Requests by category", viewModel.overview.requestsByCategory)
 
@@ -93,6 +95,50 @@ struct AdminView: View {
                         .mgFont(.h3)
                     row("Last 24 hours", "\(viewModel.overview.eventsLast24h)")
                     row("Last 7 days", "\(viewModel.overview.eventsLast7d)")
+                }
+            }
+        }
+    }
+
+    /// Signup → activation, in order, so where people drop off is visible at a glance.
+    ///
+    /// The bar is drawn relative to the first step rather than to the largest, because the
+    /// point is retention *through* the funnel — a later step can never legitimately exceed
+    /// the first, and drawing relative to the max would hide that if it ever did.
+    @ViewBuilder
+    private var funnelCard: some View {
+        if !viewModel.overview.funnel.isEmpty {
+            adminCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Funnel").mgFont(.h3)
+
+                    let top = max(viewModel.overview.funnel.first?.count ?? 0, 1)
+                    ForEach(viewModel.overview.funnel) { step in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(step.label)
+                                    .mgFont(.bodySmall)
+                                    .foregroundStyle(MGColors.warm600)
+                                Spacer()
+                                Text("\(step.count)").mgFont(.bodySmall).monospacedDigit()
+                            }
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule()
+                                        .fill(MGColors.indigo.opacity(0.12))
+                                    Capsule()
+                                        .fill(MGColors.indigo)
+                                        .frame(
+                                            width: geo.size.width
+                                                * min(1, Double(step.count) / Double(top))
+                                        )
+                                }
+                            }
+                            .frame(height: 6)
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(step.label): \(step.count)")
+                    }
                 }
             }
         }

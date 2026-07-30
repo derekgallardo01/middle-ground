@@ -1,287 +1,239 @@
-const functions = require('firebase-functions');
+/**
+ * Cloud Functions for Middle Ground.
+ *
+ * MIXED GENERATIONS, ON PURPOSE. Everything here is 2nd-gen except `onUserDeleted`, which
+ * cannot be: there is no 2nd-gen auth-delete trigger. The 2nd-gen identity hooks are
+ * `beforeUserCreated` and `beforeUserSignedIn`, and neither fires on deletion. Since that
+ * function is the durable backstop for the account-deletion cascade (App Store Guideline
+ * 5.1.1(v)), it stays on 1st-gen via the `firebase-functions/v1` subpath, which is a stable
+ * long-standing export rather than a compatibility shim.
+ *
+ * The 2nd-gen handler shape differs from 1st-gen in ways the compiler cannot catch:
+ *   v1  (snap, context)   -> snap.data(),          context.params.x
+ *   v2  (event)           -> event.data.data(),    event.params.x
+ *   v1  (change, context) -> change.before.data(), change.after.data()
+ *   v2  (event)           -> event.data.before.data(), event.data.after.data()
+ * `event.data` is undefined on delete events, so every handler guards it.
+ */
+
 const admin = require('firebase-admin');
+const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } =
+  require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { defineSecret } = require('firebase-functions/params');
+// 1st-gen, for the auth trigger only. See the note above.
+const functionsV1 = require('firebase-functions/v1');
+
+const { getUserName, notifyUsers } = require('./push');
+const { purgeUserData } = require('./purge');
+const { sendAlert, when } = require('./alerts');
 
 admin.initializeApp();
-const db = admin.firestore();
-const messaging = admin.messaging();
+const db = () => admin.firestore();
 
-/**
- * Sends a push notification when a new request is created.
- * Triggered on document create in the `requests` collection.
- */
-exports.notifyNewRequest = functions.firestore
-  .document('requests/{requestId}')
-  .onCreate(async (snap, context) => {
-    const request = snap.data();
-    const requestId = context.params.requestId;
+const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
-    if (!request || !request.recipientIDs || request.recipientIDs.length === 0) {
-      return null;
-    }
+/** Every 2nd-gen function that sends mail needs the secret bound, or the key is absent at runtime. */
+const alerting = { secrets: [RESEND_API_KEY] };
 
-    const senderName = await getUserName(request.creatorID);
+// ---------------------------------------------------------------- push
 
-    return notifyUsers(request.recipientIDs, {
-      notification: {
-        title: `New request from ${senderName}`,
-        body: request.title,
-      },
-      data: {
-        request_id: requestId,
-        type: 'new_request',
-      },
-    });
+/** Notifies the recipients when a request is created. */
+exports.notifyNewRequest = onDocumentCreated('requests/{requestId}', async (event) => {
+  const request = event.data?.data();
+  if (!request?.recipientIDs?.length) return null;
+
+  const senderName = await getUserName(request.creatorID);
+
+  return notifyUsers(request.recipientIDs, {
+    notification: {
+      title: `New request from ${senderName}`,
+      body: request.title,
+    },
+    data: {
+      request_id: event.params.requestId,
+      type: 'new_request',
+    },
   });
-
-/**
- * Sends a push notification when a request receives a response.
- * Triggered on document update in the `requests` collection.
- */
-exports.notifyRequestResponse = functions.firestore
-  .document('requests/{requestId}')
-  .onUpdate(async (change, context) => {
-    const before = change.before.data();
-    const after = change.after.data();
-    const requestId = context.params.requestId;
-
-    const beforeCount = (before.negotiationChain || []).length;
-    const afterCount = (after.negotiationChain || []).length;
-
-    if (afterCount <= beforeCount) {
-      return null;
-    }
-
-    const latestMessage = after.negotiationChain[afterCount - 1];
-    const responderName = await getUserName(latestMessage.senderID);
-
-    // Notify everyone except the responder
-    const notifyUserIds = (after.allParticipantIDs || []).filter(
-      (id) => id !== latestMessage.senderID
-    );
-
-    return notifyUsers(notifyUserIds, {
-      notification: {
-        title: `${responderName} responded`,
-        body: latestMessage.text || latestMessage.responseType,
-      },
-      data: {
-        request_id: requestId,
-        type: 'request_response',
-      },
-    });
-  });
-
-async function getUserName(userId) {
-  try {
-    const userDoc = await db.collection('users').doc(userId).get();
-    return userDoc.exists ? userDoc.data().name || 'Someone' : 'Someone';
-  } catch (error) {
-    console.error('Error fetching user name:', error);
-    return 'Someone';
-  }
-}
-
-async function getUserTokens(userId) {
-  try {
-    const tokensDoc = await db.collection('user_tokens').doc(userId).get();
-    if (!tokensDoc.exists) return [];
-    const data = tokensDoc.data();
-    return data.tokens || [];
-  } catch (error) {
-    console.error('Error fetching user tokens:', error);
-    return [];
-  }
-}
-
-/**
- * How many requests are waiting on this user right now.
- *
- * The badge used to be a hardcoded `1`, and nothing in the app ever cleared it — so after
- * the first push the icon carried a permanent 1 forever. Sending the real count means the
- * number is meaningful, and the app resets it to this same value on foreground.
- */
-async function pendingCountFor(userId) {
-  try {
-    const snapshot = await db
-      .collection('requests')
-      .where('recipientIDs', 'array-contains', userId)
-      .where('status', '==', 'pending')
-      .count()
-      .get();
-    return snapshot.data().count;
-  } catch (error) {
-    console.error(`Could not count pending for ${userId}:`, error);
-    return 0;
-  }
-}
-
-/**
- * Delivers to each user separately.
- *
- * This used to pool everyone's tokens into one multicast, which made a per-recipient badge
- * impossible and gave no way to attribute a failed token back to the user who owns it.
- */
-async function notifyUsers(userIds, payload) {
-  await Promise.all(userIds.map((userId) => notifyUser(userId, payload)));
-  return null;
-}
-
-async function notifyUser(userId, payload) {
-  const tokens = await getUserTokens(userId);
-  if (tokens.length === 0) return;
-
-  const badge = await pendingCountFor(userId);
-
-  // sendEachForMulticast caps at 500 tokens per call.
-  for (let i = 0; i < tokens.length; i += 500) {
-    const slice = tokens.slice(i, i + 500);
-    const response = await messaging.sendEachForMulticast({
-      tokens: slice,
-      ...payload,
-      apns: { payload: { aps: { sound: 'default', badge } } },
-    });
-
-    console.log(`Sent ${response.successCount}/${slice.length} to ${userId}`);
-    if (response.failureCount > 0) {
-      await pruneDeadTokens(userId, slice, response.responses);
-    }
-  }
-}
-
-/**
- * Drops tokens APNs has told us are gone.
- *
- * `user_tokens/{uid}.tokens` is only ever appended to with arrayUnion — a new install, a
- * restore from backup, or a routine token rotation each add an entry and none is ever
- * removed. Left alone the array grows past the 500-token send limit and every delivery
- * wastes work on addresses that cannot receive.
- */
-async function pruneDeadTokens(userId, tokens, responses) {
-  const dead = [];
-  responses.forEach((resp, idx) => {
-    if (resp.success) return;
-    const code = resp.error && resp.error.code;
-    console.error(`Failed to send to ${tokens[idx]}:`, code);
-    if (
-      code === 'messaging/registration-token-not-registered' ||
-      code === 'messaging/invalid-registration-token' ||
-      code === 'messaging/invalid-argument'
-    ) {
-      dead.push(tokens[idx]);
-    }
-  });
-
-  if (dead.length === 0) return;
-  try {
-    await db
-      .collection('user_tokens')
-      .doc(userId)
-      .update({ tokens: admin.firestore.FieldValue.arrayRemove(...dead) });
-    console.log(`Pruned ${dead.length} dead token(s) for ${userId}`);
-  } catch (error) {
-    console.error(`Could not prune tokens for ${userId}:`, error);
-  }
-}
-
-/**
- * Purges a user's data when their auth account is deleted.
- *
- * App Store Guideline 5.1.1(v) requires in-app account deletion, and deleting the auth
- * record is not enough on its own — the Firestore documents must go too. This runs with
- * admin privileges so it can perform the multi-document cascade that security rules
- * deliberately forbid the client from doing.
- */
-exports.onUserDeleted = functions.auth.user().onDelete(async (user) => {
-  const uid = user.uid;
-  console.log(`Purging data for deleted user ${uid}`);
-
-  const results = await Promise.allSettled([
-    db.collection('users').doc(uid).delete(),
-    db.collection('user_tokens').doc(uid).delete(),
-    db.collection('gamification').doc(uid).delete(),
-    purgeInvites(uid),
-    purgeRelationships(uid),
-    purgeRequests(uid),
-    purgeEvents(uid),
-  ]);
-
-  results.forEach((r, i) => {
-    if (r.status === 'rejected') {
-      console.error(`Purge step ${i} failed for ${uid}:`, r.reason);
-    }
-  });
-
-  console.log(`Finished purging ${uid}`);
 });
 
+/** Notifies everyone except the responder when a request gains a response. */
+exports.notifyRequestResponse = onDocumentUpdated('requests/{requestId}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after) return null;
+
+  const beforeCount = (before.negotiationChain || []).length;
+  const afterCount = (after.negotiationChain || []).length;
+  if (afterCount <= beforeCount) return null;
+
+  const latestMessage = after.negotiationChain[afterCount - 1];
+  const responderName = await getUserName(latestMessage.senderID);
+
+  const notifyUserIds = (after.allParticipantIDs || []).filter(
+    (id) => id !== latestMessage.senderID
+  );
+
+  return notifyUsers(notifyUserIds, {
+    notification: {
+      title: `${responderName} responded`,
+      body: latestMessage.text || latestMessage.responseType,
+    },
+    data: {
+      request_id: event.params.requestId,
+      type: 'request_response',
+    },
+  });
+});
+
+// ------------------------------------------------------ operator alerts
+//
+// Watching Firestore documents rather than auth events, deliberately: the auth triggers are
+// 1st-gen only, and the app writes users/{uid} on sign-up and deletes it on account deletion,
+// so these carry the same signal while staying 2nd-gen.
+
+exports.alertOnSignup = onDocumentCreated('users/{uid}', alerting, async (event) => {
+  const user = event.data?.data();
+  if (!user) return null;
+
+  await sendAlert(`New signup: ${user.name || 'unnamed'}`, [
+    `Name: ${user.name || '(none)'}`,
+    `UID:  ${event.params.uid}`,
+    `At:   ${when(new Date())}`,
+    '',
+    'They have not paired with anyone yet — the app is empty for them until they do.',
+  ]);
+  return null;
+});
+
+exports.alertOnPairing = onDocumentUpdated('relationships/{id}', alerting, async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after) return null;
+
+  // Only the 1 -> 2 transition is a pairing. Any other participant change (someone leaving,
+  // a code rotation) is not, and alerting on those would make this noisy and untrustworthy.
+  const had = (before.participantIDs || []).length;
+  const has = (after.participantIDs || []).length;
+  if (!(had === 1 && has === 2)) return null;
+
+  const names = await Promise.all((after.participantIDs || []).map(getUserName));
+
+  await sendAlert(`Paired: ${names.join(' + ')}`, [
+    `Group:  ${event.params.id} (${after.type || 'unknown type'})`,
+    `Members: ${names.join(', ')}`,
+    `UIDs:    ${(after.participantIDs || []).join(', ')}`,
+    '',
+    'Both can now send each other requests. This is the activation moment.',
+  ]);
+  return null;
+});
+
+/** Abuse reports are the one alert that should interrupt you. */
+exports.alertOnReport = onDocumentCreated('reports/{id}', alerting, async (event) => {
+  const report = event.data?.data();
+  if (!report) return null;
+
+  const [reporter, reported] = await Promise.all([
+    getUserName(report.reporterID),
+    getUserName(report.reportedUserID),
+  ]);
+
+  await sendAlert(`⚠️ Content reported — ${report.reason}`, [
+    `Reason:   ${report.reason}`,
+    `Reported: ${reported} (${report.reportedUserID})`,
+    `By:       ${reporter} (${report.reporterID})`,
+    `Request:  ${report.requestID}`,
+    `Note:     ${report.note || '(none)'}`,
+    `At:       ${when(report.at)}`,
+    '',
+    'The published policy commits to reviewing reports within 24 hours.',
+    'Open the Admin tab > Reports to see the content.',
+  ]);
+  return null;
+});
+
+exports.alertOnAccountDeleted = onDocumentDeleted('users/{uid}', alerting, async (event) => {
+  await sendAlert('Account deleted', [
+    `UID: ${event.params.uid}`,
+    `At:  ${when(new Date())}`,
+    '',
+    'Their data is purged by AccountDataPurger on the client and by onUserDeleted here.',
+  ]);
+  return null;
+});
+
+// -------------------------------------------------------- daily digest
+
 /**
- * Usage events attributed to the user.
+ * A once-a-day summary, so the numbers are visible without opening the app.
  *
- * The client purges these too (AccountDataPurger), but only what it managed to reach before
- * the process ended. Reports are deliberately NOT purged: a report is a safety record about
- * somebody else's conduct, and deleting your account should not erase what you reported.
+ * Request and response volume is deliberately reported here rather than emailed per event:
+ * it is the one event class that scales with usage, and per-event mail would train you to
+ * ignore the inbox that also carries abuse reports.
  */
-async function purgeEvents(uid) {
-  const snapshot = await db.collection('events').where('userID', '==', uid).get();
-  const batches = [];
-  for (let i = 0; i < snapshot.docs.length; i += 450) {
-    const batch = db.batch();
-    snapshot.docs.slice(i, i + 450).forEach((doc) => batch.delete(doc.ref));
-    batches.push(batch.commit());
+exports.dailyDigest = onSchedule(
+  { schedule: '0 9 * * *', timeZone: 'America/New_York', secrets: [RESEND_API_KEY] },
+  async () => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const countEvents = async (type) => {
+      try {
+        const snap = await db()
+          .collection('events')
+          .where('type', '==', type)
+          .where('at', '>', since)
+          .count()
+          .get();
+        return snap.data().count;
+      } catch (error) {
+        console.error(`digest: could not count ${type}:`, error);
+        return '?';
+      }
+    };
+
+    const totalUsers = async () => {
+      try {
+        return (await db().collection('users').count().get()).data().count;
+      } catch {
+        return '?';
+      }
+    };
+
+    const [signups, onboarded, groups, redeemed, created, responded, left, reported, users] =
+      await Promise.all([
+        countEvents('signed_up'),
+        countEvents('onboarding_completed'),
+        countEvents('relationship_created'),
+        countEvents('invite_redeemed'),
+        countEvents('request_created'),
+        countEvents('request_responded'),
+        countEvents('relationship_left'),
+        countEvents('content_reported'),
+        totalUsers(),
+      ]);
+
+    await sendAlert('Daily digest', [
+      'Last 24 hours',
+      '',
+      `  signed up            ${signups}`,
+      `  finished onboarding  ${onboarded}`,
+      `  created a group      ${groups}`,
+      `  redeemed an invite   ${redeemed}   <- pairing`,
+      `  requests created     ${created}`,
+      `  requests answered    ${responded}`,
+      `  left a group         ${left}`,
+      `  content reported     ${reported}`,
+      '',
+      `Total users: ${users}`,
+    ]);
   }
-  await Promise.all(batches);
-}
+);
 
-/** Invite codes the user owns are meaningless once they're gone. */
-async function purgeInvites(uid) {
-  const snapshot = await db.collection('invites').where('ownerID', '==', uid).get();
-  await Promise.all(snapshot.docs.map((doc) => doc.ref.delete()));
-}
+// ------------------------------------------------------------- 1st gen
+//
+// This one CANNOT be 2nd-gen — see the file header. Leave it on v1.
 
-/**
- * Removes the user from every relationship they belong to. A relationship with nobody
- * left in it is deleted outright; otherwise the remaining partner keeps theirs.
- */
-async function purgeRelationships(uid) {
-  const snapshot = await db
-    .collection('relationships')
-    .where('participantIDs', 'array-contains', uid)
-    .get();
-
-  await Promise.all(
-    snapshot.docs.map(async (doc) => {
-      const remaining = (doc.data().participantIDs || []).filter((id) => id !== uid);
-      if (remaining.length === 0) {
-        await doc.ref.delete();
-      } else {
-        await doc.ref.update({ participantIDs: remaining });
-      }
-    })
-  );
-}
-
-/**
- * Deletes requests that only involved this user, and scrubs them from shared ones so the
- * remaining participant keeps their history without a dangling reference.
- */
-async function purgeRequests(uid) {
-  const snapshot = await db
-    .collection('requests')
-    .where('allParticipantIDs', 'array-contains', uid)
-    .get();
-
-  await Promise.all(
-    snapshot.docs.map(async (doc) => {
-      const data = doc.data();
-      const remaining = (data.allParticipantIDs || []).filter((id) => id !== uid);
-      if (remaining.length === 0) {
-        await doc.ref.delete();
-      } else {
-        await doc.ref.update({
-          allParticipantIDs: remaining,
-          recipientIDs: (data.recipientIDs || []).filter((id) => id !== uid),
-        });
-      }
-    })
-  );
-}
+exports.onUserDeleted = functionsV1.auth.user().onDelete(async (user) => {
+  await purgeUserData(user.uid);
+});

@@ -55,6 +55,7 @@ protocol AuthServiceProtocol: Sendable {
 
 actor AuthService: AuthServiceProtocol {
     private let userRepository = Container.shared.remoteUserRepository()
+    private let analytics = Container.shared.analyticsService()
 
     func currentUser() async -> User? {
         guard let firebaseUser = Auth.auth().currentUser else { return nil }
@@ -82,7 +83,17 @@ actor AuthService: AuthServiceProtocol {
                 avatarURL: firebaseUser.photoURL
             )
 
+            // Checked BEFORE the save, because saveUser creates the document. Sign in with
+            // Apple runs on every subsequent sign-in too, so emitting unconditionally would
+            // count a returning user as a new signup and make the funnel's first step
+            // meaningless.
+            let isNewAccount = (try? await userRepository.user(id: firebaseUser.uid)) == nil
+
             try await userRepository.saveUser(user)
+
+            if isNewAccount {
+                await analytics.track(.signedUp, userID: user.id)
+            }
             return user
         } catch {
             throw AuthError.firebaseError(error.localizedDescription)

@@ -38,11 +38,34 @@ actor FirestoreAdminRepository: AdminRepository {
             if value > 0 { overview.requestsByCategory[category.displayName] = value }
         }
 
-        // "Paired" needs the documents, since it is a property of the array's size.
-        let relationships = try await db.collection("relationships").limit(to: 500).getDocuments()
-        overview.pairedCount = relationships.documents.filter {
-            (($0.data()["participantIDs"] as? [String]) ?? []).count > 1
-        }.count
+        // Paired groups.
+        //
+        // "Paired" means `participantIDs.count > 1`, and Firestore cannot query on array
+        // length — `isPaired` is a computed Swift property, not a stored field, so there is
+        // no aggregation query for this without denormalising it on write.
+        //
+        // This used to read a single `.limit(to: 500)` page and count in memory, so past 500
+        // groups `pairedCount` — and with it `activationRate`, the one number that says
+        // whether the product works at all — was silently wrong with nothing in the UI to
+        // say so. Now it pages, and when it hits the ceiling it reports the count as
+        // approximate rather than lying.
+        (overview.pairedCount, overview.pairedCountIsExact) = try await countPairedRelationships()
+
+        // Funnel, in order. Each is a server-side count over the events collection, so the
+        // whole section costs a handful of aggregation reads rather than a table scan.
+        for (key, type) in [
+            ("Signed up", "signed_up"),
+            ("Finished onboarding", "onboarding_completed"),
+            ("Created a group", "relationship_created"),
+            ("Paired", "invite_redeemed"),
+            ("Created a request", "request_created"),
+            ("Answered a request", "request_responded")
+        ] {
+            let value = try await count(
+                of: db.collection("events").whereField("type", isEqualTo: type)
+            )
+            overview.funnel.append(AdminOverview.FunnelStep(label: key, count: value))
+        }
 
         return overview
     }
@@ -78,5 +101,36 @@ actor FirestoreAdminRepository: AdminRepository {
 
     private func count(of query: Query) async throws -> Int {
         try await query.count.getAggregation(source: .server).count.intValue
+    }
+
+    /// Pages through relationships counting the paired ones.
+    ///
+    /// Returns `(count, isExact)`. `isExact` is false once the ceiling is reached, so the UI
+    /// can show "5000+" instead of a confidently wrong number. If this ever starts returning
+    /// false in practice, that is the signal to denormalise a stored `isPaired` field on write
+    /// and replace the whole thing with one aggregation query.
+    private func countPairedRelationships(ceiling: Int = 5_000) async throws -> (Int, Bool) {
+        var paired = 0
+        var scanned = 0
+        var cursor: DocumentSnapshot?
+
+        while scanned < ceiling {
+            var query = db.collection("relationships")
+                .order(by: FieldPath.documentID())
+                .limit(to: 500)
+            if let cursor { query = query.start(afterDocument: cursor) }
+
+            let page = try await query.getDocuments()
+            if page.documents.isEmpty { return (paired, true) }
+
+            paired += page.documents.filter {
+                (($0.data()["participantIDs"] as? [String]) ?? []).count > 1
+            }.count
+            scanned += page.documents.count
+            cursor = page.documents.last
+
+            if page.documents.count < 500 { return (paired, true) }
+        }
+        return (paired, false)
     }
 }

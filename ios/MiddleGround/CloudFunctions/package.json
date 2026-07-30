@@ -1,8 +1,9 @@
 {
   "name": "middle-ground-functions",
-  "description": "Cloud Functions for Middle Ground push notifications",
+  "description": "Cloud Functions for Middle Ground: push notifications, the account-deletion cascade, and operator alerts",
   "engines": {
-    "node": "20"
+    "_comment": "Node 20 was deprecated 2026-04-30 and is decommissioned 2026-10-30, after which these cannot be redeployed. This is pinned in three places — here, firebase.json, and the CI workflow — and they must move together or a deploy silently keeps the old runtime.",
+    "node": "22"
   },
   "main": "index.js",
   "scripts": {
@@ -11,8 +12,9 @@
     "test:rules": "cd .. && firebase emulators:exec --only firestore \"cd CloudFunctions && npm test\""
   },
   "dependencies": {
-    "firebase-admin": "^12.0.0",
-    "firebase-functions": "^5.0.0"
+    "firebase-admin": "^14.0.0",
+    "firebase-functions": "^7.0.0",
+    "resend": "^4.0.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^4.0.1",

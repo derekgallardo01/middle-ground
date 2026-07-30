@@ -21,7 +21,10 @@ public struct MiddleGroundRootView: View {
         // never come back down, so the icon kept a number long after everything was answered.
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
-            Task { await NotificationService.shared.clearBadge() }
+            Task {
+                await NotificationService.shared.clearBadge()
+                await appState.trackAppOpened()
+            }
         }
     }
 

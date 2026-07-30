@@ -28,6 +28,15 @@
       ]
     },
     {
+      "_comment": "dailyDigest in CloudFunctions counts each event type over a 24h window — an equality on `type` plus a range on `at`. Without this the aggregation fails FAILED_PRECONDITION and the digest reports '?' for every row rather than erroring visibly.",
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "at", "order": "ASCENDING" }
+      ]
+    },
+    {
       "_comment": "FirestoreEventRepository.events(forUser:) — equality on userID plus an order on `at` needs a composite index. Without it the query fails FAILED_PRECONDITION, and AdminViewModel swallows that in a `try?`, so the admin Activity section silently reported 'No events recorded' instead of erroring.",
       "collectionGroup": "events",
       "queryScope": "COLLECTION",

@@ -130,13 +130,31 @@ struct AdminOverview: Equatable, Sendable {
     var userCount = 0
     var relationshipCount = 0
     var pairedCount = 0
+    /// False when `pairedCount` hit the paging ceiling — the UI shows "N+" rather than a
+    /// confidently wrong figure. See `FirestoreAdminRepository.countPairedRelationships`.
+    var pairedCountIsExact = true
     var requestCount = 0
     var requestsByStatus: [String: Int] = [:]
     var requestsByCategory: [String: Int] = [:]
     var eventsLast24h = 0
     var eventsLast7d = 0
 
+    /// Ordered funnel steps. Empty until the Overview section loads.
+    ///
+    /// A struct rather than a tuple: `AdminOverview` is Equatable, and Swift cannot synthesise
+    /// that for an array of tuples.
+    var funnel: [FunnelStep] = []
+
     var unpairedCount: Int { max(0, relationshipCount - pairedCount) }
+
+    var pairedDisplay: String { pairedCountIsExact ? "\(pairedCount)" : "\(pairedCount)+" }
+
+    /// One step of the signup → activation funnel.
+    struct FunnelStep: Equatable, Sendable, Identifiable {
+        let label: String
+        let count: Int
+        var id: String { label }
+    }
 
     var activationRate: Double {
         guard relationshipCount > 0 else { return 0 }

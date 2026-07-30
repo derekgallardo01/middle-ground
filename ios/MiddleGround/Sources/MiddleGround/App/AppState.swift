@@ -11,11 +11,16 @@ final class AppState {
     var selectedTab: Tab = .home
     var isCheckingAuth = true
 
+    /// Mirrors the server-issued `admin` claim. Drives whether the Admin tab is rendered;
+    /// the real enforcement is in `firestore.rules`.
+    var isAdmin = false
+
     enum Tab {
         case home
         case calendar
         case activities
         case profile
+        case admin
     }
 
     init() {
@@ -30,7 +35,10 @@ final class AppState {
         isOnboarded = currentUser != nil
         isCheckingAuth = false
         if currentUser != nil {
+            isAdmin = await authService.isAdmin()
             await NotificationService.shared.syncTokenForCurrentUser()
+        } else {
+            isAdmin = false
         }
     }
 
@@ -47,5 +55,6 @@ final class AppState {
         LocalStore.shared.purgeAll()
         currentUser = nil
         isOnboarded = false
+        isAdmin = false
     }
 }

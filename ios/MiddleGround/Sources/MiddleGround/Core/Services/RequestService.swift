@@ -1,8 +1,10 @@
 import Foundation
+import Factory
 
 @Observable
 final class RequestService {
     private let repository: RequestRepository
+    private let analytics = Container.shared.analyticsService()
 
     init(repository: RequestRepository) {
         self.repository = repository
@@ -18,6 +20,12 @@ final class RequestService {
 
     func createRequest(_ request: Request) async throws {
         try await repository.createRequest(request)
+        await analytics.track(
+            .requestCreated,
+            userID: request.creatorID,
+            requestID: request.id,
+            metadata: ["category": request.category.rawValue]
+        )
     }
 
     func respond(
@@ -38,6 +46,7 @@ final class RequestService {
         )
         try updated.addResponse(message)
         try await repository.updateRequest(updated)
+        await analytics.trackResponse(response, to: request, by: userID)
         return updated
     }
 
@@ -47,5 +56,6 @@ final class RequestService {
             throw RequestError.notAllowedToCancel
         }
         try await repository.deleteRequest(request)
+        await analytics.track(.requestCancelled, userID: userID, requestID: request.id)
     }
 }

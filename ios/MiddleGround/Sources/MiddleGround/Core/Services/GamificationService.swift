@@ -97,10 +97,15 @@ enum GamificationRules {
 
 actor GamificationService: GamificationServiceProtocol {
     private let store: UserDefaults
+    private let mirror: GamificationRepository?
 
     /// Pass a dedicated suite in tests so runs don't leak state into each other.
-    init(store: UserDefaults = .standard) {
+    ///
+    /// `mirror` writes progress through to Firestore so it survives a device change — and so it
+    /// is measurable at all. Nil in tests, which keeps them offline and deterministic.
+    init(store: UserDefaults = .standard, mirror: GamificationRepository? = nil) {
         self.store = store
+        self.mirror = mirror
     }
 
     func stats(for userID: String) async -> GamificationStats {
@@ -131,6 +136,17 @@ actor GamificationService: GamificationServiceProtocol {
         if let data = try? JSONEncoder().encode(stats) {
             store.set(data, forKey: statsKey(for: userID))
         }
+        // Local store stays the fast path; the mirror is the durable copy.
+        await mirror?.save(stats, for: userID)
+    }
+
+    /// Restores progress from the server when the device has none — the case that used to lose
+    /// a user's entire history on reinstall or device change.
+    func restoreFromMirrorIfNeeded(for userID: String) async {
+        guard store.data(forKey: statsKey(for: userID)) == nil,
+              let remote = try? await mirror?.stats(for: userID),
+              let data = try? JSONEncoder().encode(remote) else { return }
+        store.set(data, forKey: statsKey(for: userID))
     }
 
     func save(achievements: [Achievement], for userID: String) async {

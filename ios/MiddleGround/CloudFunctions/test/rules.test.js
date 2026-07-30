@@ -273,6 +273,102 @@ describe('user_tokens', () => {
   });
 });
 
+describe('admin access', () => {
+  // The admin claim is the whole security model for the operator panel: the in-app tab is a
+  // convenience gate, these rules are the enforcement.
+  const asAdmin = () =>
+    testEnv.authenticatedContext('root', { admin: true }).firestore();
+
+  beforeEach(() => seed(async (db) => {
+    await setDoc(doc(db, 'requests/r1'), request());
+    await setDoc(doc(db, 'users/alice'), { name: 'Alice' });
+    await setDoc(doc(db, 'events/e1'), { userID: ALICE, type: 'app_opened', at: new Date() });
+  }));
+
+  test('an admin can read a request they are not part of', async () => {
+    await assertFails(getDoc(doc(asMallory(), 'requests/r1')));
+    await assertSucceeds(getDoc(doc(asAdmin(), 'requests/r1')));
+  });
+
+  test('only an admin can list users', async () => {
+    await assertFails(getDocs(collection(asBob(), 'users')));
+    await assertSucceeds(getDocs(collection(asAdmin(), 'users')));
+  });
+
+  test('events are admin-read-only', async () => {
+    // Not even the author may read their own events back, so the log cannot be mined.
+    await assertFails(getDocs(collection(asAlice(), 'events')));
+    await assertSucceeds(getDocs(collection(asAdmin(), 'events')));
+  });
+
+  test('a user may write only their own events', async () => {
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'events/mine'), { userID: ALICE, type: 'app_opened', at: new Date() }),
+    );
+    await assertFails(
+      setDoc(doc(asAlice(), 'events/forged'), { userID: BOB, type: 'app_opened', at: new Date() }),
+    );
+  });
+
+  test('events cannot be edited or deleted, even by an admin', async () => {
+    await assertFails(updateDoc(doc(asAdmin(), 'events/e1'), { type: 'signed_up' }));
+    await assertFails(deleteDoc(doc(asAdmin(), 'events/e1')));
+  });
+});
+
+describe('admin audit trail', () => {
+  const asAdmin = () =>
+    testEnv.authenticatedContext('root', { admin: true }).firestore();
+
+  beforeEach(() => seed((db) => setDoc(doc(db, 'admin_audit/a1'), {
+    adminID: 'root', action: 'viewed_user', targetType: 'user', targetID: ALICE, at: new Date(),
+  })));
+
+  test('non-admins cannot read the audit trail', async () => {
+    await assertFails(getDocs(collection(asAlice(), 'admin_audit')));
+  });
+
+  test('an admin can read it and append to it', async () => {
+    await assertSucceeds(getDocs(collection(asAdmin(), 'admin_audit')));
+    await assertSucceeds(setDoc(doc(asAdmin(), 'admin_audit/a2'), {
+      adminID: 'root', action: 'viewed_request', targetType: 'request', targetID: 'r1', at: new Date(),
+    }));
+  });
+
+  test('an admin cannot attribute an entry to a different admin', async () => {
+    await assertFails(setDoc(doc(asAdmin(), 'admin_audit/a3'), {
+      adminID: 'someone-else', action: 'viewed_user', targetType: 'user', targetID: ALICE, at: new Date(),
+    }));
+  });
+
+  test('the trail is append-only — an admin cannot rewrite or erase their tracks', async () => {
+    // This is the property that makes the log worth having.
+    await assertFails(updateDoc(doc(asAdmin(), 'admin_audit/a1'), { action: 'nothing' }));
+    await assertFails(deleteDoc(doc(asAdmin(), 'admin_audit/a1')));
+  });
+});
+
+describe('gamification mirror', () => {
+  const asAdmin = () =>
+    testEnv.authenticatedContext('root', { admin: true }).firestore();
+
+  beforeEach(() => seed((db) => setDoc(doc(db, 'gamification/alice'), { relationshipXP: 100 })));
+
+  test('you can read and write your own progress', async () => {
+    await assertSucceeds(getDoc(doc(asAlice(), 'gamification/alice')));
+    await assertSucceeds(setDoc(doc(asAlice(), 'gamification/alice'), { relationshipXP: 125 }));
+  });
+
+  test('you cannot read or write someone else progress', async () => {
+    await assertFails(getDoc(doc(asBob(), 'gamification/alice')));
+    await assertFails(setDoc(doc(asBob(), 'gamification/alice'), { relationshipXP: 9999 }));
+  });
+
+  test('an admin can read it', async () => {
+    await assertSucceeds(getDoc(doc(asAdmin(), 'gamification/alice')));
+  });
+});
+
 describe('unmatched paths', () => {
   test('a collection with no rule is denied', async () => {
     await assertFails(getDoc(doc(asAlice(), 'secrets/s1')));

@@ -29,6 +29,9 @@ actor PreviewAuthService: AuthServiceProtocol {
         user = nil
     }
 
+    /// Previews and mock mode are never admin: the panel must not appear by accident.
+    func isAdmin() async -> Bool { false }
+
     func deleteAccount(appleAuthorizationCode: String?) async throws {
         user = nil
     }

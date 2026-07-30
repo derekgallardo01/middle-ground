@@ -381,6 +381,81 @@ server-side purge runs.
 
 ---
 
+## Round 5 — admin panel and product tracking
+
+Built at your direction after I flagged that it conflicts with the published privacy promises.
+The conflict was real, so the policy was rewritten as part of this change rather than left to
+contradict the product.
+
+### Admin access is server-enforced, not a client flag
+
+The panel ships inside a public binary, so a client-side `isAdmin` boolean would be worthless.
+Admin status is a Firebase **custom claim**:
+
+- `Scripts/grant-admin.mjs <email> [--revoke] | --list` sets it via the Identity Toolkit using
+  the existing `firebase` CLI session — no service-account key needed.
+- `AuthService.isAdmin()` reads it from the ID token (`forcingRefresh`, so a just-granted claim
+  applies on relaunch). `AppState.isAdmin` drives whether the tab is rendered.
+- **`firestore.rules` checks the same claim.** That is the actual enforcement — the UI gate is
+  convenience. Verified against the live backend below.
+
+### Audit trail — append-only by design
+
+`admin_audit/{id}` records every admin view of user data (`adminID`, action, target, timestamp).
+Rules permit `create` and `read` for admins and **forbid `update` and `delete` outright**, for
+anyone. An audit log an admin can edit or erase is not an audit log. Non-admins cannot read it.
+
+### Tracking
+
+| Layer | What it gives |
+|---|---|
+| Aggregation queries | Users, groups, paired/unpaired, activation rate, requests by status and category — counted server-side without reading anyone's content |
+| `events` collection | `signed_up`, `onboarding_completed`, `relationship_created`, `invite_redeemed`, `request_created`, `request_responded`, `request_cancelled`. Emitted from the service choke points, fire-and-forget so analytics can never fail a user action. A user may write only events attributed to themselves, and cannot read any |
+| `gamification/{uid}` | XP, streak and achievements mirrored server-side. Also a genuine user fix: progress previously lived only in `UserDefaults` and was lost on device change |
+
+### The panel — `Features/Admin/`
+
+Overview (metrics + breakdowns), Users (searchable, with level/XP), User detail (their
+relationships, requests **with content**, and event timeline — writes an audit entry on open),
+Requests browser, Events feed, and the Audit trail itself. Built from the existing design
+system, so it matches the app.
+
+### Privacy policy rewritten
+
+The published text said *"We do not track you… no analytics SDKs"* and *"Your requests are
+visible only to you and the person you paired with."* Both would have become false. Now:
+
+- States plainly that usage events are recorded, and that they capture the action, not the words
+  a user wrote.
+- States that authorised staff can access account records and content for support, safety and
+  debugging; that the permission is server-side and cannot be obtained by modifying the app;
+  that every access is logged to an append-only trail; and that a user can ask what that log
+  shows about them.
+- New data categories added to the table, and `PrivacyInfo.xcprivacy` declares
+  `NSPrivacyCollectedDataTypeProductInteraction` so the App Store answers match.
+
+### Verified against the live backend
+
+Not just the UI — the rules themselves, with real tokens:
+
+| Check | Result |
+|---|---|
+| Non-admin lists `users` / `events` / `admin_audit` | **403 denied** (all three) |
+| Non-admin forges an audit entry | **403 denied** |
+| User writes an event attributed to someone else | **403 denied** |
+| Admin token carries `admin: true` | confirmed by decoding the JWT |
+| Admin lists `users` / `requests` / `events` / `admin_audit` | **200 allowed** (all four) |
+| Admin appends an audit entry | **200 allowed** |
+
+Plus 51 unit tests, 12 UI tests (including "the Admin tab must not appear without the claim"),
+17 new emulator rules cases, and `swiftlint --strict` clean.
+
+A bug the tests caught: `FirestoreEventRepository` held `Firestore.firestore()` in a stored
+property, so merely *constructing* it required `FirebaseApp.configure()` — the same shape as the
+original launch crash. All three new repositories now resolve the handle lazily.
+
+---
+
 ## Still outstanding
 
 1. **Privacy Policy content.** The link resolves to `middleground.app/privacy`; that page must

@@ -17,6 +17,13 @@ service cloud.firestore {
       return request.auth.uid;
     }
 
+    // Server-issued custom claim, granted out-of-band via Scripts/grant-admin.mjs.
+    // The in-app Admin tab checks the same claim, but THIS is the enforcement: a tampered
+    // client that forces the UI open still gets refused every read.
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
     // Fields a client must never change after creation.
     function immutable(field) {
       return request.resource.data[field] == resource.data[field];
@@ -27,7 +34,7 @@ service cloud.firestore {
     // (needed to show a partner's name); only the owner may write their own.
     match /users/{userId} {
       allow get: if signedIn();
-      allow list: if false;
+      allow list: if isAdmin();
       allow create, update: if signedIn() && uid() == userId;
       // Account deletion (Guideline 5.1.1(v)). Only your own profile — the wider cascade
       // across relationships and requests is done by the onUserDeleted Cloud Function,
@@ -55,7 +62,7 @@ service cloud.firestore {
     }
 
     match /relationships/{relationshipId} {
-      allow get, list: if isParticipant(resource.data);
+      allow get, list: if isParticipant(resource.data) || isAdmin();
       allow create: if signedIn()
                     && request.resource.data.participantIDs == [uid()];
       allow update: if isParticipant(resource.data) || isRedeemingInvite(relationshipId);
@@ -76,7 +83,7 @@ service cloud.firestore {
     // `allParticipantIDs` is denormalised on write specifically so this rule (and the
     // Cloud Functions fan-out) can check membership in one comparison.
     match /requests/{requestId} {
-      allow get, list: if signedIn() && uid() in resource.data.allParticipantIDs;
+      allow get, list: if (signedIn() && uid() in resource.data.allParticipantIDs) || isAdmin();
 
       allow create: if signedIn()
                     && request.resource.data.creatorID == uid()
@@ -103,6 +110,33 @@ service cloud.firestore {
       allow read: if false;
       allow create, update: if signedIn() && uid() == userId;
       allow delete: if signedIn() && uid() == userId;
+    }
+
+    // --------------------------------------------------------------- events
+    // Product-usage events. A user may only ever write events attributed to themselves, and
+    // cannot read any — including their own — so the log cannot be mined from a client.
+    // Disclosed in the Privacy Policy.
+    match /events/{eventId} {
+      allow read: if isAdmin();
+      allow create: if signedIn() && request.resource.data.userID == uid();
+      allow update, delete: if false;
+    }
+
+    // ---------------------------------------------------------- gamification
+    // Mirror of XP / streak / achievements, so progress survives a device change.
+    match /gamification/{userId} {
+      allow read: if (signedIn() && uid() == userId) || isAdmin();
+      allow create, update: if signedIn() && uid() == userId;
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    // ----------------------------------------------------------- admin_audit
+    // Record of every admin access to user data. Append-only ON PURPOSE: an audit trail an
+    // admin can edit or erase is not an audit trail. Invisible to non-admins.
+    match /admin_audit/{entryId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.adminID == uid();
+      allow update, delete: if false;
     }
 
     // Deny everything not matched above.

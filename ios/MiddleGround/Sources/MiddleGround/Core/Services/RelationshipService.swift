@@ -1,4 +1,5 @@
 import Foundation
+import Factory
 
 /// Owns relationship creation and the invite-code pairing flow.
 ///
@@ -7,6 +8,7 @@ import Foundation
 actor RelationshipService {
     private let repository: RelationshipRepository
     private let userRepository: UserRepository
+    private let analytics = Container.shared.analyticsService()
 
     init(repository: RelationshipRepository, userRepository: UserRepository) {
         self.repository = repository
@@ -42,6 +44,12 @@ actor RelationshipService {
             type: type
         )
         try await repository.saveRelationship(relationship)
+        await analytics.track(
+            .relationshipCreated,
+            userID: ownerID,
+            relationshipID: relationship.id,
+            metadata: ["type": type.rawValue]
+        )
         return relationship
     }
 
@@ -70,6 +78,7 @@ actor RelationshipService {
         guard let relationship = joined.first(where: { $0.id == invite.relationshipID }) else {
             throw PairingError.codeNotFound
         }
+        await analytics.track(.inviteRedeemed, userID: userID, relationshipID: relationship.id)
         return relationship
     }
 

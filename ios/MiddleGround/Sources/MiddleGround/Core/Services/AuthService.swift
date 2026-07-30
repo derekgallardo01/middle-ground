@@ -35,6 +35,12 @@ protocol AuthServiceProtocol: Sendable {
     /// Firestore data is purged server-side by the `onUserDeleted` Cloud Function.
     func deleteAccount(appleAuthorizationCode: String?) async throws
 
+    /// Whether the signed-in user carries the server-issued `admin` custom claim.
+    ///
+    /// Read from the ID token, not from anything the client can set. The same claim is checked
+    /// in `firestore.rules`, so a tampered build gains nothing — the backend still refuses.
+    func isAdmin() async -> Bool
+
     func authStateStream() -> AsyncStream<User?>
 
     #if DEBUG
@@ -131,6 +137,15 @@ actor AuthService: AuthServiceProtocol {
                 Auth.auth().removeStateDidChangeListener(handle)
             }
         }
+    }
+
+    func isAdmin() async -> Bool {
+        guard let firebaseUser = Auth.auth().currentUser else { return false }
+        // forcingRefresh so a claim granted moments ago is picked up without a re-login.
+        guard let result = try? await firebaseUser.getIDTokenResult(forcingRefresh: true) else {
+            return false
+        }
+        return result.claims["admin"] as? Bool == true
     }
 
     #if DEBUG

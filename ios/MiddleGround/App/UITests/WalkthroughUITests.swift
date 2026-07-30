@@ -51,6 +51,10 @@ final class WalkthroughUITests: XCTestCase {
         }
         // The AI tab was removed; it must not come back.
         XCTAssertFalse(tab("AI").exists, "AI tab should have been removed")
+
+        // The Admin tab requires a server-issued claim. Mock mode is never admin, so its
+        // presence here would mean the gate had regressed to something client-controlled.
+        XCTAssertFalse(tab("Admin").exists, "Admin tab must not appear without the admin claim")
         capture("02-tabs")
     }
 

@@ -73,6 +73,43 @@ extension Container {
         }
     }
 
+    var eventRepository: Factory<EventRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockEventRepository()
+            }
+            #endif
+            return FirestoreEventRepository()
+        }
+    }
+
+    var analyticsService: Factory<AnalyticsService> {
+        Factory(self) { AnalyticsService(repository: self.eventRepository()) }
+    }
+
+    var gamificationRepository: Factory<GamificationRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockGamificationRepository()
+            }
+            #endif
+            return FirestoreGamificationRepository()
+        }
+    }
+
+    var adminRepository: Factory<AdminRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockAdminRepository()
+            }
+            #endif
+            return FirestoreAdminRepository()
+        }
+    }
+
     var authService: Factory<AuthServiceProtocol> {
         Factory(self) {
             #if DEBUG
@@ -88,7 +125,7 @@ extension Container {
         Factory(self) {
             AppConfiguration.useMockRepositories
                 ? MockGamificationService() as GamificationServiceProtocol
-                : GamificationService()
+                : GamificationService(mirror: self.gamificationRepository())
         }
     }
 

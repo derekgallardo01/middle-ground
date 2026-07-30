@@ -26,6 +26,11 @@ actor MockAuthService: AuthServiceProtocol {
 
     private(set) var deleteAccountCalled = false
 
+    /// Overridable so a test can exercise the admin path without a real token.
+    var mockIsAdmin = false
+
+    func isAdmin() async -> Bool { mockIsAdmin }
+
     func deleteAccount(appleAuthorizationCode: String?) async throws {
         if shouldThrowOnSignOut { throw AuthError.notAuthenticated }
         deleteAccountCalled = true

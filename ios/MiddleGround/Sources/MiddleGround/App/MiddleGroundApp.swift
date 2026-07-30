@@ -53,6 +53,14 @@ struct MainTabView: View {
             ProfileView()
                 .tabItem { Label("Profile", systemImage: "person") }
                 .tag(AppState.Tab.profile)
+
+            // Present only for accounts carrying the server-issued `admin` claim. This is a
+            // convenience gate: firestore.rules refuses the underlying reads regardless.
+            if appState.isAdmin {
+                AdminView()
+                    .tabItem { Label("Admin", systemImage: "gauge.with.dots.needle.bottom.50percent") }
+                    .tag(AppState.Tab.admin)
+            }
         }
         .tint(MGColors.indigo)
     }

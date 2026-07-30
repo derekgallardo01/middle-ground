@@ -4,6 +4,18 @@ import XCTest
 /// Covers the pairing flow, which is what unblocks request creation:
 /// before a second participant joins, `canSubmit` can never become true.
 final class RelationshipServiceTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        // These run offline; without this the container would resolve real Firestore-backed
+        // collaborators.
+        AppConfiguration.useMockRepositories = true
+    }
+
+    override func tearDown() {
+        AppConfiguration.useMockRepositories = false
+        super.tearDown()
+    }
+
     private func makeService() -> (RelationshipService, MockRelationshipRepository) {
         let repository = MockRelationshipRepository()
         let service = RelationshipService(repository: repository, userRepository: MockUserRepository())

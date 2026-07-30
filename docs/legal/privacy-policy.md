@@ -11,9 +11,12 @@ actually does — every item below corresponds to real behaviour in the app.
 ## The short version
 
 - We collect the minimum needed to show your requests to the person you paired with.
-- **We do not track you.** No advertising, no analytics SDKs, no third-party trackers, no data
-  sold or shared for marketing.
-- Your requests are visible only to you and the person you paired with.
+- **We record how the app is used** — that you created or answered a request, and when — so we
+  can understand and improve the product. We do **not** sell your data, run advertising, or use
+  third-party trackers or ad SDKs.
+- Your requests are visible to you, the person you paired with, **and to authorised Middle
+  Ground staff** who may access accounts for support, safety and debugging. Every such access is
+  recorded in a tamper-evident log.
 - You can delete your account, and everything tied to it, from inside the app.
 
 ## What we collect, and why
@@ -26,7 +29,8 @@ actually does — every item below corresponds to real behaviour in the app.
 | **Requests you create** — title, optional note, optional proposed time, and the responses exchanged | `requests/{id}` in Firebase Firestore | This is the product: it is the content you and your partner are deciding on |
 | **Group membership** — who you are paired with, and your invite code | `relationships/{id}` and `invites/{code}` | Connects two people so they can send each other requests |
 | **Notification token** | `user_tokens/{your-id}` | Lets us send a push notification when your partner sends or answers a request. Only if you grant notification permission |
-| **Progress data** — XP, streak, achievements, activity history | **On your device only** (`UserDefaults`) | Powers the Activities tab. This never leaves your phone and is not sent to any server |
+| **Progress data** — XP, streak, achievements | On your device, and mirrored to `gamification/{your-id}` | Powers the Activities tab, and means your progress survives changing phone |
+| **Usage events** — that you signed up, paired, created a request, or responded, with a timestamp | `events` | Lets us understand how the product is actually used and where people get stuck. Records the *action*, not the words you wrote |
 
 We do **not** collect: contacts, photos, location, calendars, health data, advertising
 identifiers, or device fingerprints.
@@ -35,9 +39,19 @@ identifiers, or device fingerprints.
 
 - **You and the person you paired with.** Requests are readable only by their participants, and
   this is enforced on the server, not just in the app.
-- **Nobody else.** Invite codes cannot be listed or enumerated — a code only works if someone
-  tells it to you. Notification tokens are not readable by any app user, including you.
+- **Authorised Middle Ground staff.** A small number of accounts hold an administrator
+  permission that allows access to account records and request content. It exists so we can
+  provide support, investigate abuse or safety reports, and diagnose faults.
+  - The permission is granted server-side and cannot be obtained by modifying the app.
+  - **Every administrator access to an individual's data is written to an append-only audit
+    log** that administrators cannot edit or delete.
+  - We use it only for the reasons above — not for browsing, marketing, or curiosity.
+- **No other app user.** Invite codes cannot be listed or enumerated — a code only works if
+  someone tells it to you. Notification tokens are not readable by any app user, including you.
 - **We do not sell, rent, or share your data with third parties for their own purposes.**
+
+If you would like to know whether your account has been accessed by staff, email us and we will
+tell you what the audit log shows.
 
 ## Service providers
 
@@ -49,8 +63,9 @@ information is at <https://firebase.google.com/support/privacy>.
 Push notifications are delivered through **Apple Push Notification service**. If you sign in with
 Apple, Apple handles that authentication; see <https://www.apple.com/legal/privacy/>.
 
-These are the only third parties involved. There are no analytics, attribution, or advertising
-SDKs in the app.
+These are the only third parties involved. Usage events are recorded in our own Firestore
+database — there are no third-party analytics, attribution, or advertising SDKs in the app, and
+no usage data is shared with anyone else.
 
 ## Sign in with Apple
 
@@ -74,8 +89,8 @@ Open **Profile → Delete Account**. After you confirm:
 - Your authentication account is deleted and, for Sign in with Apple, the token we hold is
   revoked.
 - The progress data stored on your device is removed with the app's data.
-- Your profile, notification token, invite codes, group membership, and requests that involved
-  only you are erased from our database. Requests shared with your partner have your
+- Your profile, notification token, invite codes, group membership, progress data, usage
+  events, and requests that involved only you are erased from our database. Requests shared with your partner have your
   participation removed so they keep their own history.
 
 Deletion is permanent and cannot be undone. There is no waiting period and you do not need to

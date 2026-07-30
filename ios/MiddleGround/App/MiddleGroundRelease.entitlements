@@ -9,11 +9,16 @@
 	  and rewrites it on every run — so the Release variant cannot live there. project.yml
 	  points CODE_SIGN_ENTITLEMENTS at this file for the Release configuration only.
 
-	  The difference that matters is `aps-environment`. Xcode only rewrites it to
-	  `production` when it manages the distribution export itself; an `xcodebuild
-	  -exportArchive` with an exportOptions.plist ships whatever the file says. A
-	  development entitlement uploads without complaint and then push simply never arrives
-	  in production, with nothing anywhere to explain why.
+	  The difference that matters is `aps-environment`. Declaring `production` here is
+	  necessary but not sufficient: the *provisioning profile* also constrains it. Archiving
+	  with the automatic "iOS Team Provisioning Profile" — a development profile — produces a
+	  binary signed `aps-environment: development` no matter what this file says, and that
+	  archive also carries `get-task-allow: true`, so it cannot be uploaded at all.
+
+	  A distribution-signed archive is what makes this file take effect, and that needs an
+	  Apple Distribution certificate in the keychain. Check with:
+	      security find-identity -v -p codesigning
+	  If only "Apple Development" is listed, the archive will be a development build.
 
 	  Keep this in step with the generated MiddleGround.entitlements — any capability added
 	  there has to be added here too, or it will work in Debug and vanish in Release.

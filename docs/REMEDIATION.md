@@ -515,6 +515,23 @@ compiling. Every claim below was verified against source before being acted on.
 - Rules and indexes deployed, including the two indexes the code needed and the project did not
   have.
 
+### Archive: builds, but is not distributable
+
+The archive had never been run. It failed first because the App ID
+`app.middleground.MiddleGround` had **no capabilities enabled at all** — not Push, not Sign in
+with Apple — so the provisioning profile could not cover the entitlements. Both were attached
+via the App Store Connect API and the archive then succeeded.
+
+It is still not an uploadable artifact: the machine has only an *Apple Development* certificate,
+so automatic signing falls back to the development team profile and the archive comes out with
+`get-task-allow: true` and `aps-environment: development` — the latter overriding the Release
+entitlements file, because the profile type constrains the entitlement regardless of what the
+file declares. An Apple Distribution certificate is needed, and creating one requires the
+developer account.
+
+Worth noting for anyone reading the entitlements comment: declaring `production` there is
+necessary but not sufficient. The distribution *profile* is what makes it real.
+
 ### One thing that could not be deployed
 
 A TTL policy on `events.at` requires Blaze; the `fieldOverride` returns HTTP 403 and fails the

@@ -107,6 +107,27 @@ the user, none used for tracking:
 
 Answer **No** to "Do you or your third-party partners use data for tracking?"
 
+## Blocker: no Apple Distribution certificate
+
+`security find-identity -v -p codesigning` lists exactly one identity —
+**Apple Development: Derek Gallardo** — and no Apple Distribution certificate. Consequences:
+
+- `xcodebuild ... archive` **succeeds**, but automatic signing falls back to the development
+  "iOS Team Provisioning Profile". The resulting archive carries `get-task-allow: true` and
+  `aps-environment: development`, so it cannot be uploaded to App Store Connect, and push would
+  not work even if it could.
+- Fixing it needs the Apple Developer account: Xcode → Settings → Accounts → Manage
+  Certificates → **+** → Apple Distribution. (Or generate a CSR in Keychain Access and request
+  the certificate in the developer portal.)
+
+Everything else on the build side is verified working: the Release configuration compiles, the
+archive is produced, `PrivacyInfo.xcprivacy` is embedded, `ITSAppUsesNonExemptEncryption` is
+present, and `CFBundleVersion` picks up `MG_BUILD_NUMBER` (`202607301940` on the last run).
+
+The bundle ID's capabilities were missing entirely and have been enabled via the App Store
+Connect API — `PUSH_NOTIFICATIONS` and `APPLE_ID_AUTH` are now attached to
+`app.middleground.MiddleGround`, which is what unblocked the archive.
+
 ## Known gaps at time of writing
 
 - **Sign in with Apple and push have never run on physical hardware.** Simulators return

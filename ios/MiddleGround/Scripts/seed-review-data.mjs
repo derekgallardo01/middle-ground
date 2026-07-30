@@ -237,9 +237,13 @@ async function seedOne(call, db, index) {
   const name = ['Alex', 'Sam', 'Jordan', 'Riley', 'Casey', 'Quinn'][index % 6];
 
   // Create the demo partner. If it already exists, reuse it.
+  //
+  // The admin create endpoint is `projects/{id}/accounts`. `accounts:signUp` exists only on
+  // the unauthenticated client API and 404s here with an HTML error page, which surfaces as
+  // "Unexpected token '<'" rather than anything informative.
   let localId;
   try {
-    ({ localId } = await call('accounts:signUp', {
+    ({ localId } = await call('accounts', {
       email,
       password: DEMO_PASSWORD,
       displayName: name,

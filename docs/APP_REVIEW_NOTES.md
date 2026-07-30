@@ -51,9 +51,9 @@ Everything else here is context for us, not for Apple.
 > 2. Go to the **Profile** tab.
 > 3. Under **Connect**, enter one of these invite codes and tap **Join with a code**:
 >
->    - `CODE1`
->    - `CODE2`
->    - `CODE3`
+>    - `6XRXSC`
+>    - `TSF64V`
+>    - `5F2YDB`
 >
 >    (Each code works once. If one is rejected, please try the next.)
 >
@@ -99,13 +99,15 @@ Everything else here is context for us, not for Apple.
 | Primary / secondary category | Lifestyle / Productivity |
 | Screenshots (5 × 1320×2868) | Uploaded, COMPLETE |
 | Age rating, price schedule | Set |
-| Review notes + contact | Set — includes three verified invite codes |
-| **App Privacy questionnaire** | **NOT DONE — web UI only** |
+| Review notes + contact | Set — includes the three verified invite codes below |
+| App Privacy questionnaire | Completed (web UI — not verifiable via API) |
+| Blaze billing | Enabled |
+| Cloud Functions | Deployed — notifyNewRequest, notifyRequestResponse, onUserDeleted |
+| `events` TTL | 90-day policy live |
+| **Device test on real hardware** | **NOT DONE — the last unverified path** |
 
 App Privacy is not exposed by the App Store Connect API (`appPrivacyDetails`, `appDataUsages`
-and four related paths all return 404), so it has to be completed at
-App Store Connect → the app → **App Privacy**. A version cannot be submitted until it is
-published.
+and four related paths all return 404), so it can only be completed and confirmed in the web UI.
 
 **It must say data IS collected.** `App/PrivacyInfo.xcprivacy` declares seven data types, and
 Apple cross-checks the privacy manifest in the binary against the nutrition label. Answering

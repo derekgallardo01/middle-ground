@@ -17,7 +17,7 @@ struct PrimaryButton: View {
                     .mgFont(.body)
                     .fontWeight(.semibold)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(MGColors.onAccent)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(MGColors.indigo)

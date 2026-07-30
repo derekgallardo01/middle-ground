@@ -16,13 +16,16 @@ enum MGSpacing {
     static let xxxl: CGFloat = 32
 }
 
+/// Matches `--radius-*` in brand/design-system.md. These were previously shifted a full step
+/// down (md 12 vs 16, lg 16 vs 24, xl 24 vs 32), so adopting them would have made every card
+/// tighter than the spec.
 enum MGRadius {
     static let sm: CGFloat = 8
-    static let md: CGFloat = 12
-    static let lg: CGFloat = 16
-    static let xl: CGFloat = 24
-    static let pill: CGFloat = 999
-    /// Matches the app-icon squircle.
+    static let md: CGFloat = 16
+    static let lg: CGFloat = 24
+    static let xl: CGFloat = 32
+    static let pill: CGFloat = 9999
+    /// The app-icon squircle.
     static let appIcon: CGFloat = 32
 }
 
@@ -34,21 +37,24 @@ enum MGShadow {
         let y: CGFloat
     }
 
+    // Radii are half the CSS blur values in brand/design-system.md, since SwiftUI's
+    // `radius` is a standard deviation rather than a blur diameter.
+
     static var sm: Style {
-        Style(color: MGColors.slate.opacity(0.05), radius: 4, x: 0, y: 1)
+        Style(color: MGColors.shadow.opacity(0.06), radius: 1, x: 0, y: 1)
     }
 
     /// The card shadow used across the app.
     static var md: Style {
-        Style(color: MGColors.slate.opacity(0.05), radius: 12, x: 0, y: 4)
+        Style(color: MGColors.shadow.opacity(0.08), radius: 6, x: 0, y: 4)
     }
 
     static var lg: Style {
-        Style(color: MGColors.slate.opacity(0.12), radius: 30, x: 0, y: 12)
+        Style(color: MGColors.shadow.opacity(0.12), radius: 16, x: 0, y: 12)
     }
 
     static func glow(_ color: Color) -> Style {
-        Style(color: color.opacity(0.3), radius: 16, x: 0, y: 8)
+        Style(color: color.opacity(0.24), radius: 12, x: 0, y: 8)
     }
 }
 
@@ -64,9 +70,14 @@ extension View {
         shadow(color: style.color, radius: style.radius, x: style.x, y: style.y)
     }
 
-    /// Rounded rectangle clip using a brand radius token.
-    func mgCard(radius: CGFloat = MGRadius.xl) -> some View {
+    /// Clips to a brand radius and adds the spec's 1px hairline, which is what keeps a
+    /// surface-coloured card legible against the sand background.
+    func mgCard(radius: CGFloat = MGRadius.lg) -> some View {
         clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(MGColors.cardBorder, lineWidth: 1)
+            )
     }
 
     /// Applies an animation only when Reduce Motion is off.

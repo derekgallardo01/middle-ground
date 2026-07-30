@@ -24,7 +24,7 @@ actor CachedRequestRepository: RequestRepository {
             // Offline: keep local data
         }
 
-        return try fetchLocal()
+        return try fetchLocal(for: userID)
     }
 
     func createRequest(_ request: Request) async throws {
@@ -49,12 +49,12 @@ actor CachedRequestRepository: RequestRepository {
             let task = Task {
                 do {
                     // Initial local data
-                    continuation.yield(try await self.fetchLocal())
+                    continuation.yield(try await self.fetchLocal(for: userID))
 
                     // Then listen to remote updates
                     for await requests in self.remote.observeRequests(for: userID) {
                         try await self.merge(requests: requests)
-                        continuation.yield(try await self.fetchLocal())
+                        continuation.yield(try await self.fetchLocal(for: userID))
                     }
                     continuation.finish()
                 } catch {
@@ -70,10 +70,17 @@ actor CachedRequestRepository: RequestRepository {
 
     // MARK: - Private
 
-    private func fetchLocal() throws -> [Request] {
+    /// Local requests **for a specific user**.
+    ///
+    /// This used to return every cached row regardless of owner, and `merge` never deletes, so
+    /// signing out and signing in as someone else on the same device surfaced the previous
+    /// user's requests. `CachedRelationshipRepository` already filtered correctly; this did not.
+    private func fetchLocal(for userID: String) throws -> [Request] {
         let ctx = context
         let descriptor = FetchDescriptor<RequestEntity>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
-        return try ctx.fetch(descriptor).compactMap { $0.toModel() }
+        return try ctx.fetch(descriptor)
+            .compactMap { $0.toModel() }
+            .filter { $0.allParticipantIDs.contains(userID) }
     }
 
     private func merge(requests: [Request]) throws {

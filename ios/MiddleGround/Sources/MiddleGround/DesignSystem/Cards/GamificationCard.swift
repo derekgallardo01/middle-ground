@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct GamificationCard: View {
+    @ScaledMetric(relativeTo: .title2) private var iconSize: CGFloat = 24
+
     let title: String
     let value: String
     let subtitle: String?
@@ -9,30 +11,38 @@ struct GamificationCard: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 24))
-                .foregroundStyle(color)
-
-            Text(value)
-                .mgFont(.h2)
-                .foregroundStyle(MGColors.slate)
-
+            // Label first, then the number with its unit inline — per brand/preview.html.
+            // Previously the value sat above an unlabelled caption, and the unit was painted
+            // in the accent colour, which made "days" read as a tappable link.
             Text(title)
                 .mgFont(.caption)
                 .foregroundStyle(MGColors.warm600)
                 .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
 
-            if let subtitle {
-                Text(subtitle)
-                    .mgFont(.caption)
-                    .foregroundStyle(color)
+            Image(systemName: icon)
+                .font(.system(size: iconSize))
+                .foregroundStyle(color)
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value)
+                    .mgFont(.h2)
+                    .foregroundStyle(MGColors.slate)
+                if let subtitle {
+                    Text(subtitle)
+                        .mgFont(.caption)
+                        .foregroundStyle(MGColors.warm600)
+                }
             }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
         .padding(16)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: MGColors.slate.opacity(0.05), radius: 10, x: 0, y: 3)
+        .mgCard()
+        .mgShadow(MGShadow.md)
     }
 }
 

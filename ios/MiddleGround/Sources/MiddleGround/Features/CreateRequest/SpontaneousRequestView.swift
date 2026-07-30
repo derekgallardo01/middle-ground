@@ -128,14 +128,21 @@ struct SpontaneousRequestView: View {
             if viewModel.isLoadingPartners {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
-            } else if viewModel.relationships.isEmpty {
-                Text("No partners connected yet")
-                    .foregroundStyle(MGColors.warm600)
-                    .mgFont(.body)
+            } else if viewModel.relationships.isEmpty || viewModel.needsPartner {
+                // Without this an unpaired owner got a one-segment picker tagged "" and a
+                // permanently disabled Send Now, with nothing explaining why.
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("No one has joined yet")
+                        .mgFont(.body)
+                    Text("Share your invite code from the Profile tab to pair up.")
+                        .mgFont(.caption)
+                        .foregroundStyle(MGColors.warm600)
+                }
+                .accessibilityElement(children: .combine)
             } else {
                 Picker("Recipient", selection: $viewModel.recipientID) {
                     ForEach(viewModel.relationships) { relationship in
-                        Text(relationship.type.displayName)
+                        Text(viewModel.label(for: relationship))
                             .tag(partnerID(from: relationship) ?? "")
                     }
                 }

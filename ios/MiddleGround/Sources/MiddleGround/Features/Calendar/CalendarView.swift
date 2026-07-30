@@ -104,18 +104,12 @@ struct CalendarView: View {
 
     private var upcomingEvents: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Upcoming")
+            Text(viewModel.hasSelectionWithEvents
+                 ? viewModel.selectedDate.formatted(date: .abbreviated, time: .omitted)
+                 : "Upcoming")
                 .mgFont(.h2)
 
-            let upcoming = viewModel.events
-                .compactMap { request -> (Request, Date)? in
-                    guard let date = request.proposedTime else { return nil }
-                    return (request, date)
-                }
-                .filter { $0.1 >= Date().startOfDay }
-                .sorted { $0.1 < $1.1 }
-                .prefix(5)
-                .map { $0.0 }
+            let upcoming = viewModel.listedEvents
 
             if upcoming.isEmpty {
                 ContentUnavailableView {

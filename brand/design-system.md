@@ -87,26 +87,35 @@ The logo mark shows two abstract figures — one in indigo, one in teal — with
 
 ## Typography
 
-### Typefaces
+**Shipped faces: the system family.** Headings use **SF Pro Rounded** (`Font.Design.rounded`)
+and body copy uses **SF Pro** (`.default`).
 
-- **Headings:** `Poppins` — geometric, bold, friendly
-- **Body:** `Inter` — clean, modern, highly readable
+This is a deliberate choice rather than a shortfall. SF Pro Rounded carries the same warm,
+approachable tone the brand asks for, and using the system family means:
 
-### Type Scale
+- no font binaries in the bundle and no registration step,
+- automatic Dynamic Type, optical sizing and full glyph coverage,
+- correct rendering in every locale we might later ship to.
 
-| Style | Size | Weight | Line Height | Usage |
-|-------|------|--------|-------------|-------|
-| Display XL | 48px / 3rem | 700 | 1.1 | Hero headlines |
-| Display L | 36px / 2.25rem | 700 | 1.15 | Screen titles |
-| H1 | 28px / 1.75rem | 700 | 1.25 | Page headers |
-| H2 | 22px / 1.375rem | 600 | 1.25 | Section headers |
-| H3 | 18px / 1.125rem | 600 | 1.3 | Card titles |
-| Body | 16px / 1rem | 400 | 1.5 | Primary body text |
-| Body Small | 14px / 0.875rem | 400 | 1.5 | Secondary text |
-| Caption | 12px / 0.75rem | 600 | 1.4 | Labels, badges, timestamps |
-| Button | 16px / 1rem | 600 | 1 | CTA buttons |
+Sizes and weights below are the brand's own and are implemented exactly, via `MGTextStyle`
+and the `.mgFont(_:)` modifier, which drives them through `@ScaledMetric` so they scale with
+the reader's text-size setting.
 
----
+| Token | Size | Weight | Face |
+|-------|------|--------|------|
+| `displayXL` | 48 | Bold | Rounded |
+| `displayL` | 36 | Bold | Rounded |
+| `h1` | 28 | Bold | Rounded |
+| `h2` | 22 | Semibold | Rounded |
+| `h3` | 18 | Semibold | Rounded |
+| `body` | 16 | Regular | Default |
+| `bodySmall` | 14 | Regular | Default |
+| `caption` | 12 | Semibold | Default |
+
+> Poppins and Inter were the original specification. They are not shipped; if the brand later
+> requires them, both are SIL Open Font License and can be vendored into
+> `Sources/MiddleGround/Resources/Fonts/`, declared via `UIAppFonts` in `App/project.yml`, and
+> swapped in behind `MGTextStyle` without touching a single call site.
 
 ## Spacing & Shape
 

@@ -22,11 +22,8 @@ public struct MiddleGroundRootView: View {
         ZStack {
             MGColors.sand.ignoresSafeArea()
             VStack(spacing: 16) {
-                Image(systemName: "heart.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 72)
-                    .foregroundStyle(MGColors.coral)
+                LogoMark()
+                    .frame(width: 96, height: 96)
                 Text("Middle Ground")
                     .mgFont(.displayL)
             }

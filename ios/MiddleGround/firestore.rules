@@ -82,13 +82,17 @@ service cloud.firestore {
                     && request.resource.data.creatorID == uid()
                     && uid() in request.resource.data.allParticipantIDs;
 
-      // Participants may respond, but nobody may rewrite authorship or move a request
-      // to a different set of people.
+      // Only a RECIPIENT may respond. The creator asked the question; letting them answer it
+      // would let one person close a shared decision alone (and farm XP for it). Enforced
+      // here as well as in the client so a modified app cannot bypass it.
       allow update: if signedIn()
-                    && uid() in resource.data.allParticipantIDs
+                    && uid() in resource.data.recipientIDs
+                    && resource.data.creatorID != uid()
                     && immutable('creatorID')
+                    && immutable('recipientIDs')
                     && immutable('allParticipantIDs');
 
+      // The creator's only write is withdrawing their own unanswered request.
       allow delete: if signedIn() && resource.data.creatorID == uid();
     }
 

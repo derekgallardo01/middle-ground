@@ -22,6 +22,50 @@ final class ProfileViewModel {
     }
 
     var isPaired: Bool { relationships.contains(where: \.isPaired) }
+
+    /// No group at all — reachable by quitting during onboarding, or after a partner deletes
+    /// their account. Before this there was no way back: relationships could only ever be
+    /// created inside onboarding, which an authenticated user never sees again.
+    var hasNoRelationship: Bool { relationships.isEmpty }
+
+    var joinCodeInput: String = ""
+    var isPairing = false
+    var selectedRelationshipType: RelationshipType = .couple
+
+    var canJoin: Bool {
+        Relationship.normalizeInviteCode(joinCodeInput).count >= 6
+    }
+
+    /// Creates a group so the user has something to share a code for.
+    func createGroup() async {
+        guard let user else { return }
+        isPairing = true
+        errorMessage = nil
+        defer { isPairing = false }
+        do {
+            _ = try await relationshipService.createRelationship(
+                type: selectedRelationshipType, ownerID: user.id
+            )
+            await loadRelationships()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Redeems someone else's invite code.
+    func joinGroup() async {
+        guard let user else { return }
+        isPairing = true
+        errorMessage = nil
+        defer { isPairing = false }
+        do {
+            _ = try await relationshipService.join(inviteCode: joinCodeInput, userID: user.id)
+            joinCodeInput = ""
+            await loadRelationships()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
     var isLoading = false
     var isDeletingAccount = false
     var errorMessage: String?
@@ -90,6 +134,7 @@ final class ProfileViewModel {
         let authorizationCode = await freshAppleAuthorizationCode()
         do {
             try await authService.deleteAccount(appleAuthorizationCode: authorizationCode)
+            LocalStore.shared.purgeAll()
             return true
         } catch {
             errorMessage = "Couldn't delete your account. Please try again."
@@ -115,6 +160,8 @@ final class ProfileViewModel {
         await NotificationService.shared.removeTokenForCurrentUser()
         do {
             try await authService.signOut()
+            // Derived, per-account data must not outlive the session on a shared device.
+            LocalStore.shared.purgeAll()
             isLoading = false
             return true
         } catch {

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CelebrationView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let title: String
     let subtitle: String
     let onComplete: () -> Void
@@ -9,8 +10,9 @@ struct CelebrationView: View {
     @State private var showContent = false
 
     var body: some View {
+      GeometryReader { geo in
         ZStack {
-            Color.black.opacity(0.3)
+            MGColors.shadow.opacity(0.35)  // adaptive: a black scrim is invisible over dark sand
                 .ignoresSafeArea()
                 .onTapGesture { onComplete() }
 
@@ -36,15 +38,16 @@ struct CelebrationView: View {
             }
             .padding(28)
             .background(MGColors.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-            .shadow(color: MGColors.slate.opacity(0.2), radius: 30, x: 0, y: 12)
+            .mgCard(radius: MGRadius.xl)
+            .mgShadow(MGShadow.lg)
             .scaleEffect(showContent ? 1.0 : 0.8)
             .opacity(showContent ? 1.0 : 0.0)
             .onAppear {
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                if reduceMotion {
                     showContent = true
+                } else {
+                    withAnimation(MGMotion.expressive) { showContent = true }
                 }
-                spawnParticles()
             }
 
             ForEach(particles) { particle in
@@ -57,16 +60,32 @@ struct CelebrationView: View {
                     .animation(.easeOut(duration: 1.2), value: particle.opacity)
             }
         }
+        .frame(width: geo.size.width, height: geo.size.height)
+        .onAppear { spawnParticles(in: geo.size) }
+      }
+      .ignoresSafeArea()
     }
 
-    private func spawnParticles() {
+    /// Bursts confetti radially from the centre of the actual view.
+    ///
+    /// The origin used to be a hardcoded `CGPoint(x: 200, y: 300)`, which is left-of-centre on
+    /// any modern iPhone and a small cluster in the corner on iPad. Every particle also fired
+    /// on the same deadline, so there was no stagger.
+    private func spawnParticles(in size: CGSize) {
+        guard !reduceMotion else { return }
+
         let colors: [Color] = [MGColors.indigo, MGColors.teal, MGColors.coral, MGColors.sunshine, MGColors.lavender]
+        let origin = CGPoint(x: size.width / 2, y: size.height / 2)
+        let spread = min(size.width, size.height) * 0.45
+
         for index in 0..<30 {
+            let angle = (Double(index) / 30.0) * 2 * .pi + Double.random(in: -0.2...0.2)
+            let distance = spread * CGFloat.random(in: 0.5...1.0)
             let particle = Particle(
-                position: CGPoint(x: 200, y: 300),
+                position: origin,
                 target: CGPoint(
-                    x: CGFloat.random(in: 50...350),
-                    y: CGFloat.random(in: 100...500)
+                    x: origin.x + cos(angle) * distance,
+                    y: origin.y + sin(angle) * distance
                 ),
                 color: colors[index % colors.count],
                 size: CGFloat.random(in: 6...12),
@@ -74,13 +93,13 @@ struct CelebrationView: View {
             )
             particles.append(particle)
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                if let index = particles.firstIndex(where: { $0.id == particle.id }) {
-                    withAnimation {
-                        particles[index].position = particle.target
-                        particles[index].opacity = 0
-                    }
-                }
+            // Stagger so the burst reads as motion rather than a single jump.
+            let delay = Double(index) * 0.012
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                guard let idx = particles.firstIndex(where: { $0.id == particle.id }) else { return }
+                particles[idx].position = particle.target
+                particles[idx].opacity = 0
             }
         }
     }

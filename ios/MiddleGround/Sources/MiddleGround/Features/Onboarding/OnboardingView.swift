@@ -3,6 +3,7 @@ import AuthenticationServices
 
 struct OnboardingView: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.colorScheme) private var colorScheme
     @State private var viewModel = OnboardingViewModel()
 
     var body: some View {
@@ -61,11 +62,10 @@ struct OnboardingView: View {
                     .fill(MGColors.warm100)
                     .frame(width: 180, height: 180)
 
-                Image(systemName: "heart.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 72)
-                    .foregroundStyle(MGColors.coral)
+                // The brand mark is two figures meeting at a heart. A lone SF heart
+                // dropped the actual metaphor.
+                LogoMark()
+                    .frame(width: 96, height: 96)
             }
 
             VStack(spacing: 12) {
@@ -88,7 +88,8 @@ struct OnboardingView: View {
             } onCompletion: { _ in
                 // Completion is handled by SignInWithAppleManager's delegate.
             }
-            .signInWithAppleButtonStyle(.black)
+            // Apple's HIG requires the white style on dark backgrounds.
+            .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
             .frame(height: 50)
             .clipShape(Capsule())
             .disabled(viewModel.isLoading)
@@ -174,7 +175,7 @@ struct OnboardingView: View {
                             Text(type.displayName)
                                 .mgFont(.caption)
                         }
-                        .foregroundStyle(viewModel.selectedRelationshipType == type ? .white : MGColors.slate)
+                        .foregroundStyle(viewModel.selectedRelationshipType == type ? MGColors.onAccent : MGColors.slate)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(viewModel.selectedRelationshipType == type ? MGColors.indigo : MGColors.surface)

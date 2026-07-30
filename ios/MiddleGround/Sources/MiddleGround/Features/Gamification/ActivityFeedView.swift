@@ -9,9 +9,17 @@ struct ActivityFeedView: View {
                 .mgFont(.h2)
 
             LazyVStack(spacing: 10) {
-                ForEach(activities) { activity in
+                if activities.isEmpty {
+                Text("Respond to a request and your activity shows up here.")
+                    .mgFont(.bodySmall)
+                    .foregroundStyle(MGColors.warm600)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            }
+
+            ForEach(activities) { activity in
                     ActivityRow(activity: activity)
-                }
+            }
             }
         }
     }

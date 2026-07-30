@@ -124,6 +124,20 @@ struct NegotiationMessage: Identifiable, Hashable, Codable {
     }
 }
 
+enum RequestError: LocalizedError, Equatable {
+    case notAllowedToRespond
+    case notAllowedToCancel
+
+    var errorDescription: String? {
+        switch self {
+        case .notAllowedToRespond:
+            return "Only the person this was sent to can respond."
+        case .notAllowedToCancel:
+            return "Only the person who sent this can cancel it."
+        }
+    }
+}
+
 struct Request: Identifiable, Hashable, Codable {
     let id: String
     var creatorID: String
@@ -171,11 +185,50 @@ struct Request: Identifiable, Hashable, Codable {
         Array(Set([creatorID] + recipientIDs))
     }
 
+    // MARK: - Roles
+    //
+    // A shared decision only means something if the *other* person answers it. Without these
+    // checks a creator could accept their own request, close the decision unilaterally, and
+    // collect the XP — so the rule is enforced here, in the service, in the UI, and in
+    // firestore.rules.
+
+    /// True when `userID` was asked to respond to this request.
+    func isRecipient(_ userID: String) -> Bool {
+        recipientIDs.contains(userID)
+    }
+
+    func isCreator(_ userID: String) -> Bool {
+        creatorID == userID
+    }
+
+    /// Whether `userID` may accept / decline / negotiate / counter / reschedule / save.
+    /// Only a recipient, and only while the request is still open.
+    func canRespond(as userID: String) -> Bool {
+        isPending && !isCreator(userID) && isRecipient(userID)
+    }
+
+    /// The creator's view of their own still-open request: they wait, they don't answer.
+    func isAwaitingResponse(for userID: String) -> Bool {
+        isPending && isCreator(userID)
+    }
+
+    /// Only the creator may withdraw a request, and only before it is answered.
+    func canCancel(as userID: String) -> Bool {
+        isPending && isCreator(userID)
+    }
+
     var isPending: Bool {
         status == .pending
     }
 
-    mutating func addResponse(_ message: NegotiationMessage) {
+    /// Appends a response and advances the status.
+    ///
+    /// Throws rather than silently ignoring an invalid responder: a caller that gets this wrong
+    /// has a bug, and swallowing it would let the UI show a state the backend rejects.
+    mutating func addResponse(_ message: NegotiationMessage) throws {
+        guard canRespond(as: message.senderID) else {
+            throw RequestError.notAllowedToRespond
+        }
         negotiationChain.append(message)
         status = message.responseType.statusMapping
         updatedAt = Date()

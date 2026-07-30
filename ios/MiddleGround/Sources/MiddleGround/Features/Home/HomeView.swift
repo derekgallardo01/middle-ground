@@ -100,7 +100,7 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MGColors.onAccent)
                         .frame(width: fabSize, height: fabSize)
                         .background(MGColors.indigo)
                         .clipShape(Circle())
@@ -147,7 +147,7 @@ struct HomeView: View {
             GamificationCard(
                 title: "Growth Score",
                 value: "\(viewModel.stats.growthScore)",
-                subtitle: "Great job!",
+                subtitle: viewModel.stats.growthScore > 0 ? "Great job!" : "Just getting started",
                 icon: "chart.line.uptrend.xyaxis",
                 color: MGColors.indigo
             )
@@ -161,7 +161,9 @@ struct HomeView: View {
 
             if viewModel.isLoading && viewModel.requests.isEmpty {
                 LoadingSkeleton(type: .list)
-            } else if let errorMessage = viewModel.errorMessage {
+            } else if let errorMessage = viewModel.errorMessage, viewModel.requests.isEmpty {
+                // Only take over the feed when there is nothing to show. A failed *response*
+                // used to wipe a perfectly good list.
                 ErrorState(message: errorMessage) {
                     Task { await viewModel.loadRequests() }
                 }
@@ -185,9 +187,14 @@ struct HomeView: View {
                         }
                         Haptics.shared.impact(.light)
                     } label: {
-                        RequestCard(request: request) { response in
-                            viewModel.respond(to: request, with: response)
-                        }
+                        // A nil closure hides the response buttons. Previously this was always
+                        // non-nil, so a creator saw Accept/Decline on their own request.
+                        RequestCard(
+                            request: request,
+                            onRespond: viewModel.canRespond(to: request)
+                                ? { response in viewModel.respond(to: request, with: response) }
+                                : nil
+                        )
                         .matchedGeometryEffect(id: "card_\(request.id)", in: animationNamespace, properties: .frame, anchor: .topLeading)
                     }
                     .buttonStyle(PlainButtonStyle())

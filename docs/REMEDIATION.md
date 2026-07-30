@@ -7,11 +7,11 @@ still outstanding.
 
 | Check | Result |
 |---|---|
-| `xcodebuild -scheme MiddleGround … test` | **TEST SUCCEEDED** — 40 tests, 0 failures, 0 source warnings |
-| `xcodegen generate && xcodebuild -scheme MiddleGroundApp … build` | **BUILD SUCCEEDED** — produces `Middle Ground.app` |
-| `swiftlint lint --strict` | **0 violations** |
-| UI walkthrough (`WalkthroughUITests`, mock mode) | **9 passed**, with screenshots |
+| `xcodebuild -scheme MiddleGround … test` | **51 tests, 0 failures**, 0 source warnings |
+| UI walkthrough (`WalkthroughUITests`, mock mode) | **12 passed**, with screenshots |
 | **Two-device E2E vs real Firebase** | **5/5 steps passed** — pair → send → live sync → accept → +25 XP |
+| `swiftlint lint --strict` | **0 violations** |
+| Dark mode | Verified on device in both appearances |
 
 Before: the package did not compile (29 errors), the test target did not compile, and no user
 could create a request. Test count went 20 → 40.
@@ -292,6 +292,92 @@ The two-device run (`Scripts/two-device-e2e.sh`) proves the whole loop: device A
 relationship and shows its invite code → device B joins with it → B's compose picker shows A's
 **name** → B sends a request → **A receives it live, untouched** → A accepts and earns +25 XP →
 the Activities tab reflects it.
+
+---
+
+## Round 4 — legal, roles, and design fidelity
+
+### The creator could answer their own request
+
+Nothing validated the responder at any layer — model, service, view model, view, or security
+rules. A could create a request for B, accept it, close the decision alone, and take the XP;
+B simply lost the buttons. Now enforced at **four** layers so a modified client cannot bypass it:
+
+- `Request.canRespond(as:)` / `isAwaitingResponse(for:)` / `canCancel(as:)`, with
+  `addResponse` throwing `RequestError.notAllowedToRespond` rather than silently accepting.
+- `RequestService.respond` rejects before writing, and gained `cancel(_:by:)`.
+- The feed passes `onRespond: nil` for requests you may not answer (it was always non-nil), and
+  the detail screen shows **"Waiting for <name>"** plus **Cancel request** to the creator.
+- `firestore.rules` now requires `uid() in resource.data.recipientIDs` for updates, and pins
+  `recipientIDs` immutable. Deployed and exercised by the two-device run.
+
+Saving was ungated entirely — it could flip an already-accepted request to `.saved`, destroying
+the state with no way back. It now follows the same rule.
+
+### Cross-account data leak
+
+`CachedRequestRepository.fetchLocal()` fetched every cached row with no user predicate, and
+`merge` never deletes — so signing out and in as someone else on the same device showed the
+previous user's requests. Reads are now scoped to the participant, and `LocalStore.purgeAll()`
+runs on sign-out and on account deletion.
+
+### Other role and flow fixes
+
+| Was | Now |
+|---|---|
+| A user who quit mid-onboarding had **no path to ever pair** — relationships could only be created inside onboarding, which an authenticated user never sees again | Profile shows a Connect section (create a group / join with a code) whenever you have none |
+| An unpaired owner got a permanently disabled "Send Now" in Spontaneous with nothing explaining why | Same guidance the compose sheet already had |
+| Spontaneous send failures and account-deletion failures were **silent** — both view models set `errorMessage`, neither view read it | Both surface an alert |
+| One failed response replaced the whole feed with an error card | The error only takes over when there is nothing to show |
+| Tapping a greyed calendar day silently jumped the month; selecting a day only moved a highlight | Month is tracked independently, and the list narrows to the selected day |
+| Expiry picker opened unselected (default 20, options 15/30/60/120) | Defaults to 30 |
+| `.reschedule` was the only advertised response with **no trigger anywhere** | Built: a fourth response action opening a date picker. All six types are now reachable |
+
+### Legal (App Review blocker)
+
+`middleground.app` served the same "Coming Soon" page for every path, so all three in-app legal
+links were dead. `docs/legal/` now contains a Privacy Policy, Terms and Support page written
+from what the app actually does — the data table is derived from `PrivacyInfo.xcprivacy` and the
+real Firestore paths, not boilerplate. `build.py` renders them to brand-styled, dependency-free
+HTML ready to publish; the Markdown stays the source of truth.
+
+The policy deliberately does **not** claim full erasure while `onUserDeleted` is undeployed —
+it states that the account and device data go immediately and shared records follow when the
+server-side purge runs.
+
+### Design
+
+- **Dark mode was broken in a way only a device shows.** `MGShadow` derived from
+  `MGColors.slate`, which inverts to near-white — every card shadow was a glow. Added
+  `MGColors.shadow` (true black in dark), `onAccent` for the 8 hardcoded whites that dropped to
+  ~2.9:1 on lifted accents, and per-status `badgeForeground` tones (badges painted text in the
+  same hue as their 12% fill, ~2.3:1). The scrim and the Sign in with Apple button now adapt.
+- **The brand mark finally appears in the app.** `LogoMark` draws the two-figures-and-a-heart
+  metaphor as Shapes — crisp at any size, adaptive, zero bundle cost — replacing the lone SF
+  `heart.fill` on the splash and welcome screens.
+- **Headings were pure black/white, not brand slate**: `.mgFont` set only the font and the
+  colour-applying helpers had zero callers. The brand foreground is now part of `.mgFont`.
+- `MGRadius` was a full step below the brand scale (md 16, lg 24, xl 32) and shadow radii ~2×
+  too soft; both corrected against `design-system.md`, and `mgCard()` adds the spec's hairline.
+- `GamificationCard` follows the spec's label → icon → value+unit order with a neutral unit
+  (the accent colour made "days" read as a link), the Activities tab no longer renders a flame
+  icon *and* a flame emoji, and "Great job!" no longer appears at a score of zero.
+- `CelebrationView` bursts radially from the real view centre with a stagger and honours Reduce
+  Motion; it previously fired from a hardcoded `CGPoint(x: 200, y: 300)`.
+- Empty states added to Achievements and Activity.
+- **`brand/design-system.md` now documents the shipped SF Pro Rounded / SF Pro faces** instead
+  of specifying Poppins + Inter, which were never vendored — the spec no longer contradicts the
+  product, and the note records how to swap them in later without touching a call site.
+
+### Verification
+
+| Gate | Result |
+|---|---|
+| Unit tests | **51 passed** (was 40) — role matrix, cancel rules, response mapping |
+| UI walkthrough | **12 passed** (was 9) — including creator-sees-no-actions, waiting state, cancel confirmation |
+| Two-device E2E vs real Firebase | **5/5** with the tightened rules deployed |
+| `swiftlint --strict` | 0 violations |
+| Dark mode | Verified on device, screenshots captured |
 
 ---
 

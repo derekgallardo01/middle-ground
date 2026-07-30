@@ -73,7 +73,11 @@ private struct MGScaledFont: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content.font(.system(size: size, weight: weight, design: design))
+        content
+            .font(.system(size: size, weight: weight, design: design))
+            // Brand slate, not SwiftUI's `.primary` (pure black / pure white). Call sites can
+            // still override with their own `.foregroundStyle` afterwards.
+            .foregroundStyle(MGColors.slate)
     }
 }
 

@@ -6,14 +6,25 @@ import Factory
 final class SpontaneousRequestViewModel {
     private let requestService = Container.shared.requestService()
     private let authService = Container.shared.authService()
-    private let relationshipRepository = Container.shared.relationshipRepository()
+    private let relationshipService = Container.shared.relationshipService()
 
     var currentUser: User?
     var relationships: [Relationship] = []
+    /// relationship.id -> partner display name.
+    var displayLabels: [String: String] = [:]
+
+    /// True when the user has groups but nobody has joined any of them yet.
+    var needsPartner: Bool {
+        !relationships.isEmpty && relationships.allSatisfy { !$0.isPaired }
+    }
+
+    func label(for relationship: Relationship) -> String {
+        displayLabels[relationship.id] ?? relationship.type.displayName
+    }
 
     var title: String = ""
     var details: String = ""
-    var expiresInMinutes: Int = 20
+    var expiresInMinutes: Int = 30
     var recipientID: String = ""
 
     var isLoading = false
@@ -29,8 +40,11 @@ final class SpontaneousRequestViewModel {
         currentUser = await authService.currentUser()
         if let userID = currentUser?.id {
             do {
-                relationships = try await relationshipRepository.fetchRelationships(for: userID)
-                if let firstPartner = relationships.first?.participantIDs.first(where: { $0 != userID }) {
+                relationships = try await relationshipService.relationships(for: userID)
+                displayLabels = await relationshipService.displayLabels(
+                    for: relationships, currentUserID: userID
+                )
+                if let firstPartner = relationships.compactMap({ $0.partnerID(excluding: userID) }).first {
                     recipientID = firstPartner
                 }
             } catch {

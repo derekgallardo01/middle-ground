@@ -18,7 +18,7 @@ struct RequestTypePicker: View {
                         Text(category.displayName)
                             .mgFont(.caption)
                     }
-                    .foregroundStyle(selected == category ? .white : MGColors.slate)
+                    .foregroundStyle(selected == category ? MGColors.onAccent : MGColors.slate)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(selected == category ? MGColors.indigo : MGColors.surface)

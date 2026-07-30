@@ -43,6 +43,8 @@ final class AppState {
     func signOut() async {
         await NotificationService.shared.removeTokenForCurrentUser()
         try? await authService.signOut()
+        // Derived, per-account data must not outlive the session on a shared device.
+        LocalStore.shared.purgeAll()
         currentUser = nil
         isOnboarded = false
     }

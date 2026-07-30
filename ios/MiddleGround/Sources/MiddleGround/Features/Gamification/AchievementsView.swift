@@ -8,6 +8,14 @@ struct AchievementsView: View {
             Text("Achievements")
                 .mgFont(.h2)
 
+            if achievements.isEmpty {
+                Text("Achievements unlock as you and your partner keep deciding together.")
+                    .mgFont(.bodySmall)
+                    .foregroundStyle(MGColors.warm600)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            }
+
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 12) {
                 ForEach(achievements) { achievement in
                     AchievementCell(achievement: achievement)

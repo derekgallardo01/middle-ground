@@ -71,4 +71,21 @@ final class LocalStore {
     var context: ModelContext {
         ModelContext(container)
     }
+
+    /// Deletes every cached row.
+    ///
+    /// Called on sign-out: the cache is derived data keyed by whoever was signed in, and
+    /// leaving it behind meant the next account on the same device could see the previous
+    /// user's requests before the remote merge replaced them.
+    func purgeAll() {
+        let ctx = context
+        do {
+            try ctx.delete(model: RequestEntity.self)
+            try ctx.delete(model: UserEntity.self)
+            try ctx.delete(model: RelationshipEntity.self)
+            try ctx.save()
+        } catch {
+            MGLog.storage.error("Failed to purge local cache on sign-out: \(error.localizedDescription, privacy: .public)")
+        }
+    }
 }

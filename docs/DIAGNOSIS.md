@@ -12,6 +12,10 @@
 > **two-device end-to-end run against real Firebase** (pair → send → live sync → accept → XP)
 > all pass; `swiftlint --strict` is clean.
 >
+> Round 4 additionally fixed a creator-can-answer-their-own-request flaw (unguarded at every
+> layer), a cross-account cache leak, and a broken dark mode; wrote the legal pages; and made
+> all six response types reachable. 51 unit + 12 UI + 5/5 two-device E2E.
+>
 > Still open: Sign in with Apple and push are unexercised (no Apple ID on simulator; Cloud
 > Functions need the Blaze plan), no localization, brand fonts not shipped, and a real Privacy
 > Policy page must exist before submission.

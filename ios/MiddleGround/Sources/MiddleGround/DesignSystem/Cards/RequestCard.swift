@@ -73,7 +73,7 @@ struct StatusBadge: View {
         Text(status.displayName)
             .mgFont(.caption)
             .fontWeight(.bold)
-            .foregroundStyle(status.color)
+            .foregroundStyle(status.badgeForeground)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(status.color.opacity(0.12))

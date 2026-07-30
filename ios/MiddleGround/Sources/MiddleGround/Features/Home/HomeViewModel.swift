@@ -58,6 +58,12 @@ final class HomeViewModel {
         }
     }
 
+    /// Whether the signed-in user may respond to this request (recipient, still pending).
+    func canRespond(to request: Request) -> Bool {
+        guard let currentUser else { return false }
+        return request.canRespond(as: currentUser.id)
+    }
+
     func respond(to request: Request, with response: ResponseType) {
         guard let currentUser else { return }
         Task {

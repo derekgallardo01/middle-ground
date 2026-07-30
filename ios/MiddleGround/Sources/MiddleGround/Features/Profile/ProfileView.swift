@@ -13,6 +13,7 @@ struct ProfileView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     profileHeader
+                    pairingSection
                     inviteSection
                     settingsSection
                     aboutSection
@@ -52,6 +53,69 @@ struct ProfileView: View {
         .background(MGColors.surface)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .mgShadow(MGShadow.md)
+    }
+
+    @ViewBuilder
+    private var pairingSection: some View {
+        if viewModel.hasNoRelationship {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Connect")
+                    .mgFont(.h2)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("""
+                    You're not connected with anyone yet. Start a group and share the code, \
+                    or join with a code you were given.
+                    """)
+                        .mgFont(.bodySmall)
+                        .foregroundStyle(MGColors.warm600)
+
+                    Picker("Group type", selection: $viewModel.selectedRelationshipType) {
+                        ForEach(RelationshipType.allCases) { type in
+                            Text(type.displayName).tag(type)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(MGColors.indigo)
+
+                    Button {
+                        Task { await viewModel.createGroup() }
+                    } label: {
+                        Text("Create a group")
+                            .mgFont(.body)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(MGColors.indigo)
+                    .disabled(viewModel.isPairing)
+
+                    Divider()
+
+                    TextField("Enter invite code", text: $viewModel.joinCodeInput)
+                        .mgFont(.body)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .padding(12)
+                        .background(MGColors.sand)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .accessibilityLabel("Invite code")
+
+                    Button {
+                        Task { await viewModel.joinGroup() }
+                    } label: {
+                        Text("Join with a code")
+                            .mgFont(.body)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(MGColors.indigo)
+                    .disabled(!viewModel.canJoin || viewModel.isPairing)
+                }
+                .padding()
+                .background(MGColors.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+        }
     }
 
     @ViewBuilder

@@ -39,7 +39,7 @@ struct NegotiationView: View {
                     } label: {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(MGColors.onAccent)
                             .frame(width: sendButton, height: sendButton)
                             .background(viewModel.isCounterEmpty ? MGColors.warm400 : MGColors.indigo)
                             .clipShape(Circle())
@@ -68,7 +68,7 @@ struct NegotiationBubble: View {
                 if let text = message.text, !text.isEmpty {
                     Text(text)
                         .mgFont(.body)
-                        .foregroundStyle(isCurrentUser ? .white : MGColors.slate)
+                        .foregroundStyle(isCurrentUser ? MGColors.onAccent : MGColors.slate)
                         .padding(12)
                         .background(isCurrentUser ? MGColors.indigo : MGColors.warm100)
                         .clipShape(RoundedRectangle(

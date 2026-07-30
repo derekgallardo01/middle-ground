@@ -46,7 +46,7 @@ struct DayPill: View {
         Text(day)
             .mgFont(.caption)
             .fontWeight(.bold)
-            .foregroundStyle(isCompleted ? .white : MGColors.warm600)
+            .foregroundStyle(isCompleted ? MGColors.onAccent : MGColors.warm600)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .background(isCompleted ? MGColors.coral : MGColors.warm100)

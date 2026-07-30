@@ -51,7 +51,7 @@ struct GamificationView: View {
 
                     Text("\(viewModel.stats.level)")
                         .font(.system(size: levelNumber, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MGColors.onAccent)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -95,15 +95,15 @@ struct GamificationView: View {
         HStack(spacing: 12) {
             GamificationCard(
                 title: "Daily Streak",
-                value: "🔥 \(viewModel.stats.streakDays)",
-                subtitle: "days",
+                value: "\(viewModel.stats.streakDays)",
+                subtitle: viewModel.stats.streakDays == 1 ? "day" : "days",
                 icon: "flame.fill",
                 color: MGColors.coral
             )
             GamificationCard(
                 title: "Growth Score",
                 value: "\(viewModel.stats.growthScore)",
-                subtitle: "Great job!",
+                subtitle: viewModel.stats.growthScore > 0 ? "Great job!" : "Just getting started",
                 icon: "chart.line.uptrend.xyaxis",
                 color: MGColors.indigo
             )

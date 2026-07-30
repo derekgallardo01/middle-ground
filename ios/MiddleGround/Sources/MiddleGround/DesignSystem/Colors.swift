@@ -26,6 +26,19 @@ enum MGColors {
     static let warm600 = Color(light: 0x71717A, dark: 0xCBD5E1)
     static let slate = Color(light: 0x334155, dark: 0xF8FAFC)
 
+    /// Foreground for text/icons sitting ON an accent fill (indigo, coral, teal…).
+    ///
+    /// Plain white is only correct in light mode: the accents lift in dark mode
+    /// (indigo → #818CF8, coral → #FDA4AF), where white drops to ~2.9:1 and ~1.6:1.
+    static let onAccent = Color(light: 0xFFFFFF, dark: 0x1E293B)
+
+    /// Shadow colour. Deliberately NOT derived from `slate`, which inverts to near-white in
+    /// dark mode and turned every card shadow into a glow.
+    static let shadow = Color(light: 0x334155, dark: 0x000000)
+
+    /// Hairline border that keeps cards legible against `sand`.
+    static let cardBorder = Color(light: 0xF0EFEC, dark: 0x475569)
+
     // Gradients
     static var middleGradient: LinearGradient {
         LinearGradient(
@@ -75,6 +88,21 @@ extension UIColor {
 }
 
 extension RequestStatus {
+    /// Readable text colour for a badge filled with `color.opacity(0.12)`.
+    ///
+    /// Same-hue-on-same-hue was ~2.3:1. brand/preview.html pairs each pastel fill with a
+    /// darkened text tone; these are those tones, lightened for dark mode.
+    var badgeForeground: Color {
+        switch self {
+        case .pending: return MGColors.warm600
+        case .accepted, .completed: return Color(light: 0x0F766E, dark: 0x5EEAD4)
+        case .declined: return Color(light: 0x9F1239, dark: 0xFDA4AF)
+        case .negotiated, .countered: return Color(light: 0x6D28D9, dark: 0xC4B5FD)
+        case .rescheduled: return Color(light: 0x0369A1, dark: 0x7DD3FC)
+        case .saved: return Color(light: 0x9F1239, dark: 0xFDA4AF)
+        }
+    }
+
     var color: Color {
         switch self {
         case .pending: return MGColors.warm600

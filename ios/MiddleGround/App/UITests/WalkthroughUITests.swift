@@ -146,6 +146,59 @@ final class WalkthroughUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 5))
     }
 
+    // MARK: - Roles
+    //
+    // In mock mode the signed-in user is `User.preview` (user_1), who CREATED the seeded
+    // requests. So the feed is the creator's view: it must show no response buttons.
+
+    func testCreatorSeesNoResponseButtonsOnTheirOwnRequest() {
+        XCTAssertTrue(app.staticTexts["Dinner Tonight?"].waitForExistence(timeout: 20))
+
+        // Accept / Negotiate / Decline belong to the recipient alone.
+        for action in ["Accept", "Negotiate", "Decline"] {
+            XCTAssertFalse(
+                app.buttons[action].exists,
+                "A creator must not be able to \(action.lowercased()) their own request"
+            )
+        }
+        capture("11-creator-feed-no-actions")
+    }
+
+    func testCreatorSeesWaitingStateAndCanCancel() {
+        let pending = app.staticTexts["Date night this Friday?"]
+        XCTAssertTrue(pending.waitForExistence(timeout: 20))
+        pending.tap()
+
+        // The creator waits; they do not answer.
+        let waiting = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS[c] 'Waiting for'")
+        ).firstMatch
+        XCTAssertTrue(waiting.waitForExistence(timeout: 10), "Creator should see a waiting state")
+        capture("12-creator-waiting")
+
+        let cancel = app.buttons["Cancel request"]
+        XCTAssertTrue(cancel.exists, "A creator must be able to withdraw their own request")
+
+        // Confirm the destructive alert appears, then back out.
+        cancel.tap()
+        let alert = app.alerts["Cancel this request?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5), "Cancelling must be confirmed")
+        capture("13-cancel-confirmation")
+        alert.buttons["Keep it"].tap()
+    }
+
+    func testSavingIsNotAvailableToTheCreator() {
+        let pending = app.staticTexts["Date night this Friday?"]
+        XCTAssertTrue(pending.waitForExistence(timeout: 20))
+        pending.tap()
+
+        // The heart used to be ungated entirely — it could flip an accepted request to saved.
+        XCTAssertFalse(
+            app.buttons["Save for later"].exists,
+            "Saving is a response, so it must follow the same role rule"
+        )
+    }
+
     // MARK: - Accessibility
 
     func testLargeTextDoesNotBreakTheFeed() {

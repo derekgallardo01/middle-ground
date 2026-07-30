@@ -115,8 +115,13 @@ actor AuthService: AuthServiceProtocol {
             do {
                 try await Auth.auth().revokeToken(withAuthorizationCode: code)
             } catch {
-                // A revocation failure must not strand the user with an undeletable account.
+                // A revocation failure must not strand the user with an undeletable account,
+                // so deletion still proceeds — but it IS a compliance problem (Apple requires
+                // the token to be revoked), and os.Logger output is unreadable in production.
+                // Reported as a non-fatal so a misconfigured Apple key is visible rather than
+                // silently skipping revocation on every deletion.
                 MGLog.auth.error("Apple token revocation failed: \(error.localizedDescription, privacy: .public)")
+                MGLog.recordNonFatal(error, context: "Apple token revocation during account deletion")
             }
         }
 

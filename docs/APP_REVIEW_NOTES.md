@@ -127,9 +127,13 @@ Verified output of the last run:
 | `beta-reports-active` | `true` |
 | Profile | `iOS Team Store Provisioning Profile` |
 
-**Validation currently stops at one thing** — `Cannot determine the Apple ID from Bundle ID
-'app.middleground.MiddleGround'`. That is the missing App Store Connect app record, not a
-problem with the build. Create the record and the same command validates and uploads.
+**Status: validated and uploaded.** `VERIFY SUCCEEDED with no errors`, then `UPLOAD SUCCEEDED`
+— build `202607302101` of version 1.0.0, delivery UUID `de249814-36c3-4149-906f-4ce28b1f2bfd`.
+
+The App Store Connect record is **"Middle Ground: Decide Together"** (app id `6796479061`).
+The name "Middle Ground" was already reserved by another account; nothing in the build changed
+as a result — the bundle ID is still `app.middleground.MiddleGround` and `CFBundleDisplayName`
+is still `Middle Ground`, so the home-screen name is unaffected.
 
 The distribution certificate is backed up at `~/Desktop/MiddleGround-Distribution.p12`. Move it
 somewhere durable — if it is lost the certificate has to be revoked and reissued, and any build
@@ -187,6 +191,8 @@ is therefore expected and is not what gets uploaded.
 
 | Thing | State |
 |---|---|
+| App Store Connect record | Created — "Middle Ground: Decide Together", app id `6796479061` |
+| Build 1.0.0 (202607302101) | Validated and uploaded |
 | Legal pages | Deployed. `/privacy`, `/terms`, `/support` all 200 with real content; unknown paths 404 |
 | Firestore rules | Deployed, 64/64 emulator tests passing |
 | Firestore indexes | Deployed — including `events (userID, at DESC)` and `requests (recipientIDs, status)` |

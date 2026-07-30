@@ -9,6 +9,7 @@ final class ProfileViewModel {
     private let gamificationService = Container.shared.gamificationService()
     private let notificationService = NotificationService.shared
     private let relationshipService = Container.shared.relationshipService()
+    private let signInManager = Container.shared.signInWithAppleManager()
 
     var user: User?
     var stats: GamificationStats?
@@ -22,6 +23,7 @@ final class ProfileViewModel {
 
     var isPaired: Bool { relationships.contains(where: \.isPaired) }
     var isLoading = false
+    var isDeletingAccount = false
     var errorMessage: String?
 
     var levelDisplay: String {
@@ -70,6 +72,42 @@ final class ProfileViewModel {
     func openSystemSettings() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
+    }
+
+    /// Deletes the account for good.
+    ///
+    /// Apple requires the Sign in with Apple token to be revoked on deletion, and revocation
+    /// needs a *fresh* single-use authorization code — so this re-presents the Apple sheet
+    /// before deleting. Anonymous test accounts have no Apple credential and skip straight
+    /// to deletion.
+    func deleteAccount() async -> Bool {
+        isDeletingAccount = true
+        errorMessage = nil
+        defer { isDeletingAccount = false }
+
+        await notificationService.removeTokenForCurrentUser()
+
+        let authorizationCode = await freshAppleAuthorizationCode()
+        do {
+            try await authService.deleteAccount(appleAuthorizationCode: authorizationCode)
+            return true
+        } catch {
+            errorMessage = "Couldn't delete your account. Please try again."
+            return false
+        }
+    }
+
+    /// Re-runs Sign in with Apple purely to obtain a revocation code. Returns nil if the
+    /// user cancels or the account isn't Apple-backed; deletion still proceeds.
+    private func freshAppleAuthorizationCode() async -> String? {
+        await withCheckedContinuation { continuation in
+            signInManager.signIn { result in
+                switch result {
+                case .success(let apple): continuation.resume(returning: apple.authorizationCode)
+                case .failure: continuation.resume(returning: nil)
+                }
+            }
+        }
     }
 
     func signOut() async -> Bool {

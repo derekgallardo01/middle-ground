@@ -46,9 +46,10 @@ CloudFunctions/
    ```bash
    firebase deploy --only firestore:rules,firestore:indexes
    ```
-   The requests query is an OR filter (`creatorID == uid` OR `recipientIDs` contains `uid`),
-   which Firestore runs as separate index scans — so it needs **two** composite indexes, not
-   one three-field index. Both are declared in `firestore.indexes.json`.
+   The requests query filters on the denormalised `allParticipantIDs` — the same field the
+   security rules authorise reads by. Firestore only allows a list query when the query's own
+   constraints prove every match is readable, so an OR over `creatorID`/`recipientIDs` is
+   denied at runtime even though each document is individually readable.
 
 ### 2. App target
 

@@ -23,6 +23,13 @@ final class OnboardingViewModel {
     /// Set once onboarding creates a relationship, so the final step can show the code to share.
     private(set) var createdInviteCode: String?
 
+    /// The signed-in user, held until the person dismisses the final step.
+    ///
+    /// Onboarding used to hand this straight to `AppState`, which flipped the root view to
+    /// the main tabs immediately — so the "done" step (and the invite code on it) flashed
+    /// past and was never actually readable.
+    private(set) var completedUser: User?
+
     enum PairingMode: String, CaseIterable, Identifiable {
         case create
         case join
@@ -97,6 +104,34 @@ final class OnboardingViewModel {
         }
     }
 
+    #if DEBUG
+    /// Debug-only sign-in used to drive multi-device pairing tests.
+    func signInAsTestUser() {
+        isLoading = true
+        errorMessage = nil
+        Task {
+            do {
+                let user = try await authService.signInAsTestUser(named: Self.testerName())
+                userName = user.name
+                isLoading = false
+                advance()
+            } catch {
+                errorMessage = error.localizedDescription
+                isLoading = false
+            }
+        }
+    }
+
+    /// Uses `-MGTestUser <label>` when supplied so a scripted two-device run is
+    /// reproducible; falls back to a random name for ad-hoc manual testing.
+    private static func testerName() -> String {
+        if let label = AppConfiguration.testUserLabel, !label.isEmpty {
+            return "Tester \(label)"
+        }
+        return "Tester \(Int.random(in: 100...999))"
+    }
+    #endif
+
     func requestNotifications() {
         Task {
             _ = await notificationService.requestAuthorization()
@@ -135,6 +170,7 @@ final class OnboardingViewModel {
             }
 
             isLoading = false
+            completedUser = user
             advance()
             return user
         } catch {

@@ -17,15 +17,37 @@ final class LocalStore {
         RelationshipEntity.self
     ])
 
+    /// Explicit store location, with the parent directory created up front.
+    ///
+    /// SwiftData defaults to `Application Support/default.store`, but that directory does not
+    /// exist in a fresh app container and SwiftData does not create it — the store then fails
+    /// with "Sandbox access to file-write-create denied" and the cache silently degrades to
+    /// memory. Observed on a clean simulator install.
+    private static func makeStoreURL() -> URL? {
+        let fileManager = FileManager.default
+        guard let appSupport = try? fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) else { return nil }
+
+        if !fileManager.fileExists(atPath: appSupport.path) {
+            try? fileManager.createDirectory(at: appSupport, withIntermediateDirectories: true)
+        }
+        return appSupport.appending(path: "MiddleGround.store")
+    }
+
     private init() {
         // A failure here used to be `fatalError`, which turned any migration problem on
         // upgrade into an unrecoverable launch crash. The cache is derived data — Firestore
         // is the source of truth — so degrading to an in-memory store is always better than
         // refusing to start.
-        if let onDisk = try? ModelContainer(
-            for: Self.schema,
-            configurations: [ModelConfiguration(schema: Self.schema, isStoredInMemoryOnly: false)]
-        ) {
+        if let url = Self.makeStoreURL(),
+           let onDisk = try? ModelContainer(
+               for: Self.schema,
+               configurations: [ModelConfiguration(schema: Self.schema, url: url)]
+           ) {
             container = onDisk
             isEphemeral = false
             return

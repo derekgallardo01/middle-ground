@@ -13,8 +13,16 @@ final class NotificationService: NSObject, ObservableObject {
 
     override private init() {
         super.init()
-        Messaging.messaging().delegate = self
+        // Nothing Firebase-backed here: this singleton can be created before
+        // FirebaseApp.configure() runs (or in mock mode, where it never runs).
         UNUserNotificationCenter.current().delegate = self
+    }
+
+    /// Attaches the Firebase Messaging delegate. Must be called *after*
+    /// `FirebaseApp.configure()`, from `AppDelegate.didFinishLaunchingWithOptions`.
+    func start() {
+        guard AppConfiguration.isBackendEnabled else { return }
+        Messaging.messaging().delegate = self
     }
 
     func requestAuthorization() async -> Bool {
@@ -31,6 +39,16 @@ final class NotificationService: NSObject, ObservableObject {
         } catch {
             return false
         }
+    }
+
+    /// Re-registers for remote notifications on launch when permission was already granted,
+    /// without prompting. Prompting is owned by the onboarding permissions step.
+    func registerIfAlreadyAuthorized() async {
+        guard AppConfiguration.isBackendEnabled else { return }
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        guard settings.authorizationStatus == .authorized else { return }
+        await MainActor.run { self.hasPermission = true }
+        await UIApplication.shared.registerForRemoteNotifications()
     }
 
     func checkAuthorizationStatus() async {
@@ -57,7 +75,7 @@ extension NotificationService {
     /// Cloud Functions read `user_tokens/{uid}.tokens` to target devices, so a token that is
     /// never written here means push silently never arrives.
     static func persist(token: String) async {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard AppConfiguration.isBackendEnabled, let uid = Auth.auth().currentUser?.uid else { return }
         do {
             try await Firestore.firestore()
                 .collection(tokenCollection)
@@ -70,6 +88,7 @@ extension NotificationService {
 
     /// The token usually arrives before anyone is signed in, so re-attach it after auth.
     func syncTokenForCurrentUser() async {
+        guard AppConfiguration.isBackendEnabled else { return }
         let token: String?
         if let fcmToken {
             token = fcmToken
@@ -82,7 +101,9 @@ extension NotificationService {
 
     /// Detach this device on sign-out so it stops receiving the previous account's pushes.
     func removeTokenForCurrentUser() async {
-        guard let uid = Auth.auth().currentUser?.uid, let fcmToken else { return }
+        guard AppConfiguration.isBackendEnabled,
+              let uid = Auth.auth().currentUser?.uid,
+              let fcmToken else { return }
         do {
             try await Firestore.firestore()
                 .collection(Self.tokenCollection)

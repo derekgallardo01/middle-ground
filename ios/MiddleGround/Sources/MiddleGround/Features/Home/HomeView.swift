@@ -22,8 +22,12 @@ struct HomeView: View {
                         feedSection
                     }
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.top, 12)
+                    // Clear the tab bar and the floating action button, which previously
+                    // covered the last card in the feed.
+                    .padding(.bottom, 96)
                 }
+                .scrollIndicators(.hidden)
                 .refreshable {
                     await viewModel.loadRequests()
                 }
@@ -114,19 +118,29 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Hello, \(viewModel.currentUser?.name ?? "there")")
                 .mgFont(.h1)
-            Text("You have \(viewModel.requests.filter(\.isPending).count) active requests")
+            Text(activeRequestsSummary)
                 .mgFont(.body)
                 .foregroundStyle(MGColors.warm600)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Pluralises correctly, and reads as a sentence when there is nothing pending.
+    private var activeRequestsSummary: String {
+        let count = viewModel.requests.filter(\.isPending).count
+        switch count {
+        case 0: return "Nothing waiting on you"
+        case 1: return "You have 1 active request"
+        default: return "You have \(count) active requests"
+        }
+    }
+
     private var statsRow: some View {
         HStack(spacing: 12) {
             GamificationCard(
                 title: "Daily Streak",
-                value: "🔥 \(viewModel.stats.streakDays)",
-                subtitle: "days",
+                value: "\(viewModel.stats.streakDays)",
+                subtitle: viewModel.stats.streakDays == 1 ? "day" : "days",
                 icon: "flame.fill",
                 color: MGColors.coral
             )

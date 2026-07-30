@@ -46,16 +46,30 @@ actor RelationshipService {
     }
 
     /// Adds `userID` to the relationship identified by `code`.
+    ///
+    /// Works entirely from the invite document: the joiner cannot read the relationship until
+    /// they are a member of it, so membership checks are done against their *own*
+    /// relationships instead.
     func join(inviteCode code: String, userID: String) async throws -> Relationship {
-        guard var relationship = try await repository.relationship(withInviteCode: code) else {
+        guard let invite = try await repository.invite(forCode: code) else {
             throw PairingError.codeNotFound
         }
-        if relationship.participantIDs.contains(userID) {
-            throw relationship.participantIDs.count == 1 ? PairingError.ownCode : PairingError.alreadyJoined
+        if invite.ownerID == userID {
+            throw PairingError.ownCode
         }
 
-        relationship.participantIDs.append(userID)
-        try await repository.saveRelationship(relationship)
+        let existing = try await repository.fetchRelationships(for: userID)
+        if existing.contains(where: { $0.id == invite.relationshipID }) {
+            throw PairingError.alreadyJoined
+        }
+
+        try await repository.addParticipant(userID, to: invite.relationshipID)
+
+        // Now a participant, so the relationship is readable.
+        let joined = try await repository.fetchRelationships(for: userID)
+        guard let relationship = joined.first(where: { $0.id == invite.relationshipID }) else {
+            throw PairingError.codeNotFound
+        }
         return relationship
     }
 

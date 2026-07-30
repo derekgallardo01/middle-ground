@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 
 struct OnboardingView: View {
     @Environment(AppState.self) private var appState
@@ -78,10 +79,31 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
             }
 
-            PrimaryButton(title: "Continue with Apple", systemImage: "person.fill.checkmark") {
+            // Apple requires the system-provided button (its logo, approved styles and
+            // label text). A custom capsule with an SF Symbol is a routine rejection.
+            // The request itself is still driven by SignInWithAppleManager, so this only
+            // changes presentation.
+            SignInWithAppleButton(.continue) { _ in
                 viewModel.signInWithApple()
+            } onCompletion: { _ in
+                // Completion is handled by SignInWithAppleManager's delegate.
             }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 50)
+            .clipShape(Capsule())
             .disabled(viewModel.isLoading)
+            .accessibilityLabel("Continue with Apple")
+
+            #if DEBUG
+            // Debug-only: lets a second simulator sign in as a distinct user so pairing
+            // can be exercised without a second Apple ID. Compiled out of release builds.
+            Button("Use a test account") {
+                viewModel.signInAsTestUser()
+            }
+            .mgFont(.caption)
+            .foregroundStyle(MGColors.warm600)
+            .disabled(viewModel.isLoading)
+            #endif
         }
     }
 
@@ -194,11 +216,9 @@ struct OnboardingView: View {
             }
 
             PrimaryButton(title: "Get Started") {
-                Task {
-                    if let user = await viewModel.completeOnboarding() {
-                        appState.completeOnboarding(user: user)
-                    }
-                }
+                // Deliberately does not enter the app yet — the next step shows the invite
+                // code, which is useless if it is skipped past.
+                Task { _ = await viewModel.completeOnboarding() }
             }
             .disabled(!viewModel.canContinue || viewModel.isLoading)
         }
@@ -223,6 +243,7 @@ struct OnboardingView: View {
                         .font(.system(size: 32, weight: .bold, design: .monospaced))
                         .foregroundStyle(MGColors.indigo)
                         .tracking(4)
+                        .accessibilityIdentifier("inviteCode")
 
                     ShareLink(item: "Join me on Middle Ground with code \(code)") {
                         Label("Share invite", systemImage: "square.and.arrow.up")
@@ -245,6 +266,12 @@ struct OnboardingView: View {
                     .mgFont(.body)
                     .foregroundStyle(MGColors.warm600)
                     .multilineTextAlignment(.center)
+            }
+
+            PrimaryButton(title: "Start using Middle Ground") {
+                if let user = viewModel.completedUser {
+                    appState.completeOnboarding(user: user)
+                }
             }
         }
     }

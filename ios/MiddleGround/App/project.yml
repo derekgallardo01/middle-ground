@@ -45,6 +45,13 @@ targets:
           - project.yml
           - Info.plist
           - MiddleGround.entitlements
+          # Generated into this same directory — without this it is copied into the bundle.
+          - MiddleGround.xcodeproj
+          # Belongs to the UI test target; compiling it into the app fails on `import XCTest`.
+          - UITests
+          # Firebase config is environment-specific and gitignored; bundled automatically
+          # when present, but must never be a hard build dependency.
+          - "*.xcarchive"
     dependencies:
       - package: MiddleGround
         product: MiddleGround
@@ -55,7 +62,7 @@ targets:
         INFOPLIST_FILE: Info.plist
         CODE_SIGN_ENTITLEMENTS: MiddleGround.entitlements
         # Sign in with Apple and push both require a real team; set yours here or in Xcode.
-        DEVELOPMENT_TEAM: ""
+        DEVELOPMENT_TEAM: 9U3ZSABZG7
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_PREVIEWS: YES
@@ -65,11 +72,16 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: Middle Ground
+        # actool also writes this nested under CFBundleIcons; declaring it top-level
+        # is what the ITMS-90713 upload check looks for by name.
+        CFBundleIconName: AppIcon
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        # Required by the remote-notification handling in AppDelegate.
-        UIBackgroundModes:
-          - remote-notification
+        # NOTE: UIBackgroundModes is deliberately absent. Declaring
+        # `remote-notification` without implementing
+        # application(_:didReceiveRemoteNotification:fetchCompletionHandler:) — and with
+        # Cloud Functions never sending `content-available` — is a Guideline 2.5.4
+        # rejection. Alert-style pushes do not need it.
         # AppDelegate sets the APNs token explicitly, so Firebase must not swizzle it.
         FirebaseAppDelegateProxyEnabled: false
         UILaunchScreen:
@@ -93,6 +105,23 @@ targets:
         # Required for push. Xcode rewrites this to "production" for release builds.
         aps-environment: development
 
+  # Drives the app on a simulator so flows are verified by running, not just compiling.
+  # The package's unit tests cover logic; this covers the things only a launch can prove.
+  MiddleGroundUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: MiddleGroundApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.middleground.MiddleGroundUITests
+        TEST_TARGET_NAME: MiddleGroundApp
+        # Required for the test bundle to be code signed, which the app needs so Firebase
+        # Auth can reach the keychain (unsigned builds fail with keychain error 17995).
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   # App shell only. The unit tests live in the Swift package and are run against its own
   # scheme (see "Running the tests" in the README), not through this project.
@@ -100,7 +129,12 @@ schemes:
     build:
       targets:
         MiddleGroundApp: all
+        MiddleGroundUITests: [test]
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - MiddleGroundUITests
     archive:
       config: Release

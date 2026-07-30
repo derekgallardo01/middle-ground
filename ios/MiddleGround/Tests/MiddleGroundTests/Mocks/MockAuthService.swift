@@ -24,6 +24,20 @@ actor MockAuthService: AuthServiceProtocol {
         mockUser = nil
     }
 
+    private(set) var deleteAccountCalled = false
+
+    func deleteAccount(appleAuthorizationCode: String?) async throws {
+        if shouldThrowOnSignOut { throw AuthError.notAuthenticated }
+        deleteAccountCalled = true
+        mockUser = nil
+    }
+
+    func signInAsTestUser(named name: String) async throws -> User {
+        let signedIn = User(id: "test_\(name)", name: name)
+        mockUser = signedIn
+        return signedIn
+    }
+
     nonisolated func authStateStream() -> AsyncStream<User?> {
         AsyncStream { continuation in
             Task {

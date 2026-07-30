@@ -60,10 +60,14 @@ final class SignInWithAppleManager: NSObject,
             return
         }
 
+        let authorizationCode = appleIDCredential.authorizationCode
+            .flatMap { String(data: $0, encoding: .utf8) }
+
         let result = AppleSignInResult(
             idToken: identityToken,
             nonce: nonce,
-            fullName: appleIDCredential.fullName
+            fullName: appleIDCredential.fullName,
+            authorizationCode: authorizationCode
         )
         completionHandler?(.success(result))
     }
@@ -111,4 +115,7 @@ struct AppleSignInResult {
     let idToken: String
     let nonce: String
     let fullName: PersonNameComponents?
+    /// Single-use code required by `Auth.auth().revokeToken(withAuthorizationCode:)`.
+    /// Apple mandates token revocation when a Sign in with Apple account is deleted.
+    let authorizationCode: String?
 }

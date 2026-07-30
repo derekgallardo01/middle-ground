@@ -29,7 +29,10 @@ service cloud.firestore {
       allow get: if signedIn();
       allow list: if false;
       allow create, update: if signedIn() && uid() == userId;
-      allow delete: if false;
+      // Account deletion (Guideline 5.1.1(v)). Only your own profile — the wider cascade
+      // across relationships and requests is done by the onUserDeleted Cloud Function,
+      // which runs with admin privileges.
+      allow delete: if signedIn() && uid() == userId;
     }
 
     // -------------------------------------------------------- relationships

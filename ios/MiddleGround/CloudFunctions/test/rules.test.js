@@ -242,6 +242,14 @@ describe('users', () => {
     await assertFails(getDocs(collection(asBob(), 'users')));
   });
 
+  test('you can delete your own profile (account deletion)', async () => {
+    await assertSucceeds(deleteDoc(doc(asAlice(), 'users/alice')));
+  });
+
+  test('you cannot delete someone else profile', async () => {
+    await assertFails(deleteDoc(doc(asBob(), 'users/alice')));
+  });
+
   test('you can only write your own profile', async () => {
     await assertSucceeds(setDoc(doc(asAlice(), 'users/alice'), { name: 'Alice B' }));
     await assertFails(setDoc(doc(asBob(), 'users/alice'), { name: 'Hacked' }));

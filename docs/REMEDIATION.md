@@ -10,6 +10,8 @@ still outstanding.
 | `xcodebuild -scheme MiddleGround … test` | **TEST SUCCEEDED** — 40 tests, 0 failures, 0 source warnings |
 | `xcodegen generate && xcodebuild -scheme MiddleGroundApp … build` | **BUILD SUCCEEDED** — produces `Middle Ground.app` |
 | `swiftlint lint --strict` | **0 violations** |
+| UI walkthrough (`WalkthroughUITests`, mock mode) | **9 passed**, with screenshots |
+| **Two-device E2E vs real Firebase** | **5/5 steps passed** — pair → send → live sync → accept → +25 XP |
 
 Before: the package did not compile (29 errors), the test target did not compile, and no user
 could create a request. Test count went 20 → 40.
@@ -116,8 +118,8 @@ examples are computable on-device from real request history — no LLM required.
   where rules allow `get` but deny `list`, so a code you were told can be redeemed but codes
   cannot be enumerated. A non-member may add *only themselves*, *only once*, and only to an
   unpaired relationship — enforced in rules, not just client code.
-- **`firestore.indexes.json`** declares the **two** composite indexes the OR query actually
-  needs. The README previously documented one three-field index that would not have worked.
+- **`firestore.indexes.json`** added. (Round 2 declared two indexes for an OR query; round 3
+  replaced that query — see below — so one index now covers the request feed.)
 - **`firebase.json`** added — `CloudFunctions/README.md` referenced it but it never existed, so
   the documented deploy command failed.
 - **`Package.resolved` is now committed** (un-ignored) since dependencies use open ranges.
@@ -200,11 +202,111 @@ tests are for. Fixed and re-verified.
 
 ---
 
+## Round 3 — running it for real
+
+Rounds 1–2 verified everything a *build* can verify. This round launched the app, and that
+alone found bugs no compiler or unit test could reach.
+
+### The app had never started
+
+`AppDelegate` declared `NotificationService.shared` as a **stored property**, so
+`NotificationService.init` — which called `Messaging.messaging()` — ran during
+`AppDelegate.init`, *before* `FirebaseApp.configure()`. Firebase traps on that, so the process
+aborted before drawing a frame. It would have crashed even with a valid
+`GoogleService-Info.plist`. CI never caught it because CI only builds.
+
+Also added a real `-MGMockMode` launch argument (previously mock mode could only be enabled by
+editing source, and it did not gate Firebase init at all), so the UI is demoable with no backend.
+
+### Five more bugs found by launching
+
+| Bug | Why only a run could find it |
+|---|---|
+| SwiftData on-disk store failed — `Application Support` does not exist in a fresh container, so the offline cache silently degraded to memory | Visible only in device logs |
+| Notification permission prompted on launch, preempting onboarding's own "Stay in sync" step and asking twice | Runtime sequencing |
+| `confirmationDialog` presented as a popover exposing **no accessible buttons** — VoiceOver users could neither confirm nor cancel account deletion. Replaced with `.alert` | Found because XCUITest could not see the buttons either |
+| Feed content ran under the tab bar and the FAB | Visual |
+| "You have **1 active requests**" | Visual |
+
+### Four backend bugs the two-device run exposed
+
+Each one broke pairing or sync completely, and none was reachable without two real clients:
+
+1. **Invite document written by the joiner.** `saveRelationship` always batch-wrote
+   `invites/{code}` with `ownerID` = the owner's uid. When a *second* user joined, that write
+   violated the invite rule and took the whole batch down. Now only the owner writes it.
+2. **`immutable('createdAt')` could never hold.** The DTO round-trips `createdAt` through
+   `Date`, losing the stored Timestamp's nanoseconds, so a full-document write always changed
+   the value. Joining is now a targeted `arrayUnion` on `participantIDs` only.
+3. **A joiner could not read the relationship they were joining.** `allow get` requires
+   membership, so resolving an invite code by reading the relationship was always denied — and
+   rules cannot verify "I know the code" on a read. Restructured so joining works entirely from
+   the invite document (`RelationshipInvite`), never reading the relationship first.
+4. **Rules/query mismatch on the request feed.** Rules authorise reads by `allParticipantIDs`,
+   but the query used an OR over `creatorID`/`recipientIDs`. Firestore only permits a list
+   query when the query's own constraints prove every match is readable, so the feed was denied
+   outright. The query now filters `allParticipantIDs` — matching the rule, and needing one
+   composite index instead of two.
+
+Also: `AuthError` did not conform to `LocalizedError`, so **every** auth failure showed users
+"The operation couldn't be completed. (MiddleGround.AuthError error 0.)". And the test-account
+sign-in mishandled Firebase's email-enumeration protection, which reports a non-existent
+account as `invalidCredential` rather than `userNotFound`.
+
+### A product bug: the invite code was unreachable
+
+`completeOnboarding()` advanced to the "done" step while the view simultaneously called
+`appState.completeOnboarding(user:)`, which flipped the root to the main tabs. The done step —
+**and the invite code on it** — flashed past unread, so a new user could never learn the code
+needed to invite their partner. The done step now has its own explicit continue button.
+
+### App Store blockers cleared
+
+- **`Assets.xcassets`** with a 1024×1024 opaque `AppIcon` rasterised from `brand/app-icon.svg`
+  (the "two figures with a coral heart" metaphor, which previously appeared nowhere in the app)
+  and a `LaunchBackground` colour set. Without an icon, `CFBundleIconName` is never written and
+  upload fails with `ITMS-90713` — a guaranteed rejection.
+- **`PrivacyInfo.xcprivacy`** declaring `NSPrivacyAccessedAPICategoryUserDefaults` (`CA92.1`)
+  and the four collected data types.
+- **Apple's `SignInWithAppleButton`** replacing a custom capsule with a generic SF Symbol.
+- **`UIBackgroundModes: remote-notification` removed** — declared but never implemented, an
+  explicit Guideline 2.5.4 rejection.
+- **`.xcodeproj` no longer copied into the app bundle** (`sources: - path: .` swept up the
+  generated project).
+- **Bundle ID `app.middleground.MiddleGround` registered** (team `9U3ZSABZG7`) with
+  `APPLE_ID_AUTH` + `PUSH_NOTIFICATIONS`. Note the capability call reported success while
+  silently not applying — Sign in with Apple needs a consent settings payload — so it was
+  verified by re-querying rather than trusting the response.
+
+### Verification
+
+| Gate | Result |
+|---|---|
+| Package unit tests | 40 passed, 0 warnings |
+| Hermetic UI walkthrough (`WalkthroughUITests`, mock mode) | 9 passed, with screenshots |
+| **Two-device E2E against real Firebase** | **5/5 steps passed** |
+| `swiftlint --strict` | 0 violations |
+| Firestore rules, live | 4 unauthenticated probes all `403 PERMISSION_DENIED` |
+
+The two-device run (`Scripts/two-device-e2e.sh`) proves the whole loop: device A creates a
+relationship and shows its invite code → device B joins with it → B's compose picker shows A's
+**name** → B sends a request → **A receives it live, untouched** → A accepts and earns +25 XP →
+the Activities tab reflects it.
+
+---
+
 ## Still outstanding
 
 1. **Privacy Policy content.** The link resolves to `middleground.app/privacy`; that page must
-   exist before App Store submission. `DEVELOPMENT_TEAM` in `App/project.yml` is also still empty.
-2. **Rules tests unexecuted locally** — see above; needs Java or a CI run.
+   exist before App Store submission.
+2. **Sign in with Apple is unexercised.** Simulators have no Apple ID (`AuthorizationError
+   1000`), so the real SIWA path — and `revokeToken` during account deletion — needs one run on
+   a physical device. The DEBUG email/password test accounts are a harness only and compile out
+   of release builds.
+3. **Push notifications unexercised.** Cloud Functions need the Blaze plan to deploy, and APNs
+   needs a key uploaded to Firebase. `onUserDeleted` (the account-deletion purge) is therefore
+   also undeployed — deletion currently removes the auth record and the client-side data only.
+4. **Rules emulator tests unexecuted locally** — needs a Java runtime; they run in CI.
 3. **No localization** — ~120 hardcoded English strings, zero `LocalizedStringKey`.
 4. **Brand assets not shipped** — no `.xcassets`, no app icon, no Poppins/Inter font files. The
    type scale still uses the system rounded face, and the "two figures with a coral heart" logo

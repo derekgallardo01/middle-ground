@@ -25,12 +25,14 @@ actor CachedRelationshipRepository: RelationshipRepository {
         try merge(relationships: [relationship])
     }
 
-    func relationship(withInviteCode code: String) async throws -> Relationship? {
-        // Invite codes belong to relationships the user is not yet part of, so they are
-        // never in the local cache. Go straight to the remote, then cache the result.
-        guard let found = try await remote.relationship(withInviteCode: code) else { return nil }
-        try merge(relationships: [found])
-        return found
+    func addParticipant(_ userID: String, to relationshipID: String) async throws {
+        try await remote.addParticipant(userID, to: relationshipID)
+    }
+
+    func invite(forCode code: String) async throws -> RelationshipInvite? {
+        // Invites point at relationships the user is not part of yet, so there is nothing
+        // useful to cache — go straight to the remote.
+        try await remote.invite(forCode: code)
     }
 
     private func fetchLocal(for userID: String) throws -> [Relationship] {

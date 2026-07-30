@@ -6,6 +6,7 @@ struct ProfileView: View {
 
     @Environment(AppState.self) private var appState
     @State private var viewModel = ProfileViewModel()
+    @State private var showDeleteConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -15,6 +16,7 @@ struct ProfileView: View {
                     inviteSection
                     settingsSection
                     aboutSection
+                    dangerSection
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -69,6 +71,7 @@ struct ProfileView: View {
                         .font(.system(size: 28, weight: .bold, design: .monospaced))
                         .foregroundStyle(MGColors.indigo)
                         .tracking(4)
+                        .accessibilityIdentifier("inviteCode")
 
                     ShareLink(item: "Join me on Middle Ground with code \(code)") {
                         Label("Share invite", systemImage: "square.and.arrow.up")
@@ -150,6 +153,57 @@ struct ProfileView: View {
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    /// App Store Guideline 5.1.1(v) requires in-app account deletion for any app that
+    /// creates an account. Destructive and double-confirmed.
+    private var dangerSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Account")
+                .mgFont(.h2)
+
+            Button(role: .destructive) {
+                showDeleteConfirmation = true
+            } label: {
+                HStack {
+                    Text("Delete Account")
+                        .mgFont(.body)
+                        .foregroundStyle(MGColors.coral)
+                    Spacer()
+                    if viewModel.isDeletingAccount {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "trash")
+                            .foregroundStyle(MGColors.coral)
+                    }
+                }
+                .padding()
+                .background(MGColors.surface)
+            }
+            .disabled(viewModel.isDeletingAccount)
+            .mgCard(radius: MGRadius.lg)
+            .accessibilityLabel("Delete account")
+            .accessibilityHint("Permanently removes your account and all of your data")
+
+            Text("This permanently deletes your account, your requests, and your shared groups. It can't be undone.")
+                .mgFont(.caption)
+                .foregroundStyle(MGColors.warm600)
+        }
+        // An alert rather than a confirmationDialog: on iOS 26 the dialog presented as a
+        // popover whose actions were not exposed as accessibility buttons at all, which
+        // would leave VoiceOver users unable to confirm or cancel.
+        .alert("Delete your account?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete Account", role: .destructive) {
+                Task {
+                    if await viewModel.deleteAccount() {
+                        await appState.checkAuthState()
+                    }
+                }
+            }
+        } message: {
+            Text("Everything is removed permanently and can't be recovered.")
         }
     }
 

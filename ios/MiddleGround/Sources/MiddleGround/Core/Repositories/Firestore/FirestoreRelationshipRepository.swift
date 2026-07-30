@@ -1,4 +1,5 @@
 import Foundation
+import FirebaseAuth
 import FirebaseFirestore
 
 actor FirestoreRelationshipRepository: RelationshipRepository {
@@ -18,36 +19,56 @@ actor FirestoreRelationshipRepository: RelationshipRepository {
 
     func saveRelationship(_ relationship: Relationship) async throws {
         let dto = RelationshipDTO(from: relationship)
-        let batch = db.batch()
+        let ownerID = relationship.participantIDs.first
+        let isOwner = ownerID != nil && ownerID == Auth.auth().currentUser?.uid
 
+        let batch = db.batch()
         try batch.setData(from: dto, forDocument: db.collection(collection).document(relationship.id), merge: true)
 
         // Invite codes live in their own collection keyed by the code itself. Security rules
         // allow `get` but deny `list`, so a code can be redeemed by someone who was told it
         // but cannot be discovered by enumerating relationships.
-        batch.setData(
-            [
-                "relationshipID": relationship.id,
-                "ownerID": relationship.participantIDs.first ?? "",
-                "createdAt": Timestamp(date: relationship.createdAt)
-            ],
-            forDocument: db.collection(Self.inviteCollection).document(relationship.inviteCode),
-            merge: true
-        )
+        //
+        // Only the owner writes this document. Writing it unconditionally meant a *joiner's*
+        // batch included an invite write whose `ownerID` was somebody else's uid, which the
+        // rules correctly reject — taking the whole batch, and therefore pairing, down with it.
+        if isOwner {
+            batch.setData(
+                [
+                    "relationshipID": relationship.id,
+                    "ownerID": ownerID ?? "",
+                    "createdAt": Timestamp(date: relationship.createdAt)
+                ],
+                forDocument: db.collection(Self.inviteCollection).document(relationship.inviteCode),
+                merge: true
+            )
+        }
 
         try await batch.commit()
     }
 
-    func relationship(withInviteCode code: String) async throws -> Relationship? {
+    func addParticipant(_ userID: String, to relationshipID: String) async throws {
+        // arrayUnion appends, which is exactly what `isRedeemingInvite` in firestore.rules
+        // expects (`participantIDs == old.concat([uid()])`), and it leaves every other field
+        // byte-identical so the immutability guards hold.
+        try await db.collection(collection).document(relationshipID).updateData([
+            "participantIDs": FieldValue.arrayUnion([userID])
+        ])
+    }
+
+    func invite(forCode code: String) async throws -> RelationshipInvite? {
         let normalized = Relationship.normalizeInviteCode(code)
         guard !normalized.isEmpty else { return nil }
 
+        // Only the invite document is read. Reading the relationship itself would be denied:
+        // `allow get` requires membership, which the person joining does not have yet.
         let inviteDoc = try await db.collection(Self.inviteCollection).document(normalized).getDocument()
-        guard inviteDoc.exists, let relationshipID = inviteDoc.data()?["relationshipID"] as? String else {
+        guard inviteDoc.exists,
+              let data = inviteDoc.data(),
+              let relationshipID = data["relationshipID"] as? String,
+              let ownerID = data["ownerID"] as? String else {
             return nil
         }
-
-        let document = try await db.collection(collection).document(relationshipID).getDocument()
-        return try? document.data(as: RelationshipDTO.self).toModel()
+        return RelationshipInvite(code: normalized, relationshipID: relationshipID, ownerID: ownerID)
     }
 }

@@ -68,6 +68,17 @@ struct Relationship: Identifiable, Hashable, Codable {
     }
 }
 
+/// What an invite code resolves to.
+///
+/// Deliberately does *not* embed the `Relationship`: security rules only let participants
+/// read a relationship, so someone joining cannot fetch it before they are a member. The
+/// invite document carries everything the join flow needs.
+struct RelationshipInvite: Sendable, Equatable {
+    let code: String
+    let relationshipID: String
+    let ownerID: String
+}
+
 extension Relationship {
     /// Ambiguous characters (0/O, 1/I/L) are excluded so codes can be read aloud.
     private static let inviteCodeAlphabet = Array("ABCDEFGHJKMNPQRSTUVWXYZ23456789")

@@ -8,12 +8,13 @@
 > been fixed in the working tree — see [`REMEDIATION.md`](REMEDIATION.md) for what changed,
 > what was verified, and what is still outstanding.
 >
-> Current verified state: **package tests pass (40/40, zero warnings), the app shell builds
-> to `Middle Ground.app`, and `swiftlint --strict` is clean.**
+> Current verified state: **the app runs.** 40 unit tests, 9 UI walkthrough tests, and a
+> **two-device end-to-end run against real Firebase** (pair → send → live sync → accept → XP)
+> all pass; `swiftlint --strict` is clean.
 >
-> Still open: no localization, brand fonts and app-icon assets not shipped, design tokens only
-> partially adopted, and the Firestore rules tests have not yet been executed (they need a Java
-> runtime for the emulator and will first run in CI).
+> Still open: Sign in with Apple and push are unexercised (no Apple ID on simulator; Cloud
+> Functions need the Blaze plan), no localization, brand fonts not shipped, and a real Privacy
+> Policy page must exist before submission.
 
 ## Summary
 

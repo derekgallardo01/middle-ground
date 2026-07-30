@@ -29,6 +29,16 @@ actor PreviewAuthService: AuthServiceProtocol {
         user = nil
     }
 
+    func deleteAccount(appleAuthorizationCode: String?) async throws {
+        user = nil
+    }
+
+    func signInAsTestUser(named name: String) async throws -> User {
+        let signedIn = User(id: "preview_\(name)", name: name)
+        user = signedIn
+        return signedIn
+    }
+
     nonisolated func authStateStream() -> AsyncStream<User?> {
         AsyncStream { continuation in
             Task {

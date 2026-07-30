@@ -8,10 +8,14 @@ actor FirestoreRequestRepository: RequestRepository {
     func fetchRequests(for userID: String) async throws -> [Request] {
         let snapshot = try await db
             .collection(Self.collection)
-            .whereFilter(Filter.orFilter([
-                Filter.whereField("creatorID", isEqualTo: userID),
-                Filter.whereField("recipientIDs", arrayContains: userID)
-            ]))
+            // Single array-contains on the denormalised membership field.
+            //
+            // An OR of (creatorID == uid, recipientIDs contains uid) was DENIED at runtime:
+            // security rules authorise reads by `allParticipantIDs`, and Firestore only
+            // permits a list query when the query's own constraints prove every match is
+            // readable. Filtering the same field the rule checks makes it provable — and
+            // needs one composite index instead of two.
+            .whereField("allParticipantIDs", arrayContains: userID)
             .order(by: "updatedAt", descending: true)
             .getDocuments()
 
@@ -37,10 +41,7 @@ actor FirestoreRequestRepository: RequestRepository {
         return AsyncStream { continuation in
             let listener = db
                 .collection(Self.collection)
-                .whereFilter(Filter.orFilter([
-                    Filter.whereField("creatorID", isEqualTo: userID),
-                    Filter.whereField("recipientIDs", arrayContains: userID)
-                ]))
+                .whereField("allParticipantIDs", arrayContains: userID)
                 .order(by: "updatedAt", descending: true)
                 .addSnapshotListener { snapshot, _ in
                     guard let snapshot else {

@@ -20,9 +20,14 @@ struct NegotiationView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 24)
             } else {
-                VStack(alignment: .leading, spacing: 12) {
+                // Each bubble carries a caption underneath it ("Countered", "Accepted") set 4pt
+                // below the bubble it describes. At 12pt between messages the caption sat
+                // almost as close to the *next* bubble as to its own, so a reply and the label
+                // above it read as one unit. The gap between turns has to clearly beat the gap
+                // within one.
+                VStack(alignment: .leading, spacing: MGSpacing.xl) {
                     ForEach(viewModel.request.negotiationChain) { message in
-                        NegotiationBubble(message: message, currentUserID: viewModel.currentUser?.id)
+                        NegotiationBubble(message: message, currentUserID: viewModel.currentUserID)
                     }
                 }
             }
@@ -81,12 +86,13 @@ struct NegotiationBubble: View {
         HStack {
             if isCurrentUser { Spacer(minLength: 40) }
 
-            VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: 4) {
+            VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: MGSpacing.xs) {
                 if let text = message.text, !text.isEmpty {
                     Text(text)
                         .mgFont(.body)
                         .foregroundStyle(isCurrentUser ? MGColors.onAccent : MGColors.slate)
-                        .padding(12)
+                        .padding(.vertical, MGSpacing.md)
+                        .padding(.horizontal, MGSpacing.lg)
                         .background(isCurrentUser ? MGColors.indigo : MGColors.warm100)
                         .clipShape(RoundedRectangle(
                             cornerRadius: MGRadius.md,
@@ -94,13 +100,16 @@ struct NegotiationBubble: View {
                         ))
                 }
 
-                HStack(spacing: 4) {
+                HStack(spacing: MGSpacing.xs) {
                     Text(message.responseType.emoji)
                     Text(message.responseType.displayName)
                         .mgFont(.caption)
                         .foregroundStyle(MGColors.warm600)
                 }
             }
+            // Reads as one turn, so VoiceOver does not announce the text and its label as two
+            // unrelated items.
+            .accessibilityElement(children: .combine)
 
             if !isCurrentUser { Spacer(minLength: 40) }
         }

@@ -40,6 +40,9 @@ final class GamificationViewModel {
         }
         isLoading = true
         errorMessage = nil
+        // Before the reads, not alongside them: on a reinstall the local store is empty, and
+        // the mirror is the only place the user's XP and streak still exist.
+        await gamificationService.restoreFromMirrorIfNeeded(for: currentUser.id)
         async let fetchedStats = gamificationService.stats(for: currentUser.id)
         async let fetchedAchievements = gamificationService.achievements(for: currentUser.id)
         async let fetchedActivities = gamificationService.activities(for: currentUser.id)

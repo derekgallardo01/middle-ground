@@ -5,6 +5,13 @@ protocol GamificationServiceProtocol: Sendable {
     func achievements(for userID: String) async -> [Achievement]
     func activities(for userID: String) async -> [Activity]
 
+    /// Pulls progress back from the server when this device has none.
+    ///
+    /// Call this before the first `stats(for:)` of a session. It was missing from the
+    /// protocol, which is why the implementation had no call sites and progress still did not
+    /// survive a reinstall despite being mirrored on every save.
+    func restoreFromMirrorIfNeeded(for userID: String) async
+
     /// Awards XP, extends the streak, and unlocks achievements for a response the user just sent.
     /// This is the write path that turns the Activities tab from decoration into a real reward loop.
     @discardableResult
@@ -98,6 +105,8 @@ enum GamificationRules {
 actor GamificationService: GamificationServiceProtocol {
     private let store: UserDefaults
     private let mirror: GamificationRepository?
+    /// Users whose mirror has already been consulted this session.
+    private var restoreAttempted: Set<String> = []
 
     /// Pass a dedicated suite in tests so runs don't leak state into each other.
     ///
@@ -148,7 +157,16 @@ actor GamificationService: GamificationServiceProtocol {
 
     /// Restores progress from the server when the device has none — the case that used to lose
     /// a user's entire history on reinstall or device change.
+    ///
+    /// Restores the stats only: XP, level, streak and growth score. The mirror does not carry
+    /// achievements or the activity feed, so those still start empty on a new device.
+    ///
+    /// Callers invoke this on every load, so the attempt is recorded per user. Without that,
+    /// a user who genuinely has no progress anywhere never populates the local store and would
+    /// re-read the mirror on every single load.
     func restoreFromMirrorIfNeeded(for userID: String) async {
+        guard !restoreAttempted.contains(userID) else { return }
+        restoreAttempted.insert(userID)
         guard store.data(forKey: statsKey(for: userID)) == nil,
               let remote = try? await mirror?.stats(for: userID),
               let data = try? JSONEncoder().encode(remote) else { return }
@@ -388,6 +406,9 @@ actor GamificationService: GamificationServiceProtocol {
 }
 
 actor MockGamificationService: GamificationServiceProtocol {
+    /// No-op: the mock's stats are already fully populated, so there is nothing to restore.
+    func restoreFromMirrorIfNeeded(for userID: String) async {}
+
     func stats(for userID: String) async -> GamificationStats {
         GamificationStats(
             streakDays: 12,

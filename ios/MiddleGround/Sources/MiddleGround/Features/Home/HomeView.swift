@@ -142,13 +142,16 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Pluralises correctly, and reads as a sentence when there is nothing pending.
+    /// Pluralises correctly, and now counts the same thing the sentence claims to.
+    ///
+    /// "Nothing waiting on you" and "You have N active requests" were two different measures
+    /// sharing one counter — the first is about your turn, the second about the feed. Both now
+    /// report your turn, which is the only one the user can act on.
     private var activeRequestsSummary: String {
-        let count = viewModel.requests.filter(\.isPending).count
-        switch count {
+        switch viewModel.awaitingYouCount {
         case 0: return "Nothing waiting on you"
-        case 1: return "You have 1 active request"
-        default: return "You have \(count) active requests"
+        case 1: return "1 request is waiting on you"
+        case let count: return "\(count) requests are waiting on you"
         }
     }
 

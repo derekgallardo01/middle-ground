@@ -35,7 +35,7 @@ export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Develope
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../App" && pwd)"
 OUT="${MG_OUT:-$(mktemp -d)}"
 P12="${MG_P12:-$HOME/Desktop/MiddleGround-Distribution.p12}"
-P12_PASSWORD="${MG_P12_PASSWORD:?set MG_P12_PASSWORD}"
+P12_PASSWORD="${MG_P12_PASSWORD:-}"
 ASC_KEY_ID="${MG_ASC_KEY_ID:-T79AHBMV3J}"
 ASC_ISSUER="${MG_ASC_ISSUER:-7080ef6c-0e05-48e7-b508-72b9259dff45}"
 ASC_KEY_PATH="${MG_ASC_KEY_PATH:-$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8}"
@@ -58,16 +58,26 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "==> signing keychain"
-security delete-keychain "$KC_PATH" 2>/dev/null || true
-security create-keychain -p "$KC_PASSWORD" "$KC_NAME"
-security set-keychain-settings -lut 21600 "$KC_NAME"
-security unlock-keychain -p "$KC_PASSWORD" "$KC_NAME"
-security import "$P12" -k "$KC_NAME" -P "$P12_PASSWORD" -A -T /usr/bin/codesign -T /usr/bin/xcodebuild >/dev/null
-# Without this, codesign fails with errSecInternalComponent regardless of the ACL above.
-security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PASSWORD" "$KC_NAME" >/dev/null
-security list-keychains -d user -s "${ORIGINAL_KEYCHAINS[@]}" "$KC_PATH"
-security find-identity -v -p codesigning "$KC_NAME"
+# The .p12 is the portable path, not the only one. It is also an artifact that goes missing —
+# so when it is absent, fall back to whatever Apple Distribution identity is already in the
+# login keychain rather than failing outright. The export is identical either way; only where
+# the identity is read from changes.
+if [[ -f "$P12" && -n "$P12_PASSWORD" ]]; then
+  echo "==> signing keychain (from $P12)"
+  security delete-keychain "$KC_PATH" 2>/dev/null || true
+  security create-keychain -p "$KC_PASSWORD" "$KC_NAME"
+  security set-keychain-settings -lut 21600 "$KC_NAME"
+  security unlock-keychain -p "$KC_PASSWORD" "$KC_NAME"
+  security import "$P12" -k "$KC_NAME" -P "$P12_PASSWORD" -A -T /usr/bin/codesign -T /usr/bin/xcodebuild >/dev/null
+  # Without this, codesign fails with errSecInternalComponent regardless of the ACL above.
+  security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PASSWORD" "$KC_NAME" >/dev/null
+  security list-keychains -d user -s "${ORIGINAL_KEYCHAINS[@]}" "$KC_PATH"
+  security find-identity -v -p codesigning "$KC_NAME"
+else
+  echo "==> no .p12 — using the Apple Distribution identity in the login keychain"
+  security find-identity -v -p codesigning | grep 'Apple Distribution' \
+    || { echo "FAIL: no Apple Distribution identity available, and no MG_P12/MG_P12_PASSWORD to import one"; exit 1; }
+fi
 
 cd "$APP_DIR"
 xcodegen generate >/dev/null

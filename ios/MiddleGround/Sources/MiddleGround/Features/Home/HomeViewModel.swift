@@ -54,6 +54,9 @@ final class HomeViewModel {
 
     func loadStats() async {
         guard let currentUser else { return }
+        // Home shows the streak and growth score too, so it has to restore as well — otherwise
+        // a reinstalled user sees zeroes here until they happen to open the Activities tab.
+        await gamificationService.restoreFromMirrorIfNeeded(for: currentUser.id)
         stats = await gamificationService.stats(for: currentUser.id)
     }
 
@@ -86,6 +89,18 @@ final class HomeViewModel {
     func canRespond(to request: Request) -> Bool {
         guard let currentUser else { return false }
         return request.canRespond(as: currentUser.id)
+    }
+
+    /// How many requests are actually waiting on an answer from you.
+    ///
+    /// The header used to count `isPending`, which is `status == .pending` and so only ever
+    /// counted requests nobody had replied to yet. Once the turn-taking model landed, a
+    /// request you had been countered on was — correctly — no longer `.pending`, so the one
+    /// thing most in need of your attention was the one thing the header would not count. A
+    /// three-turn negotiation sitting on your turn read as "Nothing waiting on you".
+    var awaitingYouCount: Int {
+        guard let currentUser else { return 0 }
+        return requests.filter { $0.canRespond(as: currentUser.id) }.count
     }
 
     /// Requests with a response in flight, so their card can show progress and refuse a

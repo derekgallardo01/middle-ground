@@ -149,7 +149,18 @@ struct ProfileView: View {
                         .tracking(4)
                         .accessibilityIdentifier("inviteCode")
 
-                    ShareLink(item: "Join me on Middle Ground with code \(code)") {
+                    // The App Store link matters more than the code here: the recipient is by
+                    // definition someone who does not have the app yet, and a bare code gives
+                    // them nothing to act on.
+                    ShareLink(
+                        item: AppConfiguration.appStoreURL,
+                        subject: Text("Join me on Middle Ground"),
+                        message: Text("""
+                        Join me on Middle Ground — my invite code is \(code)
+
+                        Get the app, then enter the code in Profile → Connect.
+                        """)
+                    ) {
                         Label("Share invite", systemImage: "square.and.arrow.up")
                             .mgFont(.body)
                             .frame(maxWidth: .infinity)

@@ -51,4 +51,15 @@ enum AppConfiguration {
     static let privacyPolicyURL = webRoot.appending(path: "privacy")
     static let termsURL = webRoot.appending(path: "terms")
     static let supportURL = webRoot.appending(path: "support")
+
+    /// The App Store listing, shared alongside an invite code.
+    ///
+    /// Without this the invite is unusable by the one person it is aimed at: someone who does
+    /// not have the app receives a six-character code and no indication of what to do with it.
+    /// Searching by name does not reliably help either — the listing is "Middle Ground: Decide
+    /// Together" and an unrelated "Middle Ground Resolve" already ranks for the bare phrase.
+    ///
+    /// The numeric id form works before a listing is public and survives any later rename;
+    /// a slug-based URL would break the moment the name changed.
+    static let appStoreURL = URL(string: "https://apps.apple.com/app/id6796479061")!
 }

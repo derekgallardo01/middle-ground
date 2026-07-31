@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import os
 
 /// Auth stand-in for Xcode previews and mock mode, where Firebase is not configured.
 ///
@@ -9,10 +10,28 @@ import Foundation
 /// The signed-in user is `User.preview` on purpose: its `id` is a participant of
 /// `Relationship.preview`, so partner lookup in `CreateRequestViewModel` resolves.
 actor PreviewAuthService: AuthServiceProtocol {
-    private var user: User?
+    private var user: User? {
+        // Read out to a local first: the lock's closure is @Sendable and so cannot touch
+        // actor-isolated state directly.
+        didSet {
+            let id = user?.id
+            lastKnownID.withLock { $0 = id }
+        }
+    }
+
+    /// Mirrors `user.id` so `currentUserID` can be read without awaiting the actor, matching the
+    /// real service where the ID comes straight off the in-memory Firebase session.
+    ///
+    /// A `let` of a Sendable type, so the actor lets it be read from outside. `Mutex` would be
+    /// the modern choice but it needs iOS 18 and this app supports 17.
+    private let lastKnownID = OSAllocatedUnfairLock<String?>(initialState: nil)
+
+    nonisolated var currentUserID: String? { lastKnownID.withLock { $0 } }
 
     init(user: User? = .preview) {
         self.user = user
+        let id = user?.id
+        lastKnownID.withLock { $0 = id }
     }
 
     func currentUser() async -> User? {

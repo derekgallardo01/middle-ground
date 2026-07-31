@@ -61,20 +61,29 @@ final class RequestDetailViewModel {
         "How about \(date.formatted(date: .abbreviated, time: .shortened))?"
     }
 
+    /// Who the viewer is, known on the first frame.
+    ///
+    /// Everything below only needs the ID, and `authService.currentUserID` has it in memory.
+    /// Deriving these from `currentUser` meant waiting on a Firestore fetch of the display
+    /// name first: for that half second the view believed it was nobody, so the response row
+    /// was missing and every message in the chain rendered as the other person's — grey and
+    /// left-aligned — before flipping sides once the name arrived.
+    var currentUserID: String? { authService.currentUserID ?? currentUser?.id }
+
     /// Role-derived UI state. The creator waits; only the recipient answers.
     var canRespond: Bool {
-        guard let currentUser else { return false }
-        return request.canRespond(as: currentUser.id)
+        guard let currentUserID else { return false }
+        return request.canRespond(as: currentUserID)
     }
 
     var isAwaitingResponse: Bool {
-        guard let currentUser else { return false }
-        return request.isAwaitingResponse(for: currentUser.id)
+        guard let currentUserID else { return false }
+        return request.isAwaitingResponse(for: currentUserID)
     }
 
     var canCancel: Bool {
-        guard let currentUser else { return false }
-        return request.canCancel(as: currentUser.id)
+        guard let currentUserID else { return false }
+        return request.canCancel(as: currentUserID)
     }
 
     var waitingMessage: String {

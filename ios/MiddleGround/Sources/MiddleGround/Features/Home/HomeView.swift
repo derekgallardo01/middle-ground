@@ -18,8 +18,14 @@ struct HomeView: View {
 
                 ScrollView {
                     LazyVStack(spacing: 20) {
+                        // Placeholders rather than defaults while the first load is in flight.
+                        // These render "Hello, there" and a 0-day streak before the user and
+                        // their stats arrive, so the screen visibly rewrites itself a beat
+                        // after opening.
                         header
+                            .redacted(reason: viewModel.hasLoaded ? [] : .placeholder)
                         statsRow
+                            .redacted(reason: viewModel.hasLoaded ? [] : .placeholder)
                         feedSection
                     }
                     .padding(.horizontal, 16)
@@ -204,7 +210,10 @@ struct HomeView: View {
             Text("Requests")
                 .mgFont(.h2)
 
-            if viewModel.isLoading && viewModel.requests.isEmpty {
+            // Gated on having loaded, not on `isLoading`. `isLoading` is false before the first
+            // load starts, so the feed fell through to the empty state on the opening frame and
+            // showed the invite prompt to people who are already paired.
+            if !viewModel.hasLoaded && viewModel.requests.isEmpty {
                 LoadingSkeleton(type: .list)
             } else if let errorMessage = viewModel.errorMessage, viewModel.requests.isEmpty {
                 // Only take over the feed when there is nothing to show. A failed *response*

@@ -23,6 +23,20 @@ final class HomeViewModel {
     var stats: GamificationStats = GamificationStats(streakDays: 0, relationshipXP: 0, level: 1, growthScore: 0, nextLevelXP: 500)
     var isLoading = false
     var errorMessage: String?
+
+    // Whether the first load has actually answered each question the feed asks.
+    //
+    // Both start false and `isPaired` starts false too, so on the very first frame the feed
+    // concluded "no requests, not paired" and drew the invite prompt — telling someone who has
+    // a partner to go and find one, for as long as the network took. Tracked separately
+    // because `init` and the view's `.task` load these concurrently: knowing the requests have
+    // arrived says nothing about whether the pairing state has.
+    private(set) var hasLoadedRequests = false
+    private(set) var hasLoadedRelationship = false
+
+    /// True once the feed can distinguish "empty because nobody has joined you" from
+    /// "empty because you have no requests yet". Until then it must draw neither.
+    var hasLoaded: Bool { hasLoadedRequests && hasLoadedRelationship }
     var showCelebration = false
     var celebrationTitle = ""
 
@@ -46,10 +60,14 @@ final class HomeViewModel {
     func loadRelationshipState() async {
         guard let currentUser else { return }
         guard let relationships = try? await relationshipService.relationships(for: currentUser.id) else {
+            // Still resolved, just unsuccessfully — otherwise a user whose relationship fetch
+            // fails sits on the skeleton forever.
+            hasLoadedRelationship = true
             return
         }
         isPaired = relationships.contains(where: \.isPaired)
         inviteCode = relationships.first { !$0.isPaired }?.inviteCode
+        hasLoadedRelationship = true
     }
 
     func loadStats() async {
@@ -73,6 +91,7 @@ final class HomeViewModel {
             errorMessage = "Couldn't load requests. Pull to try again."
         }
         isLoading = false
+        hasLoadedRequests = true
     }
 
     /// Streams live updates. Runs for the lifetime of the view via `.task`.
@@ -82,6 +101,7 @@ final class HomeViewModel {
         for await updated in requestService.observeRequests(for: currentUser.id) {
             requests = updated
             isLoading = false
+            hasLoadedRequests = true
         }
     }
 

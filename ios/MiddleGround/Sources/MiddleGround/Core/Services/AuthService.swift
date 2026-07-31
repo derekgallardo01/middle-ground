@@ -23,6 +23,15 @@ enum AuthError: LocalizedError, Equatable {
 }
 
 protocol AuthServiceProtocol: Sendable {
+    /// The signed-in user's ID, available immediately and without a network call.
+    ///
+    /// `currentUser()` fetches the profile document to get the display name, so it costs a
+    /// Firestore round trip. Anything that only needs to know *who you are* — whose turn it
+    /// is, which side of the conversation a message belongs on — should use this instead.
+    /// Waiting on the name to decide that is what made views render as somebody else for the
+    /// first half second and then rearrange themselves.
+    nonisolated var currentUserID: String? { get }
+
     func currentUser() async -> User?
     func signInWithApple(idToken: String, nonce: String, fullName: PersonNameComponents?) async throws -> User
     func signOut() async throws
@@ -56,6 +65,9 @@ protocol AuthServiceProtocol: Sendable {
 actor AuthService: AuthServiceProtocol {
     private let userRepository = Container.shared.remoteUserRepository()
     private let analytics = Container.shared.analyticsService()
+
+    /// Straight off the in-memory Firebase session — no await, no network.
+    nonisolated var currentUserID: String? { Auth.auth().currentUser?.uid }
 
     func currentUser() async -> User? {
         guard let firebaseUser = Auth.auth().currentUser else { return nil }

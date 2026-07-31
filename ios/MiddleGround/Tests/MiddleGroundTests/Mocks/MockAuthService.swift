@@ -1,12 +1,28 @@
 import Foundation
+import os
 @testable import MiddleGround
 
 actor MockAuthService: AuthServiceProtocol {
-    var mockUser: User?
+    var mockUser: User? {
+        // Read out to a local first: the lock's closure is @Sendable and so cannot touch
+        // actor-isolated state directly.
+        didSet {
+            let id = mockUser?.id
+            lastKnownID.withLock { $0 = id }
+        }
+    }
     var shouldThrowOnSignOut = false
+
+    /// Mirrors `mockUser.id` so `currentUserID` is readable without awaiting the actor, the same
+    /// way the real service reads it off the in-memory Firebase session.
+    private let lastKnownID = OSAllocatedUnfairLock<String?>(initialState: nil)
+
+    nonisolated var currentUserID: String? { lastKnownID.withLock { $0 } }
 
     init(mockUser: User? = .preview) {
         self.mockUser = mockUser
+        let id = mockUser?.id
+        lastKnownID.withLock { $0 = id }
     }
 
     func currentUser() async -> User? {

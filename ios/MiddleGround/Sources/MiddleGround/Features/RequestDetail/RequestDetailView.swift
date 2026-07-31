@@ -18,9 +18,10 @@ struct RequestDetailView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     header
 
-                    // Whoever's turn it is answers; the other person waits. Both rows are
-                    // absent for a moment on first render while `currentUser` loads, which is
-                    // why the change is animated rather than popping into place.
+                    // Whoever's turn it is answers; the other person waits. Both are decided
+                    // from `currentUserID`, which is in memory, so they are correct on the
+                    // first frame rather than appearing a beat later. The animation now covers
+                    // an actual change of turn, not the arrival of the viewer's own identity.
                     if viewModel.canRespond {
                         quickResponseRow
                             .transition(.opacity.combined(with: .move(edge: .bottom)))

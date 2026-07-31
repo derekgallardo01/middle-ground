@@ -41,6 +41,15 @@ const CLIENT_SECRET = 'j9iVZfS8kkCEFUPaAeJV0sAi';
 const DEMO_DOMAIN = 'demo.middleground.app';
 const DEMO_PASSWORD = 'MGdemo!2026';
 
+/**
+ * Invite codes for groups this script creates, which is how --clean tells them apart from a
+ * group you already had. Without that distinction cleanup unpaired everything instead of
+ * deleting what it made, leaving a phantom group behind — and since Profile and Compose read
+ * the invite code from `relationships.first { !isPaired }`, that phantom can end up showing
+ * its code in place of your real one.
+ */
+const DEMO_CODES = { couple: 'DEMO01', friends: 'DEMO02' };
+
 const FIRESTORE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
 
 async function accessToken() {
@@ -201,15 +210,18 @@ if (clean) {
       removed++;
     }
   }
+  const demoCodes = Object.values(DEMO_CODES);
   for (const r of await db.list('relationships')) {
     const m = members(r.f);
-    if (!m.some((p) => found.includes(p))) continue;
+    const isDemoGroup = demoCodes.includes(r.f.inviteCode?.stringValue);
+    if (!isDemoGroup && !m.some((p) => found.includes(p))) continue;
     const kept = m.filter((id) => !found.includes(id));
-    if (kept.includes(ME)) {
-      // Leave your own group intact and unpaired, rather than deleting it.
-      await db.set(`relationships/${r.id}`, { ...r.f, participantIDs: arr(kept) });
-    } else {
+    if (isDemoGroup || !kept.includes(ME)) {
+      // This script created it, so remove it outright.
       await db.del(`relationships/${r.id}`);
+    } else {
+      // A group you already had: leave it intact and unpaired, with its own invite code.
+      await db.set(`relationships/${r.id}`, { ...r.f, participantIDs: arr(kept) });
     }
     removed++;
   }
@@ -285,8 +297,8 @@ async function ensureGroup(withID, type, code) {
   return id;
 }
 
-await ensureGroup(SAM, 'couple', 'DEMO01');
-await ensureGroup(JORDAN, 'friends', 'DEMO02');
+await ensureGroup(SAM, 'couple', DEMO_CODES.couple);
+await ensureGroup(JORDAN, 'friends', DEMO_CODES.friends);
 
 // --------------------------------------------------------------- seed
 

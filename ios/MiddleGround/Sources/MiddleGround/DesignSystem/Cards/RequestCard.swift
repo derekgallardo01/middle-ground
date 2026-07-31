@@ -39,7 +39,11 @@ struct RequestCard: View {
                 .foregroundStyle(MGColors.warm600)
             }
 
-            if request.isPending && onRespond != nil {
+            // `onRespond` is only non-nil when the caller has already checked `canRespond`,
+            // so it carries the turn. The old extra `isPending` test was both redundant and
+            // wrong once a conversation could continue: it hid the buttons on a countered
+            // request that was genuinely waiting on this user.
+            if onRespond != nil {
                 HStack(spacing: 8) {
                     ResponseButton(type: .accept) {
                         onRespond?(.accept)

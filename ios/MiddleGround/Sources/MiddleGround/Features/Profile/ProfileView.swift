@@ -5,6 +5,7 @@ struct ProfileView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var initialsSize: CGFloat = 36
 
     @Environment(AppState.self) private var appState
+    @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel = ProfileViewModel()
     @State private var showDeleteConfirmation = false
     @State private var relationshipToLeave: Relationship?
@@ -28,6 +29,17 @@ struct ProfileView: View {
             .background(MGColors.sand.ignoresSafeArea())
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
+            // The view model loaded once in `init()`, inside a tab that lives for the whole
+            // session — so after you shared a code and your partner joined, this screen kept
+            // saying "Share this code so someone can join you" until the app was force-quit.
+            // Pairing is the one thing that happens to you rather than because of you, and
+            // this is the screen where you would look for it.
+            .task { await viewModel.refresh() }
+            .refreshable { await viewModel.refresh() }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                Task { await viewModel.refresh() }
+            }
             // Every failure on this screen used to be silent: the view model set
             // `errorMessage` for create-group, join-group, sign-out and delete-account, and
             // nothing rendered it. A wrong invite code just stopped the spinner. Same alert

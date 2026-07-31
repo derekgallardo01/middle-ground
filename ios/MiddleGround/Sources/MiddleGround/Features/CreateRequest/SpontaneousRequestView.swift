@@ -114,6 +114,15 @@ struct SpontaneousRequestView: View {
                         .accessibilityLabel("Cancel spontaneous request")
                 }
             }
+            // This view had no alert at all, so both failures the view model can produce —
+            // "Couldn't load partners." and "Failed to send spontaneous request." — were set
+            // and never rendered. Send Now simply did nothing: the sheet stayed open, the
+            // error haptic fired, and nothing explained why.
+            .alert("Oops", isPresented: .constant(viewModel.errorMessage != nil)) {
+                Button("OK") { viewModel.errorMessage = nil }
+            } message: {
+                Text(viewModel.errorMessage ?? "")
+            }
         }
         .task {
             await viewModel.loadCurrentUserAndPartners()

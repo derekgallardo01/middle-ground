@@ -26,7 +26,11 @@ struct NegotiationView: View {
                 }
             }
 
-            if viewModel.request.isPending {
+            // Gated on whose turn it is, not merely on the request being open. Gating on
+            // `isPending` alone showed the creator an enabled composer on their own unanswered
+            // request; sending hit `guard canRespond` in RequestService and surfaced as a
+            // generic "Failed to send response." — a guaranteed failure presented as an error.
+            if viewModel.canRespond {
                 HStack(spacing: 12) {
                     TextField("Suggest another time or idea...", text: $viewModel.counterText, axis: .vertical)
                         .mgFont(.body)

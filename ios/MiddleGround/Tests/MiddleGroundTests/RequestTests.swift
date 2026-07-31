@@ -111,7 +111,94 @@ final class RequestTests: XCTestCase {
         XCTAssertEqual(request.status, .accepted, "an answered request must keep its status")
     }
 
+    // MARK: - Turn taking
+    //
+    // The conversation used to end on the first reply: every response type mapped away from
+    // `.pending`, and `canRespond` required `.pending`, so a counter froze the request forever
+    // and the creator could never answer it. These pin the corrected behaviour.
+
+    func testCreatorMayAnswerAfterTheRecipientCounters() throws {
+        var request = makeRequest()
+        try request.addResponse(
+            NegotiationMessage(senderID: recipient, responseType: .counter, text: "8pm instead?")
+        )
+
+        XCTAssertEqual(request.status, .countered)
+        XCTAssertTrue(request.isOpen, "a counter is a move in the conversation, not the end of it")
+        XCTAssertTrue(request.canRespond(as: creator), "the turn must come back to the creator")
+        XCTAssertFalse(request.canRespond(as: recipient), "you cannot answer your own message")
+    }
+
+    func testTheConversationCanRunSeveralTurns() throws {
+        var request = makeRequest()
+        try request.addResponse(NegotiationMessage(senderID: recipient, responseType: .counter, text: "8pm?"))
+        try request.addResponse(NegotiationMessage(senderID: creator, responseType: .counter, text: "8:30?"))
+        try request.addResponse(NegotiationMessage(senderID: recipient, responseType: .accept))
+
+        XCTAssertEqual(request.negotiationChain.count, 3)
+        XCTAssertEqual(request.status, .accepted)
+        XCTAssertFalse(request.isOpen)
+        XCTAssertFalse(request.canRespond(as: creator))
+        XCTAssertFalse(request.canRespond(as: recipient))
+    }
+
+    func testAcceptAndDeclineStayTerminal() throws {
+        for terminal in [ResponseType.accept, .decline] {
+            var request = makeRequest()
+            try request.addResponse(NegotiationMessage(senderID: recipient, responseType: terminal))
+            XCTAssertFalse(request.isOpen, "\(terminal) must settle the decision")
+            XCTAssertFalse(request.canRespond(as: creator))
+            XCTAssertFalse(request.canRespond(as: recipient))
+        }
+    }
+
+    func testAnOutsiderNeverGetsATurn() throws {
+        var request = makeRequest()
+        try request.addResponse(NegotiationMessage(senderID: recipient, responseType: .counter))
+        XCTAssertFalse(request.canRespond(as: outsider))
+        XCTAssertThrowsError(
+            try request.addResponse(NegotiationMessage(senderID: outsider, responseType: .accept))
+        )
+    }
+
+    /// Saving is a bookmark, not an answer — it must not hand the turn to the other person,
+    /// and it must not lock the saver out of accepting later. Previously `.save` set a status
+    /// that made `canRespond` false, so a saved request could never be accepted by anyone.
+    func testSavingKeepsTheTurnAndLeavesTheRequestAnswerable() throws {
+        var request = makeRequest()
+        try request.addResponse(NegotiationMessage(senderID: recipient, responseType: .save))
+
+        XCTAssertEqual(request.status, .saved)
+        XCTAssertTrue(request.isOpen)
+        XCTAssertTrue(request.canRespond(as: recipient), "the saver can still come back and accept")
+        XCTAssertFalse(request.canRespond(as: creator), "saving does not demand anything of the creator")
+
+        try request.addResponse(NegotiationMessage(senderID: recipient, responseType: .accept))
+        XCTAssertEqual(request.status, .accepted)
+    }
+
+    func testAwaitingResponseFlipsWithTheTurn() throws {
+        var request = makeRequest()
+        XCTAssertTrue(request.isAwaitingResponse(for: creator))
+        XCTAssertFalse(request.isAwaitingResponse(for: recipient))
+
+        try request.addResponse(NegotiationMessage(senderID: recipient, responseType: .negotiate))
+        XCTAssertFalse(request.isAwaitingResponse(for: creator), "it is now the creator's move")
+        XCTAssertTrue(request.isAwaitingResponse(for: recipient))
+    }
+
+    func testAwaitingResponseIsFalseForOutsiders() {
+        XCTAssertFalse(makeRequest().isAwaitingResponse(for: outsider))
+    }
+
     // MARK: - Cancel
+
+    func testTheCreatorMayWithdrawMidConversation() throws {
+        var request = makeRequest()
+        try request.addResponse(NegotiationMessage(senderID: recipient, responseType: .counter))
+        XCTAssertTrue(request.canCancel(as: creator), "an unsettled request can still be withdrawn")
+        XCTAssertFalse(request.canCancel(as: recipient))
+    }
 
     func testOnlyTheCreatorMayCancel() {
         let request = makeRequest()

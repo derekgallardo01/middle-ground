@@ -8,6 +8,7 @@ struct HomeView: View {
     @Namespace private var animationNamespace
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(AppState.self) private var appState
     @ScaledMetric(relativeTo: .title) private var fabSize: CGFloat = 60
 
     var body: some View {
@@ -66,15 +67,30 @@ struct HomeView: View {
             await viewModel.observeRequests()
         }
         .onReceive(NotificationCenter.default.publisher(for: .didReceiveRequestNotification)) { notification in
-            if let requestID = notification.userInfo?["request_id"] as? String,
-               let request = viewModel.requests.first(where: { $0.id == requestID }) {
-                if !reduceMotion {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                        selectedRequest = request
-                    }
-                } else {
-                    selectedRequest = request
-                }
+            guard let requestID = notification.userInfo?["request_id"] as? String else { return }
+            // Switching tabs is not optional: this handler lives on Home, so without it a tap
+            // from Calendar or Profile pushed the detail onto a stack the user cannot see and
+            // the notification appeared to do nothing.
+            appState.selectedTab = .home
+            appState.pendingRequestID = requestID
+            openPendingRequestIfPossible()
+        }
+        // The feed usually has not loaded when a cold-launch push arrives, so resolution is
+        // retried every time the requests change rather than attempted once and abandoned.
+        .onChange(of: viewModel.requests) { _, _ in
+            openPendingRequestIfPossible()
+        }
+    }
+
+    private func openPendingRequestIfPossible() {
+        guard let id = appState.pendingRequestID,
+              let request = viewModel.requests.first(where: { $0.id == id }) else { return }
+        appState.pendingRequestID = nil
+        if reduceMotion {
+            selectedRequest = request
+        } else {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                selectedRequest = request
             }
         }
     }

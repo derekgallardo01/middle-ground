@@ -129,6 +129,65 @@ describe('requests', () => {
   });
 });
 
+describe('turn taking on a request', () => {
+  // Mirrors `Request.awaitingResponseFrom`. The rules used to require `uid() in recipientIDs`,
+  // which froze every conversation after one reply: a counter handed the turn back to the
+  // creator and the backend refused their answer.
+  const msg = (sender, type) => ({
+    id: `m-${sender}-${type}`, senderID: sender, responseType: type, text: null, timestamp: new Date(),
+  });
+
+  test('the creator may answer after the recipient counters', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r1'), request({
+      status: 'countered', negotiationChain: [msg(BOB, 'counter')],
+    })));
+    await assertSucceeds(
+      updateDoc(doc(asAlice(), 'requests/r1'), { status: 'accepted', updatedAt: new Date() }),
+    );
+  });
+
+  test('you cannot answer your own last message', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r1'), request({
+      status: 'countered', negotiationChain: [msg(BOB, 'counter')],
+    })));
+    await assertFails(updateDoc(doc(asBob(), 'requests/r1'), { status: 'accepted' }));
+  });
+
+  test('the creator cannot answer before the recipient has', async () => {
+    // No messages yet, so the turn is the recipient's — this is the rule that stops one
+    // person closing a shared decision alone.
+    await assertFails(updateDoc(doc(asAlice(), 'requests/r1'), { status: 'accepted' }));
+  });
+
+  test('a settled request cannot be reopened by anyone', async () => {
+    for (const status of ['accepted', 'declined', 'completed']) {
+      await seed((db) => setDoc(doc(db, 'requests/r1'), request({
+        status, negotiationChain: [msg(BOB, 'accept')],
+      })));
+      await assertFails(updateDoc(doc(asAlice(), 'requests/r1'), { status: 'pending' }));
+      await assertFails(updateDoc(doc(asBob(), 'requests/r1'), { status: 'pending' }));
+    }
+  });
+
+  test('saving leaves the turn where it was', async () => {
+    // A save is a bookmark, not an answer. Without the explicit carve-out the saver would be
+    // locked out of ever accepting — the client would offer the button and this would refuse.
+    await seed((db) => setDoc(doc(db, 'requests/r1'), request({
+      status: 'saved', negotiationChain: [msg(BOB, 'save')],
+    })));
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r1'), { status: 'accepted', updatedAt: new Date() }),
+    );
+  });
+
+  test('an outsider never gets a turn', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r1'), request({
+      status: 'countered', negotiationChain: [msg(BOB, 'counter')],
+    })));
+    await assertFails(updateDoc(doc(asMallory(), 'requests/r1'), { status: 'accepted' }));
+  });
+});
+
 describe('relationships and invite redemption', () => {
   beforeEach(() => seed(async (db) => {
     await setDoc(doc(db, 'relationships/rel1'), relationship());

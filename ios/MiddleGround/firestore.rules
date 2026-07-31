@@ -113,6 +113,28 @@ service cloud.firestore {
     // ------------------------------------------------------------- requests
     // `allParticipantIDs` is denormalised on write specifically so this rule (and the
     // Cloud Functions fan-out) can check membership in one comparison.
+    // Accepting, declining or completing settles a decision; nothing may reopen it.
+    function isSettled() {
+      return resource.data.status in ['accepted', 'declined', 'completed'];
+    }
+
+    function lastMessage() {
+      return resource.data.negotiationChain[resource.data.negotiationChain.size() - 1];
+    }
+
+    // Whose turn it is. Before anyone replies the recipients owe the answer; after that the
+    // turn belongs to whoever did not send the last message.
+    //
+    // Saving is the exception, and it has to be, or the model and the rules disagree: a save
+    // is a bookmark rather than an answer, so it leaves the turn where it was. Without this
+    // clause a recipient who saved could never afterwards accept — the client would offer the
+    // button and the backend would refuse it.
+    function isMyTurn() {
+      return resource.data.negotiationChain.size() == 0
+        ? uid() in resource.data.recipientIDs
+        : (lastMessage().senderID != uid() || lastMessage().responseType == 'save');
+    }
+
     match /requests/{requestId} {
       allow get, list: if (signedIn() && uid() in resource.data.allParticipantIDs) || isAdmin();
 
@@ -120,12 +142,17 @@ service cloud.firestore {
                     && request.resource.data.creatorID == uid()
                     && uid() in request.resource.data.allParticipantIDs;
 
-      // Only a RECIPIENT may respond. The creator asked the question; letting them answer it
-      // would let one person close a shared decision alone (and farm XP for it). Enforced
-      // here as well as in the client so a modified app cannot bypass it.
+      // Responding is turn-based, mirroring `Request.awaitingResponseFrom` on the client.
+      //
+      // This used to be "only a RECIPIENT may respond", which was too strict once a
+      // conversation could continue past the first reply: a counter handed the turn back to
+      // the creator, and the rules refused their answer. The invariant that actually matters
+      // is unchanged — you may never answer your own last message, so one person still cannot
+      // close a shared decision alone or farm XP for it.
       allow update: if signedIn()
-                    && uid() in resource.data.recipientIDs
-                    && resource.data.creatorID != uid()
+                    && uid() in resource.data.allParticipantIDs
+                    && !isSettled()
+                    && isMyTurn()
                     && immutable('creatorID')
                     && immutable('recipientIDs')
                     && immutable('allParticipantIDs');

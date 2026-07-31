@@ -16,6 +16,13 @@ final class AppState {
     /// the real enforcement is in `firestore.rules`.
     var isAdmin = false
 
+    /// A request a push notification asked us to open, held until the feed can resolve it.
+    ///
+    /// Needed because a cold launch from a push delivers the notification long before
+    /// `loadRequests()` finishes, so looking the id up immediately finds nothing and the tap
+    /// is silently dropped. Buffering it lets Home open the request as soon as it arrives.
+    var pendingRequestID: String?
+
     enum Tab {
         case home
         case calendar

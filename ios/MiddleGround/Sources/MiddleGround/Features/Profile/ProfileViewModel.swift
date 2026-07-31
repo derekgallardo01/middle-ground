@@ -76,17 +76,32 @@ final class ProfileViewModel {
     }
 
     init() {
-        Task {
-            await loadUser()
-            await loadStats()
-            await loadRelationships()
-            await checkNotificationStatus()
-        }
+        Task { await refresh() }
+    }
+
+    /// Reloads everything this screen shows.
+    ///
+    /// Called on appear, on pull-to-refresh, and when the app returns to the foreground —
+    /// because the state that matters most here (has someone joined my group?) changes
+    /// remotely, without this device doing anything.
+    func refresh() async {
+        await loadUser()
+        await loadStats()
+        await loadRelationships()
+        await checkNotificationStatus()
     }
 
     func loadRelationships() async {
         guard let user else { return }
-        relationships = (try? await relationshipService.relationships(for: user.id)) ?? []
+        do {
+            relationships = try await relationshipService.relationships(for: user.id)
+        } catch {
+            // Keep whatever we already had. This used to be `try? ... ?? []`, so a transient
+            // network failure emptied the array, `hasNoRelationship` flipped true, and a
+            // perfectly well-paired user was shown the "You're not connected with anyone yet"
+            // prompt — inviting them to create a second group.
+            MGLog.storage.error("Could not load relationships: \(error.localizedDescription, privacy: .public)")
+        }
         await repairInviteIfNeeded()
     }
 

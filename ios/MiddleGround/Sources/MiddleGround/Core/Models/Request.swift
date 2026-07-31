@@ -219,20 +219,55 @@ struct Request: Identifiable, Hashable, Codable {
         creatorID == userID
     }
 
+    func isParticipant(_ userID: String) -> Bool {
+        allParticipantIDs.contains(userID)
+    }
+
+    /// Whether the conversation is still going.
+    ///
+    /// Only accepting, declining or completing settles a decision. Countering, negotiating and
+    /// rescheduling are *moves within* the conversation, not the end of it — treating them as
+    /// terminal is what previously froze a request the moment anyone replied.
+    var isOpen: Bool {
+        switch status {
+        case .accepted, .declined, .completed:
+            return false
+        case .pending, .negotiated, .rescheduled, .countered, .saved:
+            return true
+        }
+    }
+
+    /// Whose turn it is to answer.
+    ///
+    /// Before anyone has replied, the recipients owe the answer. After that the turn belongs to
+    /// whoever did *not* send the last real message — which is what lets a counter come back to
+    /// the creator so they can accept it.
+    ///
+    /// Saving is skipped deliberately: it is a bookmark ("not right now"), not an answer, so it
+    /// must not hand the turn to the other person or demand anything of them.
+    var awaitingResponseFrom: [String] {
+        guard isOpen else { return [] }
+        guard let lastAnswer = negotiationChain.last(where: { $0.responseType != .save }) else {
+            return recipientIDs
+        }
+        return allParticipantIDs.filter { $0 != lastAnswer.senderID }
+    }
+
     /// Whether `userID` may accept / decline / negotiate / counter / reschedule / save.
-    /// Only a recipient, and only while the request is still open.
+    ///
+    /// The single gate for the UI, `RequestService` and `firestore.rules` alike.
     func canRespond(as userID: String) -> Bool {
-        isPending && !isCreator(userID) && isRecipient(userID)
+        awaitingResponseFrom.contains(userID)
     }
 
-    /// The creator's view of their own still-open request: they wait, they don't answer.
+    /// This user has replied and is waiting on the other person.
     func isAwaitingResponse(for userID: String) -> Bool {
-        isPending && isCreator(userID)
+        isOpen && isParticipant(userID) && !canRespond(as: userID)
     }
 
-    /// Only the creator may withdraw a request, and only before it is answered.
+    /// Only the creator may withdraw a request, and only while it is unsettled.
     func canCancel(as userID: String) -> Bool {
-        isPending && isCreator(userID)
+        isOpen && isCreator(userID)
     }
 
     var isPending: Bool {

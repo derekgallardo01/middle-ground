@@ -23,7 +23,7 @@ struct HomeView: View {
                         feedSection
                     }
                     .padding(.horizontal, 16)
-                .mgReadableWidth()
+                    .mgReadableWidth()
                     .padding(.top, 12)
                     // Clear the tab bar and the floating action button, which previously
                     // covered the last card in the feed.
@@ -186,13 +186,13 @@ struct HomeView: View {
                 Text("Send one to get the conversation started.")
             }
             .background(MGColors.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         } else {
             InvitePrompt(code: viewModel.inviteCode) {
                 appState.selectedTab = .profile
             }
             .background(MGColors.surface)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         }
     }
 

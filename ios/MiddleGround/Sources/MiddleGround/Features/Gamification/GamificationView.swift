@@ -85,7 +85,7 @@ struct GamificationView: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
     }
 
     private var levelHeader: some View {
@@ -114,11 +114,11 @@ struct GamificationView: View {
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: MGRadius.sm, style: .continuous)
                         .fill(MGColors.warm100)
                         .frame(height: 12)
 
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    RoundedRectangle(cornerRadius: MGRadius.sm, style: .continuous)
                         .fill(MGColors.middleGradient)
                         .frame(
                             width: geo.size.width * viewModel.progressToNextLevel,
@@ -134,7 +134,7 @@ struct GamificationView: View {
         }
         .padding(20)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         .mgShadow(MGShadow.md)
     }
 

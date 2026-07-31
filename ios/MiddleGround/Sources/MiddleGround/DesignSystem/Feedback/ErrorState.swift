@@ -29,7 +29,7 @@ struct ErrorState: View {
         .padding(24)
         .frame(maxWidth: .infinity)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Error: \(message). \(onRetry != nil ? "Tap to try again." : "")")
     }

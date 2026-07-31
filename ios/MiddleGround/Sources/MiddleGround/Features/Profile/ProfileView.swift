@@ -77,7 +77,7 @@ struct ProfileView: View {
         }
         .padding(24)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .mgCard(radius: MGRadius.lg)
         .mgShadow(MGShadow.md)
     }
 
@@ -126,7 +126,7 @@ struct ProfileView: View {
                         .autocorrectionDisabled()
                         .padding(12)
                         .background(MGColors.sand)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: MGRadius.sm, style: .continuous))
                         .accessibilityLabel("Invite code")
 
                     Button {
@@ -142,7 +142,7 @@ struct ProfileView: View {
                 }
                 .padding()
                 .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .mgCard(radius: MGRadius.md)
             }
         }
     }
@@ -208,7 +208,7 @@ struct ProfileView: View {
                 }
                 .padding()
                 .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .mgCard(radius: MGRadius.md)
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Your invite code is \(code.map(String.init).joined(separator: " "))")
             }
@@ -321,7 +321,7 @@ struct ProfileView: View {
                     .background(MGColors.surface)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .mgCard(radius: MGRadius.lg)
         }
     }
 
@@ -343,7 +343,7 @@ struct ProfileView: View {
                     SettingRow(title: "Terms of Service", icon: "doc.text")
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .mgCard(radius: MGRadius.lg)
         }
     }
 

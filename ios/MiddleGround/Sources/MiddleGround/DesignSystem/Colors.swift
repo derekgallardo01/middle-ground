@@ -47,14 +47,6 @@ enum MGColors {
             endPoint: .bottomTrailing
         )
     }
-
-    static var warmGradient: LinearGradient {
-        LinearGradient(
-            gradient: Gradient(colors: [coral, sunshine]),
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
 }
 
 extension Color {

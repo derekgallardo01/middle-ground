@@ -35,8 +35,8 @@ struct RequestDetailView: View {
                 }
                 .padding()
                 .mgReadableWidth()
-                .animation(reduceMotion ? nil : MGMotion.standard, value: viewModel.canRespond)
-                .animation(reduceMotion ? nil : MGMotion.standard, value: viewModel.request.status)
+                .mgAnimation(MGMotion.standard, value: viewModel.canRespond, reduceMotion: reduceMotion)
+                .mgAnimation(MGMotion.standard, value: viewModel.request.status, reduceMotion: reduceMotion)
             }
 
             if viewModel.showCelebration {
@@ -132,7 +132,7 @@ struct RequestDetailView: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         .accessibilityElement(children: .contain)
         // An alert rather than a confirmationDialog: on iOS 26 the dialog presents as a popover
         // whose actions are not exposed as accessibility buttons.
@@ -177,7 +177,7 @@ struct RequestDetailView: View {
         }
         .padding(20)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         .mgShadow(MGShadow.md)
         .matchedGeometryEffect(id: "card_\(viewModel.request.id)", in: namespace, properties: .frame, anchor: .topLeading, isSource: false)
     }

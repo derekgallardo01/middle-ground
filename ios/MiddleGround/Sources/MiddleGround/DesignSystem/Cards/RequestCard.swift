@@ -67,7 +67,7 @@ struct RequestCard: View {
         }
         .padding(16)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         // MGShadow, not a slate tint: slate inverts to near-white in dark mode, which turned
         // the shadow on every card in the feed into a faint white halo. Colors.swift warns
         // about exactly this, and RequestCard is the most-repeated element in the app.

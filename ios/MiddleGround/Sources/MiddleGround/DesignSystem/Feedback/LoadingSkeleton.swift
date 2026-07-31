@@ -31,29 +31,27 @@ struct LoadingSkeleton: View {
         }
     }
 
+    // Radii match the cards each skeleton stands in for. They previously did not — the list
+    // skeleton used 12 against RequestCard's 20, calendar 16 against the grid's 24, and
+    // gamification 20 against GamificationCard's 24 — so every screen popped its corners at
+    // the moment the real content arrived.
     private var listSkeleton: some View {
         VStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(placeholderColor)
-                .frame(height: 120)
-
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(placeholderColor)
-                .frame(height: 120)
-
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(placeholderColor)
-                .frame(height: 120)
+            ForEach(0..<3, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous)
+                    .fill(placeholderColor)
+                    .frame(height: 120)
+            }
         }
     }
 
     private var calendarSkeleton: some View {
         VStack(spacing: 20) {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous)
                 .fill(placeholderColor)
                 .frame(height: 320)
 
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous)
                 .fill(placeholderColor)
                 .frame(height: 140)
         }
@@ -61,21 +59,21 @@ struct LoadingSkeleton: View {
 
     private var gamificationSkeleton: some View {
         VStack(spacing: 20) {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous)
                 .fill(placeholderColor)
                 .frame(height: 180)
 
             HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous)
                     .fill(placeholderColor)
                     .frame(height: 120)
 
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous)
                     .fill(placeholderColor)
                     .frame(height: 120)
             }
 
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous)
                 .fill(placeholderColor)
                 .frame(height: 200)
         }

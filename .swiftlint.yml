@@ -97,3 +97,15 @@ custom_rules:
     regex: "(^|\\s)print\\("
     message: "Use a logger rather than print() so diagnostics are available in release builds."
     severity: warning
+
+  no_literal_corner_radius:
+    name: "Use a radius token"
+    regex: "cornerRadius: [0-9]"
+    message: "Use MGRadius (sm/md/lg/xl). Literals are how the app ended up with radii of 8, 12, 16, 18, 20 and 24 for the same kind of card — including a skeleton whose corners popped when real content replaced it."
+    severity: warning
+
+  no_raw_shadow_colour:
+    name: "Use a shadow token"
+    regex: "\\.shadow\\(color: MGColors\\.slate"
+    message: "Use .mgShadow(MGShadow.md). MGColors.slate inverts to near-white in dark mode, which turns a card shadow into a glow."
+    severity: warning

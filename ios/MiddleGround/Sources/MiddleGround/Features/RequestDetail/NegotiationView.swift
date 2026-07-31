@@ -37,7 +37,7 @@ struct NegotiationView: View {
                         .mgFont(.body)
                         .padding(12)
                         .background(MGColors.warm100)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
 
                     Button {
                         Task { await viewModel.sendCounter() }
@@ -89,7 +89,7 @@ struct NegotiationBubble: View {
                         .padding(12)
                         .background(isCurrentUser ? MGColors.indigo : MGColors.warm100)
                         .clipShape(RoundedRectangle(
-                            cornerRadius: 18,
+                            cornerRadius: MGRadius.md,
                             style: .continuous
                         ))
                 }

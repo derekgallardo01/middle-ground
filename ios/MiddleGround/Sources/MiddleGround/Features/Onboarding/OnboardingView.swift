@@ -168,7 +168,7 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .padding()
                 .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
 
             PrimaryButton(title: "Continue") {
                 viewModel.advance()
@@ -199,7 +199,7 @@ struct OnboardingView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(viewModel.selectedRelationshipType == type ? MGColors.indigo : MGColors.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
                     }
                     .buttonStyle(ScaleButtonStyle())
                 }
@@ -219,7 +219,7 @@ struct OnboardingView: View {
                     .autocorrectionDisabled()
                     .padding()
                     .background(MGColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
                     .accessibilityLabel("Invite code")
                     .accessibilityHint("Enter the six character code shared with you")
             } else {
@@ -274,7 +274,7 @@ struct OnboardingView: View {
                 .padding(20)
                 .frame(maxWidth: .infinity)
                 .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Your invite code is \(code.map(String.init).joined(separator: " "))")
 

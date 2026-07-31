@@ -64,9 +64,9 @@ struct ResponseButton: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(fill)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous)
                     .stroke(type.color.opacity(strokeOpacity), lineWidth: 1)
             )
         }

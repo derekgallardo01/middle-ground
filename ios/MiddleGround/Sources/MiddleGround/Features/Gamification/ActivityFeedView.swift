@@ -64,7 +64,7 @@ struct ActivityRow: View {
         }
         .padding(14)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
     }
 
     private var activityColor: Color {

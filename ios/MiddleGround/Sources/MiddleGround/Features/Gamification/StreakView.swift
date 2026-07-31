@@ -28,7 +28,7 @@ struct StreakView: View {
         }
         .padding(20)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         .mgShadow(MGShadow.md)
     }
 

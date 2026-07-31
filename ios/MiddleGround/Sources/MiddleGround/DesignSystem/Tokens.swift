@@ -25,8 +25,6 @@ enum MGRadius {
     static let lg: CGFloat = 24
     static let xl: CGFloat = 32
     static let pill: CGFloat = 9999
-    /// The app-icon squircle.
-    static let appIcon: CGFloat = 32
 }
 
 enum MGShadow {
@@ -80,10 +78,47 @@ extension View {
             )
     }
 
+    /// A complete surface card: padding, background, radius, hairline and shadow.
+    ///
+    /// `mgCard` only clipped and stroked, so every call site still hand-rolled the padding,
+    /// the `surface` background and the shadow around it — 21 times. That is why Profile
+    /// alone ended up showing four visually identical row lists at two different corner radii
+    /// with two different border treatments, and why the loading skeletons had corners that
+    /// visibly popped when the real content replaced them.
+    ///
+    /// This is the shape that makes `MGRadius` and `MGSpacing` actually load-bearing: change
+    /// a token here and every card in the app moves together.
+    func mgSurfaceCard(
+        radius: CGFloat = MGRadius.lg,
+        padding: CGFloat = MGSpacing.lg,
+        shadow: MGShadow.Style? = MGShadow.md
+    ) -> some View {
+        self
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(MGColors.surface)
+            .mgCard(radius: radius)
+            .modifier(OptionalShadow(style: shadow))
+    }
+
     /// Applies an animation only when Reduce Motion is off.
     ///
     /// Mirrors the pattern already used across the app so animation choices stay in one place.
     func mgAnimation<V: Equatable>(_ animation: Animation, value: V, reduceMotion: Bool) -> some View {
         self.animation(reduceMotion ? nil : animation, value: value)
+    }
+}
+
+/// Applies a shadow only when one is supplied, so `mgSurfaceCard(shadow: nil)` is flat
+/// without needing a second modifier.
+private struct OptionalShadow: ViewModifier {
+    let style: MGShadow.Style?
+
+    func body(content: Content) -> some View {
+        if let style {
+            content.mgShadow(style)
+        } else {
+            content
+        }
     }
 }

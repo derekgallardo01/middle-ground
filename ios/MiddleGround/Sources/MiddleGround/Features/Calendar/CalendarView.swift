@@ -103,7 +103,7 @@ struct CalendarView: View {
         }
         .padding(16)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         .mgShadow(MGShadow.md)
     }
 
@@ -123,7 +123,7 @@ struct CalendarView: View {
                     Text("Accepted requests with dates will show here.")
                 }
                 .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
             } else {
                 ForEach(upcoming) { request in
                     HStack {
@@ -142,7 +142,7 @@ struct CalendarView: View {
                     }
                     .padding(14)
                     .background(MGColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
                 }
             }
         }

@@ -39,7 +39,7 @@ struct SpontaneousRequestView: View {
                     .multilineTextAlignment(.center)
                     .padding()
                     .background(MGColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Quick ideas")
@@ -86,7 +86,7 @@ struct SpontaneousRequestView: View {
                 }
                 .padding()
                 .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
 
                 recipientSection
 
@@ -104,6 +104,7 @@ struct SpontaneousRequestView: View {
                 .accessibilityLabel("Send spontaneous request")
             }
             .padding()
+            .mgReadableWidth()
             .background(MGColors.sand.ignoresSafeArea())
             .navigationTitle("Spontaneous")
             .navigationBarTitleDisplayMode(.inline)
@@ -154,7 +155,7 @@ struct SpontaneousRequestView: View {
         }
         .padding()
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
     }
 
     private func partnerID(from relationship: Relationship) -> String? {

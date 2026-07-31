@@ -22,7 +22,7 @@ struct RequestTypePicker: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(selected == category ? MGColors.indigo : MGColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
                     .mgShadow(MGShadow.sm)
                 }
                 .buttonStyle(ScaleButtonStyle())

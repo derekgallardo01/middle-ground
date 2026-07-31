@@ -1,7 +1,12 @@
-const admin = require('firebase-admin');
+// firebase-admin v14 REMOVED the namespaced accessors: `admin.firestore()` and
+// `admin.messaging()` are both undefined, and calling them throws
+// "TypeError: admin.firestore is not a function" at runtime — nothing catches it at deploy
+// time, so the functions deploy green and then fail on every event.
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getMessaging } = require('firebase-admin/messaging');
 
-const db = () => admin.firestore();
-const messaging = () => admin.messaging();
+const db = () => getFirestore();
+const messaging = () => getMessaging();
 
 async function getUserName(userId) {
   try {
@@ -107,7 +112,7 @@ async function pruneDeadTokens(userId, tokens, responses) {
     await db()
       .collection('user_tokens')
       .doc(userId)
-      .update({ tokens: admin.firestore.FieldValue.arrayRemove(...dead) });
+      .update({ tokens: FieldValue.arrayRemove(...dead) });
     console.log(`Pruned ${dead.length} dead token(s) for ${userId}`);
   } catch (error) {
     console.error(`Could not prune tokens for ${userId}:`, error);

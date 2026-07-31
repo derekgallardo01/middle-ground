@@ -16,7 +16,8 @@
  * `event.data` is undefined on delete events, so every handler guards it.
  */
 
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
 const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } =
   require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -28,13 +29,20 @@ const { getUserName, notifyUsers } = require('./push');
 const { purgeUserData } = require('./purge');
 const { sendAlert, when } = require('./alerts');
 
-admin.initializeApp();
-const db = () => admin.firestore();
+initializeApp();
+const db = () => getFirestore();
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 
-/** Every 2nd-gen function that sends mail needs the secret bound, or the key is absent at runtime. */
-const alerting = { secrets: [RESEND_API_KEY] };
+/**
+ * Options for every function that sends mail.
+ *
+ * The document path goes INSIDE the options object. The v2 trigger builders take
+ * `(document, handler)` or `(opts, handler)` — never `(document, opts, handler)`. Passing all
+ * three means the options object is invoked as the handler and every event dies at runtime
+ * with "TypeError: func is not a function"; nothing catches it at deploy time.
+ */
+const alerting = (document) => ({ document, secrets: [RESEND_API_KEY] });
 
 // ---------------------------------------------------------------- push
 
@@ -92,7 +100,7 @@ exports.notifyRequestResponse = onDocumentUpdated('requests/{requestId}', async 
 // 1st-gen only, and the app writes users/{uid} on sign-up and deletes it on account deletion,
 // so these carry the same signal while staying 2nd-gen.
 
-exports.alertOnSignup = onDocumentCreated('users/{uid}', alerting, async (event) => {
+exports.alertOnSignup = onDocumentCreated(alerting('users/{uid}'), async (event) => {
   const user = event.data?.data();
   if (!user) return null;
 
@@ -106,7 +114,7 @@ exports.alertOnSignup = onDocumentCreated('users/{uid}', alerting, async (event)
   return null;
 });
 
-exports.alertOnPairing = onDocumentUpdated('relationships/{id}', alerting, async (event) => {
+exports.alertOnPairing = onDocumentUpdated(alerting('relationships/{id}'), async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!before || !after) return null;
@@ -130,7 +138,7 @@ exports.alertOnPairing = onDocumentUpdated('relationships/{id}', alerting, async
 });
 
 /** Abuse reports are the one alert that should interrupt you. */
-exports.alertOnReport = onDocumentCreated('reports/{id}', alerting, async (event) => {
+exports.alertOnReport = onDocumentCreated(alerting('reports/{id}'), async (event) => {
   const report = event.data?.data();
   if (!report) return null;
 
@@ -153,7 +161,7 @@ exports.alertOnReport = onDocumentCreated('reports/{id}', alerting, async (event
   return null;
 });
 
-exports.alertOnAccountDeleted = onDocumentDeleted('users/{uid}', alerting, async (event) => {
+exports.alertOnAccountDeleted = onDocumentDeleted(alerting('users/{uid}'), async (event) => {
   await sendAlert('Account deleted', [
     `UID: ${event.params.uid}`,
     `At:  ${when(new Date())}`,

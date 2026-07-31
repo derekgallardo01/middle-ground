@@ -1,6 +1,7 @@
-const admin = require('firebase-admin');
+// Modular API — firebase-admin v14 removed `admin.firestore()`. See the note in push.js.
+const { getFirestore } = require('firebase-admin/firestore');
 
-const db = () => admin.firestore();
+const db = () => getFirestore();
 
 /**
  * Removes everything belonging to a deleted user.

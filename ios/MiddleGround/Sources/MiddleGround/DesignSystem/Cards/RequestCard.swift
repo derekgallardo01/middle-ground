@@ -3,6 +3,8 @@ import SwiftUI
 struct RequestCard: View {
     let request: Request
     let onRespond: ((ResponseType) -> Void)?
+    /// True while this card's response is in flight.
+    var isResponding: Bool = false
 
     @State private var showActions = false
 
@@ -44,18 +46,18 @@ struct RequestCard: View {
             // wrong once a conversation could continue: it hid the buttons on a countered
             // request that was genuinely waiting on this user.
             if onRespond != nil {
+                // Haptics are fired by the view model when the response actually lands, not
+                // here on tap. Firing in both places meant accepting from the feed buzzed
+                // twice — and buzzed "success" before the network had agreed.
                 HStack(spacing: 8) {
-                    ResponseButton(type: .accept) {
+                    ResponseButton(type: .accept, emphasis: .prominent, isBusy: isResponding) {
                         onRespond?(.accept)
-                        Haptics.shared.notification(.success)
                     }
-                    ResponseButton(type: .negotiate) {
+                    ResponseButton(type: .negotiate, isBusy: isResponding) {
                         onRespond?(.negotiate)
-                        Haptics.shared.impact(.light)
                     }
-                    ResponseButton(type: .decline) {
+                    ResponseButton(type: .decline, emphasis: .quiet, isBusy: isResponding) {
                         onRespond?(.decline)
-                        Haptics.shared.notification(.error)
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .bottom)))

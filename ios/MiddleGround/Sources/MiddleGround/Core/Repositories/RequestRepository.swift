@@ -9,7 +9,11 @@ protocol RequestRepository: Sendable {
 }
 
 actor MockRequestRepository: RequestRepository {
-    private var requests: [Request] = [.preview, .previewNegotiating, .previewAccepted]
+    // `previewAwaitingMe` is first on purpose: it is the only fixture the preview user can
+    // actually respond to, so without it mock mode never renders the response row at all.
+    private var requests: [Request] = [
+        .previewAwaitingMe, .previewNegotiating, .preview, .previewAccepted
+    ]
 
     func fetchRequests(for userID: String) async throws -> [Request] {
         try await Task.sleep(nanoseconds: 300_000_000)

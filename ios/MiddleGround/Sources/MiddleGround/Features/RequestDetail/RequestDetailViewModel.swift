@@ -135,13 +135,33 @@ final class RequestDetailViewModel {
             let previous = request
             request = try await requestService.respond(to: request, with: response, text: text, by: currentUser.id)
             counterText = ""
-            await gamificationService.recordResponse(response, to: previous, for: currentUser.id)
-            Haptics.shared.notification(.success)
+            let outcome = await gamificationService.recordResponse(response, to: previous, for: currentUser.id)
+
+            // The same action used to feel completely different depending on where you did
+            // it: responding from the feed earned confetti and a haptic, responding from the
+            // detail screen silently swapped a status badge. It awards the same XP either way,
+            // so it should read the same either way.
+            Haptics.shared.feedback(for: response)
+            if let unlocked = outcome.newlyUnlocked.first {
+                presentCelebration("Achievement unlocked: \(unlocked.title)")
+            } else if response == .accept {
+                presentCelebration("Request accepted! +\(outcome.xpAwarded) XP")
+            } else if response == .negotiate {
+                presentCelebration("Let's find a middle ground")
+            }
         } catch {
             errorMessage = "Failed to send response."
             Haptics.shared.notification(.error)
         }
         isSending = false
+    }
+
+    var showCelebration = false
+    var celebrationTitle = ""
+
+    private func presentCelebration(_ title: String) {
+        celebrationTitle = title
+        showCelebration = true
     }
 
     func sendCounter() async {

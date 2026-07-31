@@ -3,6 +3,7 @@ import SwiftUI
 struct RequestDetailView: View {
     @State private var viewModel: RequestDetailViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showCancelConfirmation = false
     var namespace: Namespace.ID
 
@@ -12,23 +13,40 @@ struct RequestDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                header
+        ZStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    header
 
-                // Only the recipient answers. The creator sees who they're waiting on,
-                // and can withdraw the request instead.
-                if viewModel.canRespond {
-                    quickResponseRow
-                } else if viewModel.isAwaitingResponse {
-                    waitingRow
+                    // Whoever's turn it is answers; the other person waits. Both rows are
+                    // absent for a moment on first render while `currentUser` loads, which is
+                    // why the change is animated rather than popping into place.
+                    if viewModel.canRespond {
+                        quickResponseRow
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    } else if viewModel.isAwaitingResponse {
+                        waitingRow
+                            .transition(.opacity)
+                    }
+
+                    NegotiationView(viewModel: viewModel)
+
+                    Spacer(minLength: 40)
                 }
-
-                NegotiationView(viewModel: viewModel)
-
-                Spacer(minLength: 40)
+                .padding()
+                .mgReadableWidth()
+                .animation(reduceMotion ? nil : MGMotion.standard, value: viewModel.canRespond)
+                .animation(reduceMotion ? nil : MGMotion.standard, value: viewModel.request.status)
             }
-            .padding()
+
+            if viewModel.showCelebration {
+                CelebrationView(
+                    title: viewModel.celebrationTitle,
+                    subtitle: "Great job working together."
+                ) {
+                    viewModel.showCelebration = false
+                }
+            }
         }
         .background(MGColors.sand.ignoresSafeArea())
         .navigationTitle(viewModel.request.category.displayName)
@@ -169,18 +187,22 @@ struct RequestDetailView: View {
             Text("Respond")
                 .mgFont(.h3)
 
+            // Ordered by intent, not arbitrarily: the two ways of saying yes-ish come first,
+            // then the alternatives, then the refusal. Decline used to sit *between*
+            // Negotiate and Reschedule, so the destructive option was the easiest to hit by
+            // accident in a four-up row of identical buttons.
             HStack(spacing: 10) {
-                ResponseButton(type: .accept) {
+                ResponseButton(type: .accept, emphasis: .prominent, isBusy: viewModel.isSending) {
                     Task { await viewModel.respond(with: .accept) }
                 }
-                ResponseButton(type: .negotiate) {
+                ResponseButton(type: .negotiate, isBusy: viewModel.isSending) {
                     Task { await viewModel.respond(with: .negotiate) }
                 }
-                ResponseButton(type: .decline) {
-                    Task { await viewModel.respond(with: .decline) }
-                }
-                ResponseButton(type: .reschedule) {
+                ResponseButton(type: .reschedule, isBusy: viewModel.isSending) {
                     viewModel.showReschedulePicker = true
+                }
+                ResponseButton(type: .decline, emphasis: .quiet, isBusy: viewModel.isSending) {
+                    Task { await viewModel.respond(with: .decline) }
                 }
             }
         }

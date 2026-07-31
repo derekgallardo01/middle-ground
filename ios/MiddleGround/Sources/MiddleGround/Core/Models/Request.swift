@@ -310,9 +310,36 @@ extension Request {
         title: "Date night this Friday?",
         details: "Want to try that new Italian place?",
         proposedTime: Date().addingTimeInterval(86400 * 3),
-        status: .pending
+        status: .pending,
+        createdAt: Date().addingTimeInterval(-86_400),
+        updatedAt: Date().addingTimeInterval(-86_400)
     )
 
+    /// A request the preview user must answer — i.e. one where the response row actually
+    /// renders.
+    ///
+    /// Every other fixture makes `User.preview` the *creator*, so in mock mode the app's
+    /// primary control was never shown: not in SwiftUI previews, not in the UI tests, and not
+    /// in the App Store screenshots generated from mock mode.
+    static let previewAwaitingMe = Request(
+        id: "req_0",
+        creatorID: User.preview2.id,
+        recipientIDs: [User.preview.id],
+        category: .daily,
+        title: "Split the chores this week?",
+        details: "I'll take dishes if you take laundry.",
+        status: .pending,
+        // Explicit timestamps so the feed order is deterministic. The fixtures all took
+        // `Date()` at static-init time, which differ by microseconds, so the sort by
+        // `updatedAt` produced an arbitrary order and buried the only respondable request.
+        createdAt: Date().addingTimeInterval(-1_800),
+        updatedAt: Date().addingTimeInterval(-1_800)
+    )
+
+    /// Mid-conversation, with the turn back on the preview user.
+    ///
+    /// The chain deliberately ends on a counter from the other person: that is the state that
+    /// used to be unreachable, because a counter closed the request permanently.
     static let previewNegotiating = Request(
         id: "req_2",
         creatorID: User.preview.id,
@@ -320,11 +347,13 @@ extension Request {
         category: .friends,
         title: "Dinner Tonight?",
         details: "Pizza at 7?",
-        status: .negotiated,
+        status: .countered,
         negotiationChain: [
-            NegotiationMessage(senderID: User.preview2.id, responseType: .counter, text: "Can we do 8 instead?"),
-            NegotiationMessage(senderID: User.preview.id, responseType: .accept, text: "Works for me!")
-        ]
+            NegotiationMessage(senderID: User.preview.id, responseType: .negotiate, text: "How about 7?"),
+            NegotiationMessage(senderID: User.preview2.id, responseType: .counter, text: "Can we do 8 instead?")
+        ],
+        createdAt: Date().addingTimeInterval(-7_200),
+        updatedAt: Date().addingTimeInterval(-3_600)
     )
 
     static let previewAccepted = Request(
@@ -334,6 +363,8 @@ extension Request {
         category: .travel,
         title: "Weekend Getaway",
         details: "Beach house May 24–26",
-        status: .accepted
+        status: .accepted,
+        createdAt: Date().addingTimeInterval(-172_800),
+        updatedAt: Date().addingTimeInterval(-172_800)
     )
 }

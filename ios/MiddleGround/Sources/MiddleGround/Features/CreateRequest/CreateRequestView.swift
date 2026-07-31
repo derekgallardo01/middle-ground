@@ -49,14 +49,10 @@ struct CreateRequestView: View {
                         ProgressView()
                             .frame(maxWidth: .infinity, alignment: .center)
                     } else if viewModel.relationships.isEmpty || viewModel.needsPartner {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("No one has joined yet")
-                                .mgFont(.body)
-                            Text("Share your invite code from the Profile tab to pair up.")
-                                .mgFont(.caption)
-                                .foregroundStyle(MGColors.warm600)
-                        }
-                        .accessibilityElement(children: .combine)
+                        // Was a text block naming the Profile tab with no way to get there —
+                        // from a modal sheet, that meant dismiss, switch tab, scroll, and
+                        // start over. Sharing happens inline instead.
+                        InvitePrompt(code: viewModel.inviteCode, compact: true)
                     } else {
                         Picker("Recipient", selection: $viewModel.recipientID) {
                             ForEach(viewModel.relationships) { relationship in

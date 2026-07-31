@@ -18,6 +18,12 @@ final class CreateRequestViewModel {
         !relationships.isEmpty && relationships.allSatisfy { !$0.isPaired }
     }
 
+    /// The code to share when nobody has joined yet, so the empty state can offer the share
+    /// sheet inline instead of naming the Profile tab it cannot open.
+    var inviteCode: String? {
+        relationships.first { !$0.isPaired }?.inviteCode
+    }
+
     func label(for relationship: Relationship) -> String {
         displayLabels[relationship.id] ?? relationship.type.displayName
     }

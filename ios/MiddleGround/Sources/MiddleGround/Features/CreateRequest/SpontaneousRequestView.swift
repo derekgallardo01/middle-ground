@@ -139,15 +139,9 @@ struct SpontaneousRequestView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
             } else if viewModel.relationships.isEmpty || viewModel.needsPartner {
                 // Without this an unpaired owner got a one-segment picker tagged "" and a
-                // permanently disabled Send Now, with nothing explaining why.
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("No one has joined yet")
-                        .mgFont(.body)
-                    Text("Share your invite code from the Profile tab to pair up.")
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
-                }
-                .accessibilityElement(children: .combine)
+                // permanently disabled Send Now, with nothing explaining why. The prompt now
+                // also offers the share sheet, rather than naming a tab it cannot open.
+                InvitePrompt(code: viewModel.inviteCode, compact: true)
             } else {
                 Picker("Recipient", selection: $viewModel.recipientID) {
                     ForEach(viewModel.relationships) { relationship in

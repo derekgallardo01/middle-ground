@@ -171,6 +171,31 @@ struct HomeView: View {
         }
     }
 
+    /// Two genuinely different empty states, because there are two genuinely different reasons
+    /// the feed is empty — and only one of them is solved by writing a request.
+    ///
+    /// Before this, an unpaired user was told "Create your first request to get started",
+    /// tapped the compose button, and landed on a sheet explaining they could not. This is the
+    /// first screen after onboarding, and it pointed the wrong way.
+    @ViewBuilder
+    private var emptyFeed: some View {
+        if viewModel.isPaired {
+            ContentUnavailableView {
+                Label("No requests yet", systemImage: "bubble.left.and.bubble.right")
+            } description: {
+                Text("Send one to get the conversation started.")
+            }
+            .background(MGColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        } else {
+            InvitePrompt(code: viewModel.inviteCode) {
+                appState.selectedTab = .profile
+            }
+            .background(MGColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+    }
+
     private var feedSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Requests")
@@ -185,13 +210,7 @@ struct HomeView: View {
                     Task { await viewModel.loadRequests() }
                 }
             } else if viewModel.requests.isEmpty {
-                ContentUnavailableView {
-                    Label("No requests yet", systemImage: "bubble.left.and.bubble.right")
-                } description: {
-                    Text("Create your first request to get started.")
-                }
-                .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                emptyFeed
             } else {
                 ForEach(viewModel.requests) { request in
                     Button {
@@ -210,7 +229,8 @@ struct HomeView: View {
                             request: request,
                             onRespond: viewModel.canRespond(to: request)
                                 ? { response in viewModel.respond(to: request, with: response) }
-                                : nil
+                                : nil,
+                            isResponding: viewModel.isResponding(to: request)
                         )
                         .matchedGeometryEffect(id: "card_\(request.id)", in: animationNamespace, properties: .frame, anchor: .topLeading)
                     }

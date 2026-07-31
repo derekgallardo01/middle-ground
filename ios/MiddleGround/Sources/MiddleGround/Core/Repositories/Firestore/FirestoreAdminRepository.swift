@@ -11,32 +11,32 @@ actor FirestoreAdminRepository: AdminRepository {
     func overview() async throws -> AdminOverview {
         var overview = AdminOverview()
 
+        let statuses = ["pending", "accepted", "declined", "negotiated", "rescheduled", "countered", "saved"]
+        let categories = RequestCategory.allCases
+        // Funnel, in order.
+        let funnel = [
+            ("Signed up", "signed_up"),
+            ("Finished onboarding", "onboarding_completed"),
+            ("Created a group", "relationship_created"),
+            ("Paired", "invite_redeemed"),
+            ("Created a request", "request_created"),
+            ("Answered a request", "request_responded")
+        ]
+
         // Aggregation queries count server-side without reading the documents themselves —
         // cheaper, and it means the totals need no access to anybody's content.
-        overview.userCount = try await count(of: db.collection("users"))
-        overview.relationshipCount = try await count(of: db.collection("relationships"))
-        overview.requestCount = try await count(of: db.collection("requests"))
-
-        overview.eventsLast24h = try await count(
-            of: db.collection("events")
-                .whereField("at", isGreaterThan: Timestamp(date: Date().addingTimeInterval(-86_400)))
-        )
-        overview.eventsLast7d = try await count(
-            of: db.collection("events")
-                .whereField("at", isGreaterThan: Timestamp(date: Date().addingTimeInterval(-604_800)))
-        )
-
-        for status in ["pending", "accepted", "declined", "negotiated", "rescheduled", "countered", "saved"] {
-            let value = try await count(of: db.collection("requests").whereField("status", isEqualTo: status))
-            if value > 0 { overview.requestsByStatus[status] = value }
+        let totals = [
+            CountQuery(collection: "users"),
+            CountQuery(collection: "relationships"),
+            CountQuery(collection: "requests"),
+            CountQuery(collection: "events", since: Date().addingTimeInterval(-86_400)),
+            CountQuery(collection: "events", since: Date().addingTimeInterval(-604_800))
+        ]
+        let statusQueries = statuses.map { CountQuery(collection: "requests", field: "status", equals: $0) }
+        let categoryQueries = categories.map {
+            CountQuery(collection: "requests", field: "category", equals: $0.rawValue)
         }
-
-        for category in RequestCategory.allCases {
-            let value = try await count(
-                of: db.collection("requests").whereField("category", isEqualTo: category.rawValue)
-            )
-            if value > 0 { overview.requestsByCategory[category.displayName] = value }
-        }
+        let funnelQueries = funnel.map { CountQuery(collection: "events", field: "type", equals: $0.1) }
 
         // Paired groups.
         //
@@ -49,23 +49,37 @@ actor FirestoreAdminRepository: AdminRepository {
         // whether the product works at all — was silently wrong with nothing in the UI to
         // say so. Now it pages, and when it hits the ceiling it reports the count as
         // approximate rather than lying.
-        (overview.pairedCount, overview.pairedCountIsExact) = try await countPairedRelationships()
+        //
+        // It pages, so it is the slowest thing here; start it before the counts rather than
+        // after them.
+        async let pairedResult = countPairedRelationships()
+        let values = try await Self.runAll(totals + statusQueries + categoryQueries + funnelQueries)
 
-        // Funnel, in order. Each is a server-side count over the events collection, so the
-        // whole section costs a handful of aggregation reads rather than a table scan.
-        for (key, type) in [
-            ("Signed up", "signed_up"),
-            ("Finished onboarding", "onboarding_completed"),
-            ("Created a group", "relationship_created"),
-            ("Paired", "invite_redeemed"),
-            ("Created a request", "request_created"),
-            ("Answered a request", "request_responded")
-        ] {
-            let value = try await count(
-                of: db.collection("events").whereField("type", isEqualTo: type)
-            )
-            overview.funnel.append(AdminOverview.FunnelStep(label: key, count: value))
+        // Walk the results in the order the queries were assembled above.
+        var cursor = 0
+        func take(_ count: Int) -> [Int] {
+            defer { cursor += count }
+            return Array(values[cursor..<(cursor + count)])
         }
+
+        let totalValues = take(totals.count)
+        overview.userCount = totalValues[0]
+        overview.relationshipCount = totalValues[1]
+        overview.requestCount = totalValues[2]
+        overview.eventsLast24h = totalValues[3]
+        overview.eventsLast7d = totalValues[4]
+
+        for (status, value) in zip(statuses, take(statusQueries.count)) where value > 0 {
+            overview.requestsByStatus[status] = value
+        }
+        for (category, value) in zip(categories, take(categoryQueries.count)) where value > 0 {
+            overview.requestsByCategory[category.displayName] = value
+        }
+        for (step, value) in zip(funnel, take(funnelQueries.count)) {
+            overview.funnel.append(AdminOverview.FunnelStep(label: step.0, count: value))
+        }
+
+        (overview.pairedCount, overview.pairedCountIsExact) = try await pairedResult
 
         return overview
     }
@@ -99,8 +113,44 @@ actor FirestoreAdminRepository: AdminRepository {
         return snapshot.documents.compactMap { try? $0.data(as: RelationshipDTO.self).toModel() }
     }
 
-    private func count(of query: Query) async throws -> Int {
-        try await query.count.getAggregation(source: .server).count.intValue
+    /// One server-side aggregation, described by value rather than as a built `Query`.
+    ///
+    /// Describing them this way is what lets them run concurrently: `Query` is a reference into
+    /// the Firestore SDK and is not something to hand across task boundaries, whereas this is
+    /// plain data. Each task builds its own query and throws it away again.
+    private struct CountQuery: Sendable {
+        let collection: String
+        var field: String?
+        var equals: String?
+        var since: Date?
+    }
+
+    nonisolated private static func run(_ spec: CountQuery) async throws -> Int {
+        var query: Query = Firestore.firestore().collection(spec.collection)
+        if let field = spec.field, let equals = spec.equals {
+            query = query.whereField(field, isEqualTo: equals)
+        }
+        if let since = spec.since {
+            query = query.whereField("at", isGreaterThan: Timestamp(date: since))
+        }
+        return try await query.count.getAggregation(source: .server).count.intValue
+    }
+
+    /// Runs every count at once and returns the results in the order they were given.
+    ///
+    /// The overview issued twenty-four of these one after another — three totals, two event
+    /// windows, seven statuses, six categories and six funnel steps — each waiting a full
+    /// network round trip before the next began. Nothing in that list depends on anything
+    /// else in it, so the tab spent five to ten seconds blank for no reason.
+    nonisolated private static func runAll(_ specs: [CountQuery]) async throws -> [Int] {
+        try await withThrowingTaskGroup(of: (Int, Int).self) { group in
+            for (index, spec) in specs.enumerated() {
+                group.addTask { (index, try await run(spec)) }
+            }
+            var results = [Int](repeating: 0, count: specs.count)
+            for try await (index, value) in group { results[index] = value }
+            return results
+        }
     }
 
     /// Pages through relationships counting the paired ones.

@@ -41,4 +41,44 @@ final class HomeViewModelTests: XCTestCase {
 
         XCTAssertGreaterThanOrEqual(viewModel.stats.level, 1)
     }
+
+    /// The header's count must follow whose turn it is, not `status == .pending`.
+    ///
+    /// A request you have been countered on is not pending — that is the whole point of the
+    /// turn-taking model — but it is the one most in need of an answer. Counting `isPending`
+    /// reported "Nothing waiting on you" while a live negotiation sat on the user's turn.
+    func testAwaitingYouCountIncludesRequestsMidNegotiation() async {
+        let viewModel = HomeViewModel()
+        await viewModel.loadCurrentUser()
+        let me = User.preview.id
+
+        let counteredOnMe = Request(
+            creatorID: me,
+            recipientIDs: ["partner"],
+            category: .friends,
+            title: "Movie night?",
+            status: .countered,
+            negotiationChain: [
+                NegotiationMessage(senderID: "partner", responseType: .counter, text: "Sunday?")
+            ]
+        )
+        let awaitingThem = Request(
+            creatorID: me,
+            recipientIDs: ["partner"],
+            category: .daily,
+            title: "Swap chores?"
+        )
+        let settled = Request(
+            creatorID: "partner",
+            recipientIDs: [me],
+            category: .travel,
+            title: "Weekend away",
+            status: .accepted
+        )
+        viewModel.requests = [counteredOnMe, awaitingThem, settled]
+
+        XCTAssertTrue(counteredOnMe.canRespond(as: me), "precondition: it is the user's turn")
+        XCTAssertFalse(counteredOnMe.isPending, "precondition: and it is not .pending")
+        XCTAssertEqual(viewModel.awaitingYouCount, 1)
+    }
 }

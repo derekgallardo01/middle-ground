@@ -129,7 +129,13 @@ actor GamificationService: GamificationServiceProtocol {
            let activities = try? JSONDecoder().decode([Activity].self, from: data) {
             return activities.sorted { $0.timestamp > $1.timestamp }
         }
-        return defaultActivities(for: userID)
+        // Genuinely empty, rather than a seeded "Started your journey" row.
+        //
+        // That placeholder was indistinguishable from real logged activity — it rendered in
+        // the same list, with the same styling — so a user with no history was shown
+        // something that looked like history. It also made the real empty state in
+        // ActivityFeedView unreachable, which is why nobody had noticed it was never seen.
+        return []
     }
 
     func save(stats: GamificationStats, for userID: String) async {
@@ -379,17 +385,6 @@ actor GamificationService: GamificationServiceProtocol {
         ]
     }
 
-    private func defaultActivities(for userID: String) -> [Activity] {
-        [
-            Activity(
-                userID: userID,
-                type: .streakUpdate,
-                title: "Started your journey",
-                subtitle: "Welcome to Middle Ground",
-                value: 1
-            )
-        ]
-    }
 }
 
 actor MockGamificationService: GamificationServiceProtocol {

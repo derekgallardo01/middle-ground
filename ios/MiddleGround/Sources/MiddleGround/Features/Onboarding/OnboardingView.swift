@@ -2,6 +2,8 @@ import SwiftUI
 import AuthenticationServices
 
 struct OnboardingView: View {
+    /// Matches ProfileView so the same code is not two different sizes.
+    @ScaledMetric(relativeTo: .title) private var inviteCodeSize: CGFloat = 30
     @Environment(AppState.self) private var appState
     @Environment(\.colorScheme) private var colorScheme
     @State private var viewModel = OnboardingViewModel()
@@ -11,6 +13,24 @@ struct OnboardingView: View {
             MGColors.sand.ignoresSafeArea()
 
             VStack(spacing: 0) {
+                // There was no way back from any step: mistype your name, or pick the wrong
+                // relationship type, and the only remedy was deleting the app. Kept in a
+                // fixed-height row so the step indicator does not jump as it appears.
+                HStack {
+                    if viewModel.canGoBack {
+                        Button {
+                            viewModel.retreat()
+                        } label: {
+                            Label("Back", systemImage: "chevron.left")
+                                .mgFont(.bodySmall)
+                                .foregroundStyle(MGColors.warm600)
+                        }
+                        .accessibilityLabel("Go back to the previous step")
+                    }
+                    Spacer()
+                }
+                .frame(height: 28)
+
                 stepIndicator
 
                 Spacer()
@@ -46,7 +66,7 @@ struct OnboardingView: View {
 
     private var stepIndicator: some View {
         HStack(spacing: 8) {
-            ForEach(OnboardingViewModel.Step.allCases, id: \.self) { step in
+            ForEach(OnboardingViewModel.Step.allCases.filter { $0 != .done }, id: \.self) { step in
                 Capsule()
                     .fill(step == viewModel.currentStep ? MGColors.indigo : MGColors.warm200)
                     .frame(width: step == viewModel.currentStep ? 24 : 8, height: 8)
@@ -216,7 +236,7 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
             }
 
-            PrimaryButton(title: "Get Started") {
+            PrimaryButton(title: "Get Started", isLoading: viewModel.isLoading) {
                 // Deliberately does not enter the app yet — the next step shows the invite
                 // code, which is useless if it is skipped past.
                 Task { _ = await viewModel.completeOnboarding() }
@@ -241,7 +261,7 @@ struct OnboardingView: View {
                         .foregroundStyle(MGColors.warm600)
 
                     Text(code)
-                        .font(.system(size: 32, weight: .bold, design: .monospaced))
+                        .font(.system(size: inviteCodeSize, weight: .bold, design: .monospaced))
                         .foregroundStyle(MGColors.indigo)
                         .tracking(4)
                         .accessibilityIdentifier("inviteCode")

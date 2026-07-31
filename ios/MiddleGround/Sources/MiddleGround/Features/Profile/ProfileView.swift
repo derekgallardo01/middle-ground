@@ -3,6 +3,8 @@ import SwiftUI
 struct ProfileView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var avatarSize: CGFloat = 100
     @ScaledMetric(relativeTo: .largeTitle) private var initialsSize: CGFloat = 36
+    /// One size for the invite code, shared with onboarding, and scaling with Dynamic Type.
+    @ScaledMetric(relativeTo: .title) private var inviteCodeSize: CGFloat = 30
 
     @Environment(AppState.self) private var appState
     @Environment(\.scenePhase) private var scenePhase
@@ -107,6 +109,9 @@ struct ProfileView: View {
                     } label: {
                         Text("Create a group")
                             .mgFont(.body)
+                            // Required: .mgFont forces MGColors.slate, which over an indigo
+                            // fill is ~1.9:1 — unreadable, and unreadable in dark mode too.
+                            .foregroundStyle(MGColors.onAccent)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -156,10 +161,16 @@ struct ProfileView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     Text(code)
-                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                        // Scales with Dynamic Type. It was pinned at 28 here and 32 in
+                        // onboarding — the same string, two sizes, neither scaling, and it is
+                        // the one string in the app a person actually has to read out.
+                        .font(.system(size: inviteCodeSize, weight: .bold, design: .monospaced))
                         .foregroundStyle(MGColors.indigo)
                         .tracking(4)
                         .accessibilityIdentifier("inviteCode")
+                        .accessibilityLabel(
+                            "Your invite code is \(code.map(String.init).joined(separator: " "))"
+                        )
 
                     // The App Store link matters more than the code here: the recipient is by
                     // definition someone who does not have the app yet, and a bare code gives
@@ -175,6 +186,7 @@ struct ProfileView: View {
                     ) {
                         Label("Share invite", systemImage: "square.and.arrow.up")
                             .mgFont(.body)
+                            .foregroundStyle(MGColors.onAccent)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)

@@ -48,6 +48,9 @@ struct CalendarView: View {
                     .clipShape(Circle())
             }
             .buttonStyle(ScaleButtonStyle())
+            // Announced as "chevron left, button" without this — and these are the only way
+            // to change month.
+            .accessibilityLabel("Previous month")
 
             Spacer()
 
@@ -66,6 +69,7 @@ struct CalendarView: View {
                     .clipShape(Circle())
             }
             .buttonStyle(ScaleButtonStyle())
+            .accessibilityLabel("Next month")
         }
     }
 
@@ -189,7 +193,7 @@ struct DayCell: View {
             Text("\(Calendar.current.component(.day, from: date))")
                 .mgFont(.caption)
                 .fontWeight(.semibold)
-                .foregroundStyle(isSelected ? .white : (isCurrentMonth ? MGColors.slate : MGColors.warm600))
+                .foregroundStyle(isSelected ? MGColors.onAccent : (isCurrentMonth ? MGColors.slate : MGColors.warm600))
 
             if hasEvents && !isSelected {
                 Circle()

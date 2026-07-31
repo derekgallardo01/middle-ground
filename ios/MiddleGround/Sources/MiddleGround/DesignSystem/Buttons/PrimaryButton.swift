@@ -3,15 +3,25 @@ import SwiftUI
 struct PrimaryButton: View {
     let title: String
     var systemImage: String?
+    /// Shows a spinner and blocks further taps while work is in flight.
+    var isLoading: Bool = false
     let action: () -> Void
     var accessibilityLabel: String?
+
+    /// Scales with the label. Fixed at 16 the icon stayed small while the text grew at
+    /// accessibility sizes.
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 16
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                if let systemImage {
+                if isLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(MGColors.onAccent)
+                } else if let systemImage {
                     Image(systemName: systemImage)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: iconSize, weight: .semibold))
                 }
                 Text(title)
                     .mgFont(.body)
@@ -25,6 +35,7 @@ struct PrimaryButton: View {
             .shadow(color: MGColors.indigo.opacity(0.25), radius: 12, x: 0, y: 6)
         }
         .buttonStyle(ScaleButtonStyle())
+        .disabled(isLoading)
         .accessibilityLabel(accessibilityLabel ?? title)
     }
 }

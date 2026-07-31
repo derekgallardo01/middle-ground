@@ -187,4 +187,25 @@ final class OnboardingViewModel {
             currentStep = Step.allCases[currentIndex + 1]
         }
     }
+
+    /// Whether there is a step to go back to.
+    ///
+    /// `.welcome` is the auth wall, so there is nothing behind it, and `.done` is a
+    /// confirmation of work already committed — stepping back from either would be a lie.
+    var canGoBack: Bool {
+        guard let index = Step.allCases.firstIndex(of: currentStep) else { return false }
+        return index > 0 && currentStep != .done
+    }
+
+    /// Steps backwards.
+    ///
+    /// There was no way back from any step: mistype your name on step 3, or pick the wrong
+    /// relationship type on step 4, and the only remedy was deleting the app.
+    func retreat() {
+        guard canGoBack,
+              let index = Step.allCases.firstIndex(of: currentStep) else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            currentStep = Step.allCases[index - 1]
+        }
+    }
 }

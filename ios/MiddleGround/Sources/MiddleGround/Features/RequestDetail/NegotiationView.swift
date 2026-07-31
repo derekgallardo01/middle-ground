@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NegotiationView: View {
     @ScaledMetric(relativeTo: .body) private var sendButton: CGFloat = 44
+    @ScaledMetric(relativeTo: .body) private var sendGlyph: CGFloat = 18
 
     @Bindable var viewModel: RequestDetailViewModel
 
@@ -41,15 +42,27 @@ struct NegotiationView: View {
                     Button {
                         Task { await viewModel.sendCounter() }
                     } label: {
-                        Image(systemName: "arrow.up")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(MGColors.onAccent)
-                            .frame(width: sendButton, height: sendButton)
-                            .background(viewModel.isCounterEmpty ? MGColors.warm400 : MGColors.indigo)
-                            .clipShape(Circle())
+                        Group {
+                            if viewModel.isSending {
+                                ProgressView().controlSize(.small).tint(MGColors.onAccent)
+                            } else {
+                                Image(systemName: "arrow.up")
+                                    // Scales with the button, which is already @ScaledMetric.
+                                    // Fixed at 18pt the glyph stayed put while the circle grew.
+                                    .font(.system(size: sendGlyph, weight: .semibold))
+                            }
+                        }
+                        .foregroundStyle(MGColors.onAccent)
+                        .frame(width: sendButton, height: sendButton)
+                        .background(viewModel.isCounterEmpty ? MGColors.warm400 : MGColors.indigo)
+                        .clipShape(Circle())
                     }
                     .disabled(viewModel.isCounterEmpty || viewModel.isSending)
                     .buttonStyle(ScaleButtonStyle())
+                    // Announced as "arrow up, button" without this — and it is the only way to
+                    // send a counter.
+                    .accessibilityLabel("Send")
+                    .accessibilityHint("Sends your suggestion to the other person")
                 }
             }
         }

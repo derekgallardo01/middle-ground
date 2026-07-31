@@ -18,6 +18,7 @@ struct GamificationView: View {
                             Task { await viewModel.loadGamificationData() }
                         }
                     } else {
+                        if hasNoProgressYet { primer }
                         levelHeader
                         statsRow
                         StreakView(days: viewModel.stats.streakDays, weekDays: viewModel.weeklyCompletion)
@@ -40,6 +41,51 @@ struct GamificationView: View {
             await viewModel.loadCurrentUser()
             await viewModel.loadGamificationData()
         }
+    }
+
+    /// Nothing earned yet — every number on this screen is a zero.
+    private var hasNoProgressYet: Bool {
+        viewModel.activities.isEmpty && viewModel.stats.relationshipXP == 0
+    }
+
+    /// Explains what the zeroes mean before showing a screenful of them.
+    ///
+    /// This tab is the most "gamified" surface in the app and was also the emptiest: Level 1,
+    /// 0 / 500 XP, a 0-day streak asserting "you're building healthy habits together", seven
+    /// blank day pills and three greyed-out badges — with nothing anywhere saying how any of
+    /// it is earned. The chrome is worth keeping, because it shows what you are working
+    /// towards; it just needed a sentence of context.
+    private var primer: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("How this works")
+                .mgFont(.h3)
+
+            Text("""
+            Responding to each other earns XP. Accepting is worth the most, and finding a \
+            middle ground counts too — the point is turning up for each other, not agreeing \
+            with everything.
+            """)
+                .mgFont(.bodySmall)
+                .foregroundStyle(MGColors.warm600)
+
+            HStack(spacing: 16) {
+                ForEach([ResponseType.accept, .negotiate, .reschedule], id: \.self) { type in
+                    HStack(spacing: 5) {
+                        Text(type.emoji)
+                        Text("+\(GamificationRules.xp(for: type))")
+                            .mgFont(.caption)
+                            .monospacedDigit()
+                            .foregroundStyle(MGColors.warm600)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("\(type.displayName) earns \(GamificationRules.xp(for: type)) XP")
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(MGColors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     private var levelHeader: some View {

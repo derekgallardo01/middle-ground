@@ -60,6 +60,7 @@ struct InvitePrompt: View {
                 ) {
                     Label("Share invite", systemImage: "square.and.arrow.up")
                         .mgFont(.body)
+                        .foregroundStyle(MGColors.onAccent)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -68,6 +69,7 @@ struct InvitePrompt: View {
                 Button(action: onSetUp) {
                     Text("Set up pairing")
                         .mgFont(.body)
+                        .foregroundStyle(MGColors.onAccent)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)

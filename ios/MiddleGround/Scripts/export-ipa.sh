@@ -114,7 +114,12 @@ echo "==> verifying the exported payload"
 WORK="$(mktemp -d)"
 (cd "$WORK" && unzip -q "$IPA")
 ENTS="$(codesign -d --entitlements - --xml "$WORK/Payload/Middle Ground.app" 2>/dev/null | plutil -p -)"
-AUTHORITY="$(codesign -dvv "$WORK/Payload/Middle Ground.app" 2>&1 | grep -m1 'Authority=Apple')"
+# Capture first, filter second. Piping codesign straight into `grep -m1` makes grep exit on the
+# first match, codesign take SIGPIPE, and `set -o pipefail` kill the script with 141 — before a
+# single assertion below has run. The export had succeeded; the checks that prove it are the
+# part that silently never happened.
+CODESIGN_OUT="$(codesign -dvv "$WORK/Payload/Middle Ground.app" 2>&1)"
+AUTHORITY="$(grep -m1 'Authority=Apple' <<<"$CODESIGN_OUT")"
 
 echo "$AUTHORITY"
 grep -E 'aps-environment|get-task-allow' <<<"$ENTS"

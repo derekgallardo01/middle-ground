@@ -16,7 +16,9 @@ struct AdminView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 16)
+                .mgReadableWidth()
                 .padding(.bottom, 8)
+                .padding(.top, 4)
 
                 content
             }
@@ -61,6 +63,7 @@ struct AdminView: View {
                     }
                 }
                 .padding(.horizontal, 16)
+                .mgReadableWidth()
                 .padding(.bottom, 96)
             }
         }

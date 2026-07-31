@@ -22,6 +22,7 @@ struct HomeView: View {
                         feedSection
                     }
                     .padding(.horizontal, 16)
+                .mgReadableWidth()
                     .padding(.top, 12)
                     // Clear the tab bar and the floating action button, which previously
                     // covered the last card in the feed.

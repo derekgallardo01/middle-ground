@@ -20,6 +20,7 @@ struct CalendarView: View {
                     }
                 }
                 .padding(.horizontal, 16)
+                .mgReadableWidth()
                 .padding(.vertical, 12)
             }
             .background(MGColors.sand.ignoresSafeArea())

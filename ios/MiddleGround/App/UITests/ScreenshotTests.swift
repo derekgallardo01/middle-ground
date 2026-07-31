@@ -34,12 +34,38 @@ final class ScreenshotTests: XCTestCase {
         add(shot)
     }
 
-    private func tab(_ label: String) -> XCUIElement { app.tabBars.buttons[label] }
+    /// Resolves a tab by label across device idioms.
+    ///
+    /// On iPhone `TabView` renders a bottom tab bar, so `app.tabBars.buttons` finds it. On iPad
+    /// it renders as a segmented control in the toolbar and `app.tabBars` matches nothing at
+    /// all — the iPad run failed with "No matches found for Descendants matching type TabBar".
+    /// Falling back to a plain button lookup covers both.
+    private func tab(_ label: String) -> XCUIElement {
+        // Tried in order of specificity, each given time to appear rather than probed with
+        // `.exists`. A bare `.exists` check races the UI settling and reports false for the
+        // real control, which sent this down the wrong branch and failed the tap with
+        // "No matches found for Descendants matching type TabBar".
+        //
+        // `firstMatch` on the final fallback is required, not cosmetic: on Home the label
+        // "Requests" also matches the section heading, and an ambiguous query fails the tap
+        // outright instead of choosing.
+        let candidates = [
+            app.tabBars.buttons[label],     // iPhone: bottom tab bar
+            app.toolbars.buttons[label],    // iPad: tabs rendered into the toolbar
+            app.buttons[label].firstMatch   // anything else
+        ]
+        for candidate in candidates where candidate.waitForExistence(timeout: 3) {
+            return candidate
+        }
+        return app.buttons[label].firstMatch
+    }
 
     private func settle() {
         // Let animation and any async load finish; a screenshot taken mid-transition is
         // rejected by App Store Connect as a partial render often enough to be worth avoiding.
-        _ = app.tabBars.firstMatch.waitForExistence(timeout: 20)
+        if !app.tabBars.firstMatch.waitForExistence(timeout: 10) {
+            _ = app.buttons["Requests"].waitForExistence(timeout: 10)
+        }
         Thread.sleep(forTimeInterval: 1.5)
     }
 

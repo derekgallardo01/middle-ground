@@ -319,16 +319,25 @@ for (const [id, fields] of seeds) {
   console.log(`  ${status === 200 ? 'ok  ' : 'FAIL'} ${fields.title.stringValue}`);
 }
 
+/** Read the dates back out of the seeds, so this summary cannot drift from what was written. */
+const dated = seeds
+  .map(([, f]) => [f.title.stringValue, f.proposedTime.timestampValue])
+  .filter(([, t]) => t)
+  .sort((a, b) => a[1].localeCompare(b[1]))
+  .map(([title, t]) => `${new Date(t).toDateString()} — ${title}`);
+
 console.log(`
 Done. Relaunch the app (or pull to refresh) and you should see:
 
-  Requests  — one waiting on you with Accept / Negotiate / Decline
-              one mid-negotiation you can accept to close the loop
-              one waiting on ${partnerName}
-              two already settled
-  Calendar  — "Weekend by the coast", nine days out
-  Activities — still zero; respond during the demo and XP, the streak and an
-               achievement appear live, which is the better thing to show
+  Requests   one waiting on you, with Accept / Negotiate / Decline
+             one mid-negotiation you can accept to close the loop
+             one waiting on ${partnerName}
+             two already settled
+
+  Calendar   ${dated.join('\n             ')}
+
+  Activities still zero, on purpose. Respond during the demo and the XP, the
+             streak and the first achievement land while they are watching.
 
 Remove it all with:
   node Scripts/seed-demo-partner.mjs --clean ${email}

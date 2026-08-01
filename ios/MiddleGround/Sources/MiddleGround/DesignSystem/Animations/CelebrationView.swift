@@ -79,13 +79,19 @@ struct CelebrationView: View {
         let spread = min(size.width, size.height) * 0.45
 
         for index in 0..<30 {
+            // Angle and distance are both Double, and the conversion to CGFloat happens once, at
+            // the end. Mixing them — a Double angle times a CGFloat distance — compiles on Xcode
+            // 26.6 and fails on 26.3 with "Ambiguous use of 'cos'", because the implicit
+            // CGFloat/Double bridging leaves the compiler a choice of overloads. CI runs the
+            // older toolchain, so a local build is the more permissive of the two, not the
+            // stricter one.
             let angle = (Double(index) / 30.0) * 2 * .pi + Double.random(in: -0.2...0.2)
-            let distance = spread * CGFloat.random(in: 0.5...1.0)
+            let distance = Double(spread) * Double.random(in: 0.5...1.0)
             let particle = Particle(
                 position: origin,
                 target: CGPoint(
-                    x: origin.x + cos(angle) * distance,
-                    y: origin.y + sin(angle) * distance
+                    x: origin.x + CGFloat(cos(angle) * distance),
+                    y: origin.y + CGFloat(sin(angle) * distance)
                 ),
                 color: colors[index % colors.count],
                 size: CGFloat.random(in: 6...12),

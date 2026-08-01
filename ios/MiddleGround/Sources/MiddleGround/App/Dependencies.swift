@@ -129,6 +129,15 @@ extension Container {
         }
     }
 
+    /// Mocked in previews and UI tests so a clash never depends on the host machine's calendar.
+    var calendarConflictService: Factory<CalendarConflictChecking> {
+        Factory(self) {
+            AppConfiguration.useMockRepositories
+                ? MockCalendarConflictService() as CalendarConflictChecking
+                : CalendarConflictService()
+        }
+    }
+
     var signInWithAppleManager: Factory<SignInWithAppleManager> {
         // Only ever resolved from @MainActor view models; the manager drives UIKit presentation.
         Factory(self) { MainActor.assumeIsolated { SignInWithAppleManager() } }

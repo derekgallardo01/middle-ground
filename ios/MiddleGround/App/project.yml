@@ -122,6 +122,16 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
+        # Calendar access is read-only and opt-in: it exists solely to say whether a proposed
+        # time clashes with something already in your calendar. Nothing is written, and nothing
+        # about your events leaves the device. iOS 17 split the old key in two — the full-access
+        # one is what reading events requires; the legacy key stays for older systems.
+        NSCalendarsFullAccessUsageDescription: >-
+          Middle Ground checks whether a suggested time is already busy in your calendar.
+          Your events stay on your device and are never uploaded or shared.
+        NSCalendarsUsageDescription: >-
+          Middle Ground checks whether a suggested time is already busy in your calendar.
+          Your events stay on your device and are never uploaded or shared.
 
     # NOTE: there is deliberately no `entitlements:` block.
     #

@@ -29,6 +29,30 @@ made it says so; where one is still open it says that too, rather than quietly p
   name the metric they measure — previously progress was a switch on hardcoded IDs ending in
   `default: 0`, so any goal added without editing that switch could never unlock.
 - **Calendar clash checks** (Apple/EventKit), read-only and opt-in.
+- **Location on a plan** — the `location` field had been on the model, the DTO and the rules
+  since the beginning and rendered nowhere. It now has a "Where?" and opens in Maps.
+- **Achievements and the activity feed are mirrored**, so a reinstall no longer restores the
+  numbers with nothing behind them.
+- **Saved requests are findable** — a filter on the feed. `savedForLater`, a Bool set to `true`
+  in exactly zero places, is gone.
+- **Cancelling records why instead of deleting the request.** ⚠️ *Rules branch undeployed.*
+- **A reliability score**, computed from confirmations and cancellations rather than stored.
+  Visible only to the person it describes — see the open question below.
+
+### ⚠️ Three rules branches are written, unverified and undeployed
+
+`isConfirmingAttendance`, `isCancelling`, and the tightened `allow delete`. Until
+`firestore.rules` is deployed, attendance confirmation and cancellation are both inert: the
+backend refuses the writes, so the reliability score has nothing to count. The emulator needs a
+JDK and firebase-tools, so the rules tests have not been run — the CI "Firestore rules" job is
+the intended verification.
+
+### Open question the scoring work needs answered
+
+**Who can see someone's reliability score?** It is currently visible only to its owner. Inside a
+couple this number is as usable as a weapon as it is as a signal, and "who can read it" is the
+decision that settles which it becomes. Penalties and appeals were chosen deliberately; this is
+the part of that choice still outstanding.
 
 ## Status of the product
 

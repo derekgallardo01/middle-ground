@@ -7,7 +7,8 @@ struct CalendarView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    if viewModel.isLoading {
+                    // Gated on having loaded, not on `isLoading` — see CalendarViewModel.
+                    if !viewModel.hasLoaded {
                         LoadingSkeleton(type: .calendar)
                     } else if let errorMessage = viewModel.errorMessage {
                         ErrorState(message: errorMessage) {

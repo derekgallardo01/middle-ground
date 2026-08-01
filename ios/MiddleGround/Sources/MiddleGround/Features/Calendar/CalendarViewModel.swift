@@ -11,6 +11,13 @@ final class CalendarViewModel {
     var selectedDate: Date = Date()
     var events: [Request] = []
     var isLoading = false
+
+    /// False until the first load finishes.
+    ///
+    /// `isLoading` is false *before* the first load starts, so the opening frame fell
+    /// straight through to the real content and drew an empty month and "no upcoming plans"
+    /// before anything had been fetched — the screen visibly rewrote itself a beat later.
+    private(set) var hasLoaded = false
     var errorMessage: String?
 
     /// Tracked separately from `selectedDate`.
@@ -73,6 +80,7 @@ final class CalendarViewModel {
             errorMessage = "Couldn't load events. Pull to try again."
         }
         isLoading = false
+        hasLoaded = true
     }
 
     func events(for date: Date) -> [Request] {

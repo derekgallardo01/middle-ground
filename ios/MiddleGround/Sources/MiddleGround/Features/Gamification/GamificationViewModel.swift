@@ -19,6 +19,14 @@ final class GamificationViewModel {
     var weeklyCompletion: [Bool] = Array(repeating: false, count: 7)
 
     var isLoading = false
+
+    /// False until the first load finishes.
+    ///
+    /// `isLoading` is false *before* the first load starts, so the opening frame drew the
+    /// real screen from default values — Level 1, 0 XP, a 0-day streak and the "how this
+    /// works" primer — and then rewrote itself once the real numbers arrived. Worse than a
+    /// flash: for a moment it told an established user they had no progress.
+    private(set) var hasLoaded = false
     var errorMessage: String?
 
     var progressToNextLevel: Double {
@@ -63,5 +71,6 @@ final class GamificationViewModel {
             reliability = ReliabilityScore.from(requests: requests, userID: currentUser.id)
         }
         isLoading = false
+        hasLoaded = true
     }
 }

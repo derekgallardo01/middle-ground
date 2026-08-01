@@ -12,7 +12,8 @@ struct GamificationView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    if viewModel.isLoading {
+                    // Gated on having loaded, not on `isLoading` — see GamificationViewModel.
+                    if !viewModel.hasLoaded {
                         LoadingSkeleton(type: .gamification)
                     } else if let errorMessage = viewModel.errorMessage {
                         ErrorState(message: errorMessage) {

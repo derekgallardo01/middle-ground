@@ -227,6 +227,26 @@ describe('joining a single plan by invite', () => {
     );
   });
 
+  // The hole this replaced: `isStaking` allows any participant to write while a plan is open
+  // and did not pin the invite fields, so a recipient could mint a code for someone else's plan
+  // by dressing it up as a stake.
+  test('a recipient cannot mint a code by disguising it as a stake', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_st'), request()));
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_st'), {
+        stake: { proposedBy: BOB, points: 10 },
+        planInviteCode: 'MGSNEAK',
+        planInviteSeats: 9,
+      }),
+    );
+  });
+
+  test('a recipient cannot widen the seats on a code', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), PLAN), { planInviteSeats: 99 }),
+    );
+  });
+
   test('the creator can revoke by clearing the code', async () => {
     await assertSucceeds(
       updateDoc(doc(asAlice(), PLAN), { planInviteCode: null, planInviteSeats: null }),

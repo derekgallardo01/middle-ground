@@ -230,6 +230,11 @@ service cloud.firestore {
     // person asserting an outcome on their own.
     function isStaking() {
       return !isSettled()
+        // The invite code and its seat count belong to the creator alone. Without these two
+        // lines any participant could mint or widen an invite for someone else's plan by
+        // dressing it up as a stake — the rules tests caught exactly that.
+        && immutable('planInviteCode')
+        && immutable('planInviteSeats')
         && immutable('creatorID')
         && immutable('recipientIDs')
         && immutable('allParticipantIDs')

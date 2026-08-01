@@ -14,13 +14,10 @@
  *   - five dated events across the next two weeks, so Calendar has real density
  *   - a second, paired group, so the partner picker in Compose has something to pick
  *
- * Two things are deliberately NOT seeded, because neither would be visible:
- *
- *   - `savedForLater` has no UI surface anywhere in Features/, so a saved request renders
- *     identically to an unsaved one.
- *   - Gamification lives in UserDefaults on the device. `restoreFromMirrorIfNeeded` has no
- *     call sites, so a Firestore write is never read back. Letting XP land as you respond
- *     during the demo shows the reward loop working, which is the better thing to show.
+ * Gamification is still not seeded, though the reason has changed: progress is now mirrored to
+ * `gamification/{uid}` and restored on a fresh device, so writing it would work. It is left
+ * alone because XP landing live as you respond during the demo shows the reward loop actually
+ * working, which is a better thing to show than numbers that were always there.
  *
  * Writes with an owner token, which bypasses security rules — that is required, since no
  * client may create another user's account or forge their messages.
@@ -323,7 +320,6 @@ const request = ({ from, to, category, title, details, status, proposed, chain =
     location: nul,
     status: str(status),
     negotiationChain: { arrayValue: { values: chain } },
-    savedForLater: bool(false),
     createdAt: ts(createdAt),
     updatedAt: ts(hoursAgo(updated)),
   };

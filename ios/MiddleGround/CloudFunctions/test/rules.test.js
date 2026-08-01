@@ -63,7 +63,6 @@ const request = (overrides = {}) => ({
   title: 'Dinner?',
   status: 'pending',
   negotiationChain: [],
-  savedForLater: false,
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,

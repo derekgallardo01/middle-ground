@@ -13,7 +13,6 @@ final class RequestEntity {
     var location: String?
     var statusRaw: String
     var negotiationChainData: Data?
-    var savedForLater: Bool
     /// Optional so SwiftData stores created before attendance existed still load.
     var confirmationsData: Data?
     var createdAt: Date
@@ -30,7 +29,6 @@ final class RequestEntity {
         self.proposedTime = request.proposedTime
         self.location = request.location
         self.statusRaw = request.status.rawValue
-        self.savedForLater = request.savedForLater
         self.createdAt = request.createdAt
         self.updatedAt = request.updatedAt
         self.needsSync = false
@@ -47,7 +45,6 @@ final class RequestEntity {
         self.proposedTime = request.proposedTime
         self.location = request.location
         self.statusRaw = request.status.rawValue
-        self.savedForLater = request.savedForLater
         self.createdAt = request.createdAt
         self.updatedAt = request.updatedAt
         self.negotiationChainData = try? JSONEncoder().encode(request.negotiationChain)
@@ -90,7 +87,6 @@ final class RequestEntity {
             location: location,
             status: status,
             negotiationChain: negotiationChain,
-            savedForLater: savedForLater,
             confirmations: confirmations,
             createdAt: createdAt,
             updatedAt: updatedAt

@@ -161,6 +161,27 @@ struct HomeView: View {
         }
     }
 
+    /// A menu rather than a segmented control: the feed is already busy, and this is a thing you
+    /// reach for occasionally rather than a mode you sit in.
+    private var filterMenu: some View {
+        Menu {
+            Picker("Show", selection: $viewModel.filter) {
+                ForEach(HomeViewModel.Filter.allCases) { option in
+                    if option == .saved, viewModel.savedCount > 0 {
+                        Text("\(option.rawValue) (\(viewModel.savedCount))").tag(option)
+                    } else {
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+            }
+        } label: {
+            Label(viewModel.filter.rawValue, systemImage: "line.3.horizontal.decrease.circle")
+                .mgFont(.bodySmall)
+                .foregroundStyle(MGColors.indigo)
+        }
+        .accessibilityLabel("Filter requests, currently \(viewModel.filter.rawValue)")
+    }
+
     private func open(_ request: Request) {
         if reduceMotion {
             selectedRequest = request
@@ -219,8 +240,12 @@ struct HomeView: View {
 
     private var feedSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Requests")
-                .mgFont(.h2)
+            HStack {
+                Text("Requests")
+                    .mgFont(.h2)
+                Spacer()
+                if viewModel.showsFilter { filterMenu }
+            }
 
             // Gated on having loaded, not on `isLoading`. `isLoading` is false before the first
             // load starts, so the feed fell through to the empty state on the opening frame and
@@ -235,8 +260,23 @@ struct HomeView: View {
                 }
             } else if viewModel.requests.isEmpty {
                 emptyFeed
+            } else if viewModel.visibleRequests.isEmpty {
+                // The feed has requests, just none matching the filter — saying "no requests
+                // yet" here would be a lie, and offering the invite prompt would be nonsense.
+                ContentUnavailableView {
+                    Label(
+                        viewModel.filter == .saved ? "Nothing saved" : "Nothing on your turn",
+                        systemImage: viewModel.filter == .saved ? "heart" : "checkmark.circle"
+                    )
+                } description: {
+                    Text(viewModel.filter == .saved
+                         ? "Requests you set aside for later show up here."
+                         : "You're all caught up.")
+                }
+                .background(MGColors.surface)
+                .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
             } else {
-                ForEach(viewModel.requests) { request in
+                ForEach(viewModel.visibleRequests) { request in
                     Button {
                         composingRequestID = nil
                         open(request)

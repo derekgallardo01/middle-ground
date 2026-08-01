@@ -212,7 +212,6 @@ struct Request: Identifiable, Hashable, Codable {
     var location: String?
     var status: RequestStatus
     var negotiationChain: [NegotiationMessage]
-    var savedForLater: Bool
     /// What each participant said about whether the plan happened, keyed by user ID.
     var confirmations: [String: ConfirmationOutcome]
     var createdAt: Date
@@ -228,7 +227,6 @@ struct Request: Identifiable, Hashable, Codable {
          location: String? = nil,
          status: RequestStatus = .pending,
          negotiationChain: [NegotiationMessage] = [],
-         savedForLater: Bool = false,
          confirmations: [String: ConfirmationOutcome] = [:],
          createdAt: Date = Date(),
          updatedAt: Date = Date()) {
@@ -242,7 +240,6 @@ struct Request: Identifiable, Hashable, Codable {
         self.location = location
         self.status = status
         self.negotiationChain = negotiationChain
-        self.savedForLater = savedForLater
         self.confirmations = confirmations
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -263,7 +260,6 @@ struct Request: Identifiable, Hashable, Codable {
         negotiationChain = try container.decodeIfPresent(
             [NegotiationMessage].self, forKey: .negotiationChain
         ) ?? []
-        savedForLater = try container.decodeIfPresent(Bool.self, forKey: .savedForLater) ?? false
         confirmations = try container.decodeIfPresent(
             [String: ConfirmationOutcome].self, forKey: .confirmations
         ) ?? [:]

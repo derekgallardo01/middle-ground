@@ -14,7 +14,6 @@ struct RequestDTO: Codable, Identifiable {
     var location: String?
     var status: String
     var negotiationChain: [NegotiationMessageDTO]
-    var savedForLater: Bool
     /// Optional so requests written before attendance was recorded still decode.
     var confirmations: [String: String]?
     var allParticipantIDs: [String]
@@ -32,7 +31,6 @@ struct RequestDTO: Codable, Identifiable {
         self.location = request.location
         self.status = request.status.rawValue
         self.negotiationChain = request.negotiationChain.map { NegotiationMessageDTO(from: $0) }
-        self.savedForLater = request.savedForLater
         self.confirmations = request.confirmations.mapValues(\.rawValue)
         self.allParticipantIDs = request.allParticipantIDs
         self.createdAt = Timestamp(date: request.createdAt)
@@ -62,7 +60,6 @@ struct RequestDTO: Codable, Identifiable {
             location: location,
             status: statusEnum,
             negotiationChain: negotiationChain.compactMap { $0.toModel() },
-            savedForLater: savedForLater,
             // An unrecognised outcome is dropped rather than failing the whole request, for the
             // same reason an unknown category no longer does.
             confirmations: (confirmations ?? [:]).compactMapValues(ConfirmationOutcome.init(rawValue:)),

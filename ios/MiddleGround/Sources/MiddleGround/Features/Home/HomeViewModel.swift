@@ -106,6 +106,39 @@ final class HomeViewModel {
         return request.canRespond(as: currentUser.id)
     }
 
+    /// Narrows the feed. Saved requests were reachable only by scrolling past everything else.
+    ///
+    /// "Save for later" set the status to `.saved` and then offered no way to find what you had
+    /// saved — the whole point of setting something aside is retrieving it later. Nothing else
+    /// changes: a saved request is still fully answerable, because a save deliberately does not
+    /// consume your turn (both `awaitingResponseFrom` and `isMyTurn` in the rules skip them).
+    enum Filter: String, CaseIterable, Identifiable {
+        case all = "All"
+        case yourTurn = "Your turn"
+        case saved = "Saved"
+
+        var id: String { rawValue }
+    }
+
+    var filter: Filter = .all
+
+    var visibleRequests: [Request] {
+        switch filter {
+        case .all: return requests
+        case .yourTurn:
+            guard let currentUser else { return [] }
+            return requests.filter { $0.canRespond(as: currentUser.id) }
+        case .saved: return requests.filter { $0.status == .saved }
+        }
+    }
+
+    /// Hidden until there is something to find, so the control never appears on an empty feed.
+    var showsFilter: Bool {
+        requests.count > 3 || requests.contains { $0.status == .saved }
+    }
+
+    var savedCount: Int { requests.filter { $0.status == .saved }.count }
+
     /// How many requests are actually waiting on an answer from you.
     ///
     /// The header used to count `isPending`, which is `status == .pending` and so only ever

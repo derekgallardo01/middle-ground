@@ -154,6 +154,31 @@ service cloud.firestore {
         ['pending', 'accepted', 'declined', 'negotiated', 'rescheduled', 'countered', 'saved'];
     }
 
+    // The creator issuing, rotating or revoking the code for their own plan.
+    //
+    // Without this nothing could set `planInviteCode` at all: it is pinned immutable in every
+    // other branch, quite correctly -- a code that grants access must not be rewritable by
+    // whoever responds, cancels, confirms, stakes or joins. The result was a feature that
+    // could be used only by someone who already had a code that could never have been issued.
+    // The rules tests missed it because they seeded invites directly instead of creating one.
+    //
+    // Revoking is simply clearing the code: `isJoiningPlan` requires a non-empty one, so the
+    // moment it is cleared every copy of it stops working.
+    function isManagingPlanInvite() {
+      return resource.data.creatorID == uid()
+        && !isSettled()
+        && immutable('creatorID')
+        && immutable('recipientIDs')
+        && immutable('allParticipantIDs')
+        && immutable('title')
+        && immutable('proposedTime')
+        && immutable('status')
+        && immutable('negotiationChain')
+        && immutable('confirmations')
+        && immutable('stake')
+        && immutable('createdAt');
+    }
+
     // Joining a single plan by invite, without joining a group.
     //
     // "Schedule a date with someone" — someone you are not connected to, invited to one plan
@@ -179,11 +204,16 @@ service cloud.firestore {
         && immutable('stake')
         && immutable('createdAt')
         && immutable('planInviteCode')
+        && immutable('planInviteSeats')
         // The code is issued by the creator and already on the request; the joiner writes
         // nothing but their own membership. `invites` allows `get` and denies `list`, so the
         // code has to have been given to them — it cannot be discovered, and neither can the
         // request, which is unreadable until this write lands.
         && resource.data.get('planInviteCode', '') != ''
+        // A one-off invite is one-off. The creator records how many people the code may admit,
+        // so a forwarded code stops working once the person it was meant for has joined --
+        // which is the whole gate on who can reach you through it.
+        && request.resource.data.allParticipantIDs.size() <= resource.data.get('planInviteSeats', 0)
         && exists(/databases/$(database)/documents/invites/$(resource.data.planInviteCode))
         && get(/databases/$(database)/documents/invites/$(resource.data.planInviteCode)).data.requestID == requestId;
     }
@@ -234,6 +264,7 @@ service cloud.firestore {
         && immutable('negotiationChain')
         && immutable('stake')
         && immutable('planInviteCode')
+        && immutable('planInviteSeats')
         && immutable('createdAt');
     }
 
@@ -270,7 +301,8 @@ service cloud.firestore {
         // The stake settles by derivation from these confirmations, so nothing writes it here.
         // Leaving it open would let whoever confirms also rewrite what was at stake.
         && immutable('stake')
-        && immutable('planInviteCode');
+        && immutable('planInviteCode')
+        && immutable('planInviteSeats');
     }
 
     match /requests/{requestId} {
@@ -306,10 +338,12 @@ service cloud.firestore {
                             && immutable('recipientIDs')
                             && immutable('allParticipantIDs')
                             && immutable('stake')
-                            && immutable('planInviteCode'))
+                            && immutable('planInviteCode')
+                            && immutable('planInviteSeats'))
                           || isConfirmingAttendance()
                           || isCancelling()
                           || isStaking()
+                          || isManagingPlanInvite()
                         ))
                       || isJoiningPlan(requestId)
                     );

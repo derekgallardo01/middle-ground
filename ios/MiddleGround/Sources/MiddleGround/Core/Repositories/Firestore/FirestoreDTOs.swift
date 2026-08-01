@@ -21,6 +21,7 @@ struct RequestDTO: Codable, Identifiable {
     /// Optional: only set once someone proposes points on the plan.
     var stake: Stake?
     var planInviteCode: String?
+    var planInviteSeats: Int?
     var allParticipantIDs: [String]
     var createdAt: Timestamp
     var updatedAt: Timestamp
@@ -40,6 +41,7 @@ struct RequestDTO: Codable, Identifiable {
         self.cancellationReason = request.cancellationReason?.rawValue
         self.stake = request.stake
         self.planInviteCode = request.planInviteCode
+        self.planInviteSeats = request.planInviteSeats
         self.allParticipantIDs = request.allParticipantIDs
         self.createdAt = Timestamp(date: request.createdAt)
         self.updatedAt = Timestamp(date: request.updatedAt)
@@ -74,6 +76,7 @@ struct RequestDTO: Codable, Identifiable {
             cancellationReason: cancellationReason.flatMap(CancellationReason.init(rawValue:)),
             stake: stake,
             planInviteCode: planInviteCode,
+            planInviteSeats: planInviteSeats,
             createdAt: createdAt.dateValue(),
             updatedAt: updatedAt.dateValue()
         )

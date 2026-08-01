@@ -52,6 +52,12 @@ struct CreateRequestView: View {
                     TextField("Where? (optional)", text: $viewModel.location)
                         .mgFont(.bodySmall)
                         .textInputAutocapitalization(.words)
+
+                    // Only on an empty field, and only for categories where a venue makes
+                    // sense — offering "restaurant" for splitting the chores would be noise.
+                    if viewModel.location.isEmpty {
+                        placeSuggestions
+                    }
                 }
 
                 Section("When?") {
@@ -112,6 +118,43 @@ struct CreateRequestView: View {
         }
         .task {
             await viewModel.loadCurrentUserAndPartners()
+        }
+    }
+
+    /// Prompts for the "Where?" field, by category.
+    ///
+    /// Generic kinds of place rather than named venues: a curated list of real restaurants would
+    /// be stale within a week, wrong outside whatever city it was written for, and is the half
+    /// of the restaurants idea that genuinely needs a partnership. The field stays free text —
+    /// tapping one fills a starting point, it does not replace typing a real place.
+    @ViewBuilder
+    private var placeSuggestions: some View {
+        let suggestions = PlaceSuggestion.forCategory(viewModel.category)
+        if !suggestions.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: MGSpacing.sm) {
+                    ForEach(suggestions) { place in
+                        Button {
+                            viewModel.location = place.name
+                            Haptics.shared.impact(.light)
+                        } label: {
+                            HStack(spacing: MGSpacing.xs) {
+                                Text(place.emoji)
+                                Text(place.name)
+                                    .mgFont(.caption)
+                                    .foregroundStyle(MGColors.slate)
+                            }
+                            .padding(.vertical, MGSpacing.xs)
+                            .padding(.horizontal, MGSpacing.md)
+                            .background(MGColors.warm100)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+                        .accessibilityLabel("Set location to \(place.name)")
+                    }
+                }
+                .padding(.vertical, 2)
+            }
         }
     }
 

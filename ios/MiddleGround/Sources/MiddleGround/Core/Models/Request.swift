@@ -91,6 +91,11 @@ struct Request: Identifiable, Hashable, Codable {
     /// discoverable — `invites` denies `list`, so the code has to have been given to them,
     /// and the request is unreadable until they redeem it.
     var planInviteCode: String?
+    /// How many people the plan code may admit in total, including everyone already here.
+    ///
+    /// A one-off invite has to be one-off, or a forwarded code is an open door. The creator
+    /// records the ceiling when issuing it, and the rules refuse any join that would exceed it.
+    var planInviteSeats: Int?
     var createdAt: Date
     var updatedAt: Date
 
@@ -108,6 +113,7 @@ struct Request: Identifiable, Hashable, Codable {
          cancellationReason: CancellationReason? = nil,
          stake: Stake? = nil,
          planInviteCode: String? = nil,
+         planInviteSeats: Int? = nil,
          createdAt: Date = Date(),
          updatedAt: Date = Date()) {
         self.id = id
@@ -124,6 +130,7 @@ struct Request: Identifiable, Hashable, Codable {
         self.cancellationReason = cancellationReason
         self.stake = stake
         self.planInviteCode = planInviteCode
+        self.planInviteSeats = planInviteSeats
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -151,6 +158,7 @@ struct Request: Identifiable, Hashable, Codable {
         )
         stake = try container.decodeIfPresent(Stake.self, forKey: .stake)
         planInviteCode = try container.decodeIfPresent(String.self, forKey: .planInviteCode)
+        planInviteSeats = try container.decodeIfPresent(Int.self, forKey: .planInviteSeats)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }

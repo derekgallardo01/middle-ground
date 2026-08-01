@@ -200,9 +200,53 @@ describe('joining a single plan by invite', () => {
 
   beforeEach(async () => {
     await seed(async (db) => {
-      await setDoc(doc(db, PLAN), request({ planInviteCode: CODE }));
+      await setDoc(doc(db, PLAN), request({ planInviteCode: CODE, planInviteSeats: 3 }));
       await setDoc(doc(db, `invites/${CODE}`), { requestID: 'r_open', ownerID: ALICE });
     });
+  });
+
+  // These three are the gap the previous round missed entirely: every test seeded an invite
+  // directly, so nothing ever exercised *issuing* one — and `planInviteCode` was pinned
+  // immutable in every branch, meaning the feature could not be used by anyone who had not
+  // been handed a code that could never have been created.
+  test('the creator can issue a code for their own plan', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_new'), request()));
+    await assertSucceeds(
+      updateDoc(doc(asAlice(), 'requests/r_new'), {
+        planInviteCode: 'MGNEW1',
+        planInviteSeats: 3,
+        updatedAt: new Date(),
+      }),
+    );
+  });
+
+  test('a recipient cannot issue a code for someone else plan', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_new2'), request()));
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_new2'), { planInviteCode: 'MGNEW2', planInviteSeats: 3 }),
+    );
+  });
+
+  test('the creator can revoke by clearing the code', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asAlice(), PLAN), { planInviteCode: null, planInviteSeats: null }),
+    );
+  });
+
+  // A one-off invite has to be one-off, or a forwarded code is an open door.
+  test('the code stops working once its seats are taken', async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, 'requests/r_full'), request({
+        planInviteCode: CODE,
+        planInviteSeats: 2, // Alice and Bob already fill it.
+      }));
+    });
+    await assertFails(
+      updateDoc(doc(asMallory(), 'requests/r_full'), {
+        recipientIDs: [BOB, MALLORY],
+        allParticipantIDs: [ALICE, BOB, MALLORY],
+      }),
+    );
   });
 
   test('someone holding the code can add themselves', async () => {
@@ -236,7 +280,7 @@ describe('joining a single plan by invite', () => {
   // The code names one request. Pointing it at a different one must not work.
   test('a code for another plan does not open this one', async () => {
     await seed(async (db) => {
-      await setDoc(doc(db, 'requests/r_other'), request({ planInviteCode: 'MGOTHR' }));
+      await setDoc(doc(db, 'requests/r_other'), request({ planInviteCode: 'MGOTHR', planInviteSeats: 3 }));
       await setDoc(doc(db, 'invites/MGOTHR'), { requestID: 'r_somewhere_else', ownerID: ALICE });
     });
     await assertFails(
@@ -278,7 +322,7 @@ describe('joining a single plan by invite', () => {
 
   test('a settled plan cannot be joined', async () => {
     await seed(async (db) => {
-      await setDoc(doc(db, 'requests/r_done'), request({ status: 'accepted', planInviteCode: CODE }));
+      await setDoc(doc(db, 'requests/r_done'), request({ status: 'accepted', planInviteCode: CODE, planInviteSeats: 3 }));
     });
     await assertFails(
       updateDoc(doc(asMallory(), 'requests/r_done'), {

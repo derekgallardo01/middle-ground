@@ -18,6 +18,7 @@ final class RequestEntity {
     var cancellationReasonRaw: String?
     var stakeData: Data?
     var planInviteCode: String?
+    var planInviteSeats: Int?
     var createdAt: Date
     var updatedAt: Date
     var needsSync: Bool
@@ -40,6 +41,7 @@ final class RequestEntity {
         self.cancellationReasonRaw = request.cancellationReason?.rawValue
         self.stakeData = request.stake.flatMap { try? JSONEncoder().encode($0) }
         self.planInviteCode = request.planInviteCode
+        self.planInviteSeats = request.planInviteSeats
     }
 
     func update(from request: Request) {
@@ -58,6 +60,7 @@ final class RequestEntity {
         self.cancellationReasonRaw = request.cancellationReason?.rawValue
         self.stakeData = request.stake.flatMap { try? JSONEncoder().encode($0) }
         self.planInviteCode = request.planInviteCode
+        self.planInviteSeats = request.planInviteSeats
     }
 
     func toModel() -> Request? {
@@ -100,6 +103,7 @@ final class RequestEntity {
             cancellationReason: cancellationReasonRaw.flatMap(CancellationReason.init(rawValue:)),
             stake: stakeData.flatMap { try? JSONDecoder().decode(Stake.self, from: $0) },
             planInviteCode: planInviteCode,
+            planInviteSeats: planInviteSeats,
             createdAt: createdAt,
             updatedAt: updatedAt
         )

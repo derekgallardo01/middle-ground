@@ -126,6 +126,19 @@ final class RequestDetailViewModel {
         }
     }
 
+    func revokePlanInvite() async {
+        guard let currentUserID else { return }
+        isSending = true
+        errorMessage = nil
+        defer { isSending = false }
+        do {
+            request = try await requestService.revokePlanInvite(for: request, by: currentUserID)
+            Haptics.shared.impact(.light)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     // MARK: - Points on the plan
 
     /// What the stake row should show, if anything.

@@ -46,7 +46,13 @@ struct RequestDetailView: View {
                     }
 
                     if viewModel.canInviteToPlan || viewModel.planInviteCode != nil {
-                        planInviteRow
+                        PlanInviteRow(
+                            code: viewModel.planInviteCode,
+                            planTitle: viewModel.request.title,
+                            isBusy: viewModel.isSending,
+                            onCreate: { Task { await viewModel.createPlanInvite() } },
+                            onRevoke: { Task { await viewModel.revokePlanInvite() } }
+                        )
                     }
 
                     if let stakeState = viewModel.stakeState {
@@ -139,62 +145,6 @@ struct RequestDetailView: View {
             reaching you entirely, leave the group from your Profile.
             """)
         }
-    }
-
-    /// Opens one plan to someone outside your groups.
-    ///
-    /// A code for this plan alone — not an invitation into your life. There is nothing to browse
-    /// and nobody to match with: the only way in is a code you hand to a specific person, the
-    /// same shape as a group invite, so it adds no discoverability to the app.
-    @ViewBuilder
-    private var planInviteRow: some View {
-        VStack(alignment: .leading, spacing: MGSpacing.sm) {
-            if let code = viewModel.planInviteCode {
-                Text("Anyone with this code can join this plan")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
-
-                HStack(spacing: MGSpacing.md) {
-                    Text(code)
-                        .font(.system(.title3, design: .monospaced).weight(.bold))
-                        .foregroundStyle(MGColors.indigo)
-                        .tracking(3)
-
-                    ShareLink(
-                        item: AppConfiguration.appStoreURL,
-                        subject: Text(viewModel.request.title),
-                        message: Text("""
-                        Join me for "\(viewModel.request.title)" on Middle Ground — the code is \(code)
-
-                        Get the app, then enter the code in Profile → Connect.
-                        """)
-                    ) {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                            .mgFont(.bodySmall)
-                    }
-                    Spacer()
-                }
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel(
-                    "Plan code: " + code.map(String.init).joined(separator: " ")
-                )
-            } else {
-                Text("Inviting someone who isn't in your groups?")
-                    .mgFont(.h3)
-                Text("They'll get a code for this plan only — nothing else you've shared.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
-
-                Button {
-                    Task { await viewModel.createPlanInvite() }
-                } label: {
-                    Label("Create a code for this plan", systemImage: "person.badge.plus")
-                        .mgFont(.bodySmall)
-                }
-                .disabled(viewModel.isSending)
-            }
-        }
-        .mgSurfaceCard()
     }
 
     /// Asked once the plan's time has passed: did it actually happen?

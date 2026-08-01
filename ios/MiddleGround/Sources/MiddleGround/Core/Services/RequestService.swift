@@ -103,9 +103,27 @@ final class RequestService {
         let code = Relationship.generateInviteCode()
         var updated = request
         updated.planInviteCode = code
+        // Room for exactly one more person. A one-off invite that admits everyone it is
+        // forwarded to is not one-off, and the code travels by its nature — it is meant to be
+        // sent to someone.
+        updated.planInviteSeats = request.allParticipantIDs.count + 1
         updated.updatedAt = Date()
         try await repository.updateRequest(updated)
         try await repository.publishPlanInvite(code: code, requestID: request.id, ownerID: userID)
+        return updated
+    }
+
+    /// Withdraws a plan invite, so every copy of the code stops working.
+    ///
+    /// Clearing the code is the revocation: `isJoiningPlan` requires a non-empty one.
+    @discardableResult
+    func revokePlanInvite(for request: Request, by userID: String) async throws -> Request {
+        guard request.creatorID == userID else { throw RequestError.notAllowedToInvite }
+        var updated = request
+        updated.planInviteCode = nil
+        updated.planInviteSeats = nil
+        updated.updatedAt = Date()
+        try await repository.updateRequest(updated)
         return updated
     }
 

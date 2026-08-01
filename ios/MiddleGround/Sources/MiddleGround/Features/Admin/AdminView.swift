@@ -59,6 +59,7 @@ struct AdminView: View {
                     case .requests: requestsSection
                     case .reports: reportsSection
                     case .events: eventsSection
+                    case .venues: AdminVenuesSection(viewModel: viewModel)
                     case .audit: auditSection
                     }
                 }

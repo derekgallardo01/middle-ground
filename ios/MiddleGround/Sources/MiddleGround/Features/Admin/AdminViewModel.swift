@@ -18,6 +18,7 @@ final class AdminViewModel {
     private let gamificationRepository = Container.shared.gamificationRepository()
     private let authService = Container.shared.authService()
     private let adminRepository = Container.shared.adminRepository()
+    private let venueRepository = Container.shared.venueRepository()
 
     enum Section: String, CaseIterable, Identifiable {
         case overview = "Overview"
@@ -25,6 +26,7 @@ final class AdminViewModel {
         case requests = "Requests"
         case reports = "Reports"
         case events = "Events"
+        case venues = "Venues"
         case audit = "Audit"
 
         var id: String { rawValue }
@@ -44,6 +46,7 @@ final class AdminViewModel {
     var events: [AnalyticsEvent] = []
     var auditEntries: [AdminAuditEntry] = []
     var reports: [ContentReport] = []
+    var venues: [Venue] = []
     var statsByUser: [String: GamificationStats] = [:]
 
     // Detail
@@ -85,6 +88,8 @@ final class AdminViewModel {
                 reports = try await eventRepository.recentReports(limit: 200)
             case .events:
                 events = try await eventRepository.recentEvents(limit: 200)
+            case .venues:
+                venues = try await venueRepository.venues()
             case .audit:
                 auditEntries = try await eventRepository.recentAudit(limit: 200)
             }
@@ -92,6 +97,31 @@ final class AdminViewModel {
             // The most likely cause by far is a missing admin claim, so say that rather than
             // showing a raw Firestore permission error.
             errorMessage = "Couldn't load. This account may not have admin access.\n\n\(error.localizedDescription)"
+        }
+    }
+
+    // MARK: - Curating the venue list
+    //
+    // Deliberately not audited, unlike opening a user's record. The audit trail exists because
+    // reading someone's private data is a thing that should leave a mark; editing a list of
+    // restaurants is not, and burying real access records under routine edits would make the
+    // trail harder to read for the one thing it is for.
+
+    func saveVenue(_ venue: Venue) async {
+        do {
+            try await venueRepository.save(venue)
+            venues = try await venueRepository.venues()
+        } catch {
+            errorMessage = "Couldn't save that venue.\n\n\(error.localizedDescription)"
+        }
+    }
+
+    func deleteVenue(_ venue: Venue) async {
+        do {
+            try await venueRepository.delete(id: venue.id)
+            venues.removeAll { $0.id == venue.id }
+        } catch {
+            errorMessage = "Couldn't remove that venue.\n\n\(error.localizedDescription)"
         }
     }
 

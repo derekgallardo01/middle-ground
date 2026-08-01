@@ -7,6 +7,7 @@ final class CreateRequestViewModel {
     private let requestService = Container.shared.requestService()
     private let authService = Container.shared.authService()
     private let relationshipService = Container.shared.relationshipService()
+    private let venueRepository = Container.shared.venueRepository()
 
     var currentUser: User?
     var relationships: [Relationship] = []
@@ -143,6 +144,24 @@ final class CreateRequestViewModel {
             }
         }
         isLoadingPartners = false
+        await loadVenues()
+    }
+
+    // MARK: - Real places, curated
+
+    /// Named places worth suggesting, ordered as the operator curated them.
+    ///
+    /// Loaded quietly and never blocking: the generic kinds of place are always there, so a
+    /// failed or slow read costs a nicety rather than the ability to say where you're going.
+    private(set) var venues: [Venue] = []
+
+    /// The ones worth offering for what is being planned right now.
+    var suggestedVenues: [Venue] {
+        venues.filter { $0.suits(category) }
+    }
+
+    private func loadVenues() async {
+        venues = (try? await venueRepository.venues()) ?? []
     }
 
     func createRequest() async -> Request? {

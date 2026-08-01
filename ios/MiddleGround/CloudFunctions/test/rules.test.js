@@ -1078,6 +1078,38 @@ describe('shared locations', () => {
   });
 });
 
+// Editorial content rather than user data — the one collection here that is deliberately
+// readable and listable by everyone signed in.
+describe('venues', () => {
+  const asAdmin = () => testEnv.authenticatedContext('root', { admin: true }).firestore();
+  const venue = { name: "Lucia's", city: 'Brooklyn', categories: ['dating'], emoji: '🍝', rank: 0 };
+
+  beforeEach(() => seed((db) => setDoc(doc(db, 'venues/v1'), venue)));
+
+  test('any signed-in user can read and list them', async () => {
+    await assertSucceeds(getDoc(doc(asBob(), 'venues/v1')));
+    await assertSucceeds(getDocs(collection(asBob(), 'venues')));
+  });
+
+  test('an anonymous client cannot', async () => {
+    await assertFails(getDoc(doc(asAnon(), 'venues/v1')));
+  });
+
+  // The whole point of curating in Firestore is that the list can be fixed without a release —
+  // which is only safe if the list cannot be edited by whoever feels like it.
+  test('an ordinary user cannot add, change or remove one', async () => {
+    await assertFails(setDoc(doc(asBob(), 'venues/v2'), venue));
+    await assertFails(updateDoc(doc(asBob(), 'venues/v1'), { name: 'Somewhere else' }));
+    await assertFails(deleteDoc(doc(asBob(), 'venues/v1')));
+  });
+
+  test('an admin can curate the list', async () => {
+    await assertSucceeds(setDoc(doc(asAdmin(), 'venues/v2'), venue));
+    await assertSucceeds(updateDoc(doc(asAdmin(), 'venues/v1'), { rank: 3 }));
+    await assertSucceeds(deleteDoc(doc(asAdmin(), 'venues/v1')));
+  });
+});
+
 // What someone has chosen to be interrupted about is theirs to know.
 describe('notification settings', () => {
   beforeEach(() =>

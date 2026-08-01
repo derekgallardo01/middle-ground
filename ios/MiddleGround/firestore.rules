@@ -471,6 +471,20 @@ service cloud.firestore {
       allow delete: if signedIn() && uid() == userId;
     }
 
+    // --------------------------------------------------------------- venues
+    // The curated list of real places offered when filling in "Where?".
+    //
+    // Editorial content, not user data: readable by anyone signed in, writable only by an admin.
+    // Curated here rather than compiled into the app precisely so a closed restaurant is a
+    // thirty-second edit instead of a code change and an App Store submission.
+    //
+    // `list` is allowed, unlike almost everything else in this file. There is nothing to leak —
+    // these are public places somebody chose to recommend, with no connection to any user.
+    match /venues/{venueId} {
+      allow get, list: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
     // -------------------------------------------------------------- reports
     // Abuse reports (App Review guideline 1.2). A user files one against content they can
     // see; only an admin can read them. Write-only from the reporter's side on purpose —

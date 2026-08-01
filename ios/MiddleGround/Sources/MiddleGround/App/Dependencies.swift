@@ -121,6 +121,17 @@ extension Container {
         }
     }
 
+    var venueRepository: Factory<VenueRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockVenueRepository()
+            }
+            #endif
+            return FirestoreVenueRepository()
+        }
+    }
+
     var sharedLocationRepository: Factory<SharedLocationRepository> {
         Factory(self) {
             #if DEBUG

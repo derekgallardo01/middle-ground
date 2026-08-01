@@ -123,39 +123,67 @@ struct CreateRequestView: View {
 
     /// Prompts for the "Where?" field, by category.
     ///
-    /// Generic kinds of place rather than named venues: a curated list of real restaurants would
-    /// be stale within a week, wrong outside whatever city it was written for, and is the half
-    /// of the restaurants idea that genuinely needs a partnership. The field stays free text —
-    /// tapping one fills a starting point, it does not replace typing a real place.
+    /// Curated named places first, then generic kinds of place.
+    ///
+    /// The objection to a curated list was that it goes stale, and that objection was right about
+    /// a *hardcoded* one — a closed restaurant would have needed a code change and an App Store
+    /// submission. Curated in Firestore instead, it is an edit. So real places lead here, because
+    /// "Lucia's" is a decision already made and "Restaurant" is the same blank page with a
+    /// category attached.
+    ///
+    /// The generic kinds stay, and are what shows when the list is empty, unreachable, or has
+    /// nothing for this category. The field remains free text either way — tapping fills a
+    /// starting point, it does not replace typing somewhere real.
     @ViewBuilder
     private var placeSuggestions: some View {
-        let suggestions = PlaceSuggestion.forCategory(viewModel.category)
-        if !suggestions.isEmpty {
+        let kinds = PlaceSuggestion.forCategory(viewModel.category)
+        let places = viewModel.suggestedVenues
+        if !kinds.isEmpty || !places.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: MGSpacing.sm) {
-                    ForEach(suggestions) { place in
-                        Button {
-                            viewModel.location = place.name
-                            Haptics.shared.impact(.light)
-                        } label: {
-                            HStack(spacing: MGSpacing.xs) {
-                                Text(place.emoji)
-                                Text(place.name)
-                                    .mgFont(.caption)
-                                    .foregroundStyle(MGColors.slate)
-                            }
-                            .padding(.vertical, MGSpacing.xs)
-                            .padding(.horizontal, MGSpacing.md)
-                            .background(MGColors.warm100)
-                            .clipShape(Capsule())
+                    // Real named places lead. "Lucia's" is a decision already made; "Restaurant"
+                    // is the same blank page with a category attached.
+                    ForEach(places) { venue in
+                        chip(emoji: venue.emoji, label: venue.name, tinted: true) {
+                            viewModel.location = venue.locationText
                         }
-                        .buttonStyle(ScaleButtonStyle())
+                        .accessibilityLabel("Set location to \(venue.name) in \(venue.city)")
+                    }
+
+                    ForEach(kinds) { place in
+                        chip(emoji: place.emoji, label: place.name, tinted: false) {
+                            viewModel.location = place.name
+                        }
                         .accessibilityLabel("Set location to \(place.name)")
                     }
                 }
                 .padding(.vertical, 2)
             }
         }
+    }
+
+    private func chip(
+        emoji: String,
+        label: String,
+        tinted: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            action()
+            Haptics.shared.impact(.light)
+        } label: {
+            HStack(spacing: MGSpacing.xs) {
+                Text(emoji)
+                Text(label)
+                    .mgFont(.caption)
+                    .foregroundStyle(MGColors.slate)
+            }
+            .padding(.vertical, MGSpacing.xs)
+            .padding(.horizontal, MGSpacing.md)
+            .background(tinted ? MGColors.lavender.opacity(0.25) : MGColors.warm100)
+            .clipShape(Capsule())
+        }
+        .buttonStyle(ScaleButtonStyle())
     }
 
     /// Says whether the chosen time clashes with the user's own calendar.

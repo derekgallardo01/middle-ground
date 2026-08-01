@@ -48,6 +48,8 @@ made it says so; where one is still open it says that too, rather than quietly p
   qualify, and silent when something is already booked.
 - **Plan-scoped location sharing.** One point per tap, only while an accepted plan is inside its
   window, deleted afterwards. ⚠️ *Gated on the App Store Connect privacy questionnaire.*
+- **A curated list of real places**, edited from the admin panel rather than compiled in, so a
+  restaurant that closes is an edit instead of an App Store submission.
 - **The push badge counted the wrong things.** `recipientIDs + status == 'pending'` missed every
   negotiation in flight: a counter-offer has status `countered`, and the turn after a counter
   usually belongs to the creator, who is in neither.
@@ -273,13 +275,29 @@ Identity verification means handling government ID, which brings data-protection
 beyond anything the app does today, plus an App Privacy disclosure and near-certain review
 scrutiny. Do not start casually. The two undefined terms need a definition first.
 
-## Venues & partners — XL
+## Venues & partners — the free half is built, the rest is still commercial
 
 Restaurants · OpenTable reservations · restaurant sponsors · gyms · linking restaurant locations ·
 list of restaurants.
 
-Blocked on commercial agreements, not engineering. OpenTable's partner API is not open
-self-service. Sequence: confirm access first, then spec.
+**✅ Built: the curated list.** Real named places are offered when someone fills in "Where?", and
+they lead the generic kinds of place — "Lucia's" is a decision already made, "Restaurant" is the
+same blank page with a category attached.
+
+The list lives in a `venues` collection, edited from **Admin → Venues**, not compiled into the app.
+That is what answers the standing objection. "A curated list goes stale" was right about a
+*hardcoded* one: a restaurant closes and fixing it costs a code change, a build, a review and a
+release. Curated in Firestore it costs an edit. Each venue carries a city, the categories it suits,
+and a rank so the good ones can lead without being renamed.
+
+⚠️ **It spans one city at a time in practice.** Every venue stores its `city` and shows it, but
+nothing filters by where the user is — with one operator curating for a handful of users that is
+correct and honest. The moment the list covers two cities, filtering has to come before it grows
+further, or half the suggestions are useless to any given person.
+
+**Still blocked on commercial agreements:** OpenTable reservations, restaurant sponsors, gyms.
+OpenTable's partner API is not open self-service. Sequence unchanged: confirm access first, then
+spec. None of it blocks the list above, which was the half that never needed a partnership.
 
 ## Calendar integration — M
 

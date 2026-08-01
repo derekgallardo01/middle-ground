@@ -24,6 +24,9 @@ struct GamificationView: View {
                         statsRow
                         StreakView(days: viewModel.stats.streakDays, weekDays: viewModel.weeklyCompletion)
                         CategoryLevelsView(stats: viewModel.stats)
+                        if let reliability = viewModel.reliability {
+                            ReliabilityCard(score: reliability)
+                        }
                         AchievementsView(achievements: viewModel.achievements)
                         ActivityFeedView(activities: viewModel.activities)
                     }

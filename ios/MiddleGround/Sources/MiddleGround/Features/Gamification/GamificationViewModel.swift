@@ -6,6 +6,11 @@ import Factory
 final class GamificationViewModel {
     private let gamificationService = Container.shared.gamificationService()
     private let authService = Container.shared.authService()
+    private let requestService = Container.shared.requestService()
+
+    /// Derived from the request history rather than stored, so it can never drift from the
+    /// records it is drawn from — and there is no separate number to tamper with.
+    private(set) var reliability: ReliabilityScore?
 
     var currentUser: User?
     var stats: GamificationStats = GamificationStats(streakDays: 0, relationshipXP: 0, level: 1, growthScore: 0, nextLevelXP: 500)
@@ -52,6 +57,11 @@ final class GamificationViewModel {
         self.achievements = achievements
         self.activities = activities
         self.weeklyCompletion = week
+
+        // Best-effort: a failed request fetch costs the reliability card, not the whole screen.
+        if let requests = try? await requestService.fetchRequests(for: currentUser.id) {
+            reliability = ReliabilityScore.from(requests: requests, userID: currentUser.id)
+        }
         isLoading = false
     }
 }

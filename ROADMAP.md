@@ -404,15 +404,36 @@ rather than a wrong one — `stakeSettlement` returns nil when the two answers d
 loses points to a claim nobody adjudicated. Disagreement is already safe. Appeals only add the
 ability to *overturn*, which is exactly the part that needs a human.
 
-### "Leadership of score for activities" — settled definition
+### "Leadership of score for activities" — settled definition, blocked on group size
 
 A leaderboard ranking within a group: who has shown up most, planned most, followed through most.
 
 ⚠️ **It follows the same rule as the reliability score: groups yes, couples no.** A leaderboard
 between two partners is the identical weaponisation risk that kept reliability out of couples, only
-with a rank attached — being second of two is not a statistic, it is an accusation. `canSeeReliability(in:)`
-already encodes exactly this split (`relationship.type != .couple`), and the leaderboard must reuse
-it rather than inventing a second, subtly different rule.
+with a rank attached — being second of two is not a statistic, it is an accusation.
+`canSeeReliability(in:)` already encodes exactly this split (`relationship.type != .couple`), and
+the leaderboard must reuse it rather than inventing a second, subtly different rule.
+
+🚧 **It cannot be built yet, and the reason is not the leaderboard.** Every group in this app holds
+at most two people. `isRedeemingInvite` in `firestore.rules` permits a join only when
+`participantIDs.size() == 1`, so a second person can join and a third can never. "Multiple groups"
+works — you can have many pairs — but a group of three does not exist.
+
+So a leaderboard today would always be a ranking between exactly two people, which is precisely the
+harm the couples exclusion exists to prevent, wearing a "Friends" label. Building it would deliver
+the risk without the thing that makes a leaderboard worth having.
+
+**The prerequisite is groups of three or more**, and it is a real piece of work rather than a
+constant to change:
+- `isRedeemingInvite` needs a seat ceiling rather than `size() == 1` — the plan-invite branch
+  already does exactly this with `planInviteSeats`, so the shape is known.
+- Requests fan out to `recipientIDs`; turn-taking (`awaitingResponseFrom`) currently means
+  "everyone who did not send the last message", which is right for two and needs deciding for
+  three — does one accept settle it, or all of them?
+- `partnerID(excluding:)` and `displayLabels` assume exactly one other person, in several places.
+
+Until that is decided, the leaderboard stays specced and unbuilt. That is the honest sequence: the
+ranking is the easy half.
 
 ---
 

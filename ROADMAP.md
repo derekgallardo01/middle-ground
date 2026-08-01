@@ -11,6 +11,25 @@ made it says so; where one is still open it says that too, rather than quietly p
 
 ---
 
+## Built since this document was written
+
+- **Dating and Chill categories**, with an `unknown` fallback so a category added later can never
+  make a request silently vanish on an older build — the trap existed in both the Firestore and
+  the SwiftData decode paths.
+- **Group names and per-group invite codes.** The code shown was picked by
+  `relationships.first { !$0.isPaired }` in five places across three view models, so with more
+  than one unpaired group the screen could show a code that invited someone into the wrong group.
+- **Request templates** — "what are we watching / eating tonight" as one tap.
+- **Counter suggestions** — Negotiate opens the composer instead of sending an empty response, and
+  a counter can carry a new time, so accepting one actually moves the plan.
+- **"Did it happen?"** — attendance confirmation, and `RequestStatus.completed` is finally
+  assigned. ⚠️ *Built but inert until `firestore.rules` is deployed; the rules tests have not
+  been run, since the emulator needs a JDK and firebase-tools.*
+- **Per-activity levels and goals.** XP now accrues per category as well as overall, and goals
+  name the metric they measure — previously progress was a switch on hardcoded IDs ending in
+  `default: 0`, so any goal added without editing that switch could never unlock.
+- **Calendar clash checks** (Apple/EventKit), read-only and opt-in.
+
 ## Status of the product
 
 v1.0 is in App Store review. The core loop — send a request, negotiate, land on a time — works and
@@ -277,22 +296,23 @@ Worth answering before it is sized, because the two readings differ by an order 
 
 ---
 
-## Needs a definition before it can be specced
+## Proposed readings — correct these rather than starting from a blank page
 
-Terms from the brainstorm that I could not turn into a spec without inventing what they mean. Left
-as your words rather than guessed at:
+Terms from the brainstorm I could not spec without inventing what they mean. Each row is my best
+reading, clearly a **proposal**, with what changes if it is wrong. Cross out and replace freely.
 
-| Term | Why it is blocking |
-|---|---|
-| **Gate Guardian** | Sits under Profile with identity verification. Access control? A person who vouches for someone? |
-| **Authorized Representative** | Same cluster. Someone acting on another's behalf — a carer, a parent, an assistant? Changes the account model if so. |
-| **Closure** | Appears between punishment and score. Closing out a plan (which the confirmation step above would cover), or closing an account/dispute? |
-| **Motivation Betting** | Staking something on following through. If it involves money it is a payments feature with App Review implications (3.1.1, and gambling rules depending on the shape). |
-| **Rejection Denials** | Denying a rejection, or denials *of* an appeal against a rejection? |
-| **Stats or metrics** | User-facing stats, or the admin panel — which already reports totals, the funnel, and per-user stats? |
-| **"Leadership of score for activities"** | Read as a leaderboard. Confirm — it could equally mean who leads/owns an activity within a group. |
-| **"Only active steps"** (location) | Only while a plan is active, or step/movement data? Different features, different permissions. |
-| **"Schedule a date with someone"** | Inside an existing group, or discovery of new people? See above. |
+| Term | Proposed reading | If this is wrong |
+|---|---|---|
+| **Gate Guardian** | An approval gate: a nominated person who must approve a plan before it reaches you | If it means controlling *who may contact you*, it is a blocking/allowlist feature instead — a different screen and a different rules change |
+| **Authorized Representative** | Delegated authority: someone who may accept or decline on another's behalf | Changes the account model. Actions would need "acting as" attribution, and `firestore.rules` would have to let a third party write to a request they are not a participant of — a significant widening |
+| **Start at 0** | Reputation is earned from zero rather than granted as a default | If a score can go *below* zero, penalties need a floor and a story for what a negative score means socially |
+| **Closure** | The terminal step that ends a plan and locks its outcome — i.e. the confirmation step now built | If it means closing a *dispute* or an *account*, it belongs with appeals or with account deletion, both of which already partly exist |
+| **Motivation Betting** | Both people stake **points** on following through; the stake moves on a no-show | If real money: payments, App Review 3.1.1, and possibly gambling rules. An entirely different size of feature and the one most likely to fail review |
+| **Rejection Denials** | Disputing someone's rejection — the entry point to appeals | Could equally be the *outcome* of an appeal (an appeal being denied), which is a moderator-facing screen rather than a user-facing one |
+| **Stats or metrics** | User-facing per-group stats | The admin panel already reports totals, the funnel and per-user stats. If that is what you meant, it exists — and now loads in about one round trip instead of twenty-four |
+| **"Leadership of score for activities"** | A leaderboard ranking within a group | Could mean who *leads or organises* an activity, which is a role on a request rather than a ranking |
+| **"Only active steps"** (location) | Share location only while a plan is active | If it means step/movement data, that is HealthKit: separate permissions, separate privacy disclosures, and a much heavier posture |
+| **"Schedule a date with someone"** | Someone already in one of your groups | If it means people you are *not* connected to, that is discovery and matching — it breaks the assumption that every relationship starts with a code shared privately between two people who already know each other |
 
 Answering the first four unblocks most of the identity and reliability clusters.
 

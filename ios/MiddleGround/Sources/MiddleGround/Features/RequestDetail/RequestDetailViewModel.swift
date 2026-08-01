@@ -101,6 +101,31 @@ final class RequestDetailViewModel {
             ?? URL(string: "https://maps.apple.com")!
     }
 
+    // MARK: - Inviting someone to just this plan
+
+    /// Whether this plan can be opened up to someone outside your groups.
+    var canInviteToPlan: Bool {
+        guard let currentUserID else { return false }
+        return request.creatorID == currentUserID && request.isOpen
+    }
+
+    var planInviteCode: String? {
+        request.planInviteCode.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    func createPlanInvite() async {
+        guard let currentUserID else { return }
+        isSending = true
+        errorMessage = nil
+        defer { isSending = false }
+        do {
+            request = try await requestService.createPlanInvite(for: request, by: currentUserID)
+            Haptics.shared.impact(.light)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     // MARK: - Points on the plan
 
     /// What the stake row should show, if anything.

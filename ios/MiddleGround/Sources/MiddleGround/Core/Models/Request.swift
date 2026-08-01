@@ -25,6 +25,8 @@ enum RequestError: LocalizedError, Equatable {
     case notAllowedToCancel
     case notAllowedToConfirm
     case notAllowedToStake
+    case notAllowedToInvite
+    case inviteNotFound
 
     var errorDescription: String? {
         switch self {
@@ -36,6 +38,10 @@ enum RequestError: LocalizedError, Equatable {
             return "This plan isn't ready to confirm yet."
         case .notAllowedToStake:
             return "You can't put points on this plan."
+        case .notAllowedToInvite:
+            return "Only the person who created this plan can invite someone to it."
+        case .inviteNotFound:
+            return "That invite code doesn't match a plan."
         }
     }
 }
@@ -79,6 +85,12 @@ struct Request: Identifiable, Hashable, Codable {
     var cancellationReason: CancellationReason?
     /// Points both people have riding on this actually happening.
     var stake: Stake?
+    /// Set when this plan can be joined by someone outside your groups.
+    ///
+    /// A single-plan invite: they get this one plan, not your life. Nothing about it is
+    /// discoverable — `invites` denies `list`, so the code has to have been given to them,
+    /// and the request is unreadable until they redeem it.
+    var planInviteCode: String?
     var createdAt: Date
     var updatedAt: Date
 
@@ -95,6 +107,7 @@ struct Request: Identifiable, Hashable, Codable {
          confirmations: [String: ConfirmationOutcome] = [:],
          cancellationReason: CancellationReason? = nil,
          stake: Stake? = nil,
+         planInviteCode: String? = nil,
          createdAt: Date = Date(),
          updatedAt: Date = Date()) {
         self.id = id
@@ -110,6 +123,7 @@ struct Request: Identifiable, Hashable, Codable {
         self.confirmations = confirmations
         self.cancellationReason = cancellationReason
         self.stake = stake
+        self.planInviteCode = planInviteCode
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -136,6 +150,7 @@ struct Request: Identifiable, Hashable, Codable {
             CancellationReason.self, forKey: .cancellationReason
         )
         stake = try container.decodeIfPresent(Stake.self, forKey: .stake)
+        planInviteCode = try container.decodeIfPresent(String.self, forKey: .planInviteCode)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }

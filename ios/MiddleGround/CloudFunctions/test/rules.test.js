@@ -192,6 +192,103 @@ describe('cancelling a request', () => {
   });
 });
 
+// Joining one plan by invite, without joining a group. This is the only branch that lets
+// someone who is not already a participant write to a request, so it gets the most scrutiny.
+describe('joining a single plan by invite', () => {
+  const PLAN = 'requests/r_open';
+  const CODE = 'MGPLAN';
+
+  beforeEach(async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, PLAN), request({ planInviteCode: CODE }));
+      await setDoc(doc(db, `invites/${CODE}`), { requestID: 'r_open', ownerID: ALICE });
+    });
+  });
+
+  test('someone holding the code can add themselves', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asMallory(), PLAN), {
+        recipientIDs: [BOB, MALLORY],
+        allParticipantIDs: [ALICE, BOB, MALLORY],
+      }),
+    );
+  });
+
+  test('they cannot add anybody else', async () => {
+    await assertFails(
+      updateDoc(doc(asMallory(), PLAN), {
+        recipientIDs: [BOB, 'someone_else'],
+        allParticipantIDs: [ALICE, BOB, 'someone_else'],
+      }),
+    );
+  });
+
+  test('a plan with no invite code cannot be joined', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_private'), request()));
+    await assertFails(
+      updateDoc(doc(asMallory(), 'requests/r_private'), {
+        recipientIDs: [BOB, MALLORY],
+        allParticipantIDs: [ALICE, BOB, MALLORY],
+      }),
+    );
+  });
+
+  // The code names one request. Pointing it at a different one must not work.
+  test('a code for another plan does not open this one', async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, 'requests/r_other'), request({ planInviteCode: 'MGOTHR' }));
+      await setDoc(doc(db, 'invites/MGOTHR'), { requestID: 'r_somewhere_else', ownerID: ALICE });
+    });
+    await assertFails(
+      updateDoc(doc(asMallory(), 'requests/r_other'), {
+        recipientIDs: [BOB, MALLORY],
+        allParticipantIDs: [ALICE, BOB, MALLORY],
+      }),
+    );
+  });
+
+  test('joining cannot rewrite the plan or answer it', async () => {
+    await assertFails(
+      updateDoc(doc(asMallory(), PLAN), {
+        recipientIDs: [BOB, MALLORY],
+        allParticipantIDs: [ALICE, BOB, MALLORY],
+        title: 'Something else',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(asMallory(), PLAN), {
+        recipientIDs: [BOB, MALLORY],
+        allParticipantIDs: [ALICE, BOB, MALLORY],
+        status: 'accepted',
+      }),
+    );
+  });
+
+  // Rotating the code is how access is revoked; a joiner must not be able to grant themselves
+  // a fresh one.
+  test('joining cannot rewrite the invite code', async () => {
+    await assertFails(
+      updateDoc(doc(asMallory(), PLAN), {
+        recipientIDs: [BOB, MALLORY],
+        allParticipantIDs: [ALICE, BOB, MALLORY],
+        planInviteCode: 'MGMINE',
+      }),
+    );
+  });
+
+  test('a settled plan cannot be joined', async () => {
+    await seed(async (db) => {
+      await setDoc(doc(db, 'requests/r_done'), request({ status: 'accepted', planInviteCode: CODE }));
+    });
+    await assertFails(
+      updateDoc(doc(asMallory(), 'requests/r_done'), {
+        recipientIDs: [BOB, MALLORY],
+        allParticipantIDs: [ALICE, BOB, MALLORY],
+      }),
+    );
+  });
+});
+
 // Points on a plan happening. Staking is not turn-taking -- either person may propose and the
 // *other* must accept, which is exactly when it is not their turn -- so it needs its own branch.
 describe('staking points on a plan', () => {

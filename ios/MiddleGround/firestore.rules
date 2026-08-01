@@ -154,6 +154,40 @@ service cloud.firestore {
         ['pending', 'accepted', 'declined', 'negotiated', 'rescheduled', 'countered', 'saved'];
     }
 
+    // Joining a single plan by invite, without joining a group.
+    //
+    // "Schedule a date with someone" — someone you are not connected to, invited to one plan
+    // rather than into your life. Deliberately NOT discovery: there is no browsing and no
+    // matching, and the only way in is a code you were given, exactly like a group invite.
+    //
+    // Mirrors `isRedeemingInvite` on relationships, and for the same reason: the joiner cannot
+    // read the request until they are a participant of it, so the invite document is the one
+    // thing they can check against. They may add ONLY themselves, and nothing else may move —
+    // so a code cannot be used to rewrite a plan, answer it, or add anybody but its holder.
+    function isJoiningPlan(requestId) {
+      return signedIn()
+        && !(uid() in resource.data.allParticipantIDs)
+        && request.resource.data.allParticipantIDs == resource.data.allParticipantIDs.concat([uid()])
+        && request.resource.data.recipientIDs == resource.data.recipientIDs.concat([uid()])
+        && !isSettled()
+        && immutable('creatorID')
+        && immutable('title')
+        && immutable('proposedTime')
+        && immutable('status')
+        && immutable('negotiationChain')
+        && immutable('confirmations')
+        && immutable('stake')
+        && immutable('createdAt')
+        && immutable('planInviteCode')
+        // The code is issued by the creator and already on the request; the joiner writes
+        // nothing but their own membership. `invites` allows `get` and denies `list`, so the
+        // code has to have been given to them — it cannot be discovered, and neither can the
+        // request, which is unreadable until this write lands.
+        && resource.data.get('planInviteCode', '') != ''
+        && exists(/databases/$(database)/documents/invites/$(resource.data.planInviteCode))
+        && get(/databases/$(database)/documents/invites/$(resource.data.planInviteCode)).data.requestID == requestId;
+    }
+
     // Putting points on a plan happening, and agreeing to it.
     //
     // Needs its own branch because staking is not turn-taking: either person may propose, and
@@ -199,6 +233,7 @@ service cloud.firestore {
         && immutable('proposedTime')
         && immutable('negotiationChain')
         && immutable('stake')
+        && immutable('planInviteCode')
         && immutable('createdAt');
     }
 
@@ -234,7 +269,8 @@ service cloud.firestore {
         && immutable('negotiationChain')
         // The stake settles by derivation from these confirmations, so nothing writes it here.
         // Leaving it open would let whoever confirms also rewrite what was at stake.
-        && immutable('stake');
+        && immutable('stake')
+        && immutable('planInviteCode');
     }
 
     match /requests/{requestId} {
@@ -260,10 +296,12 @@ service cloud.firestore {
                         && immutable('creatorID')
                         && immutable('recipientIDs')
                         && immutable('allParticipantIDs')
-                        && immutable('stake'))
+                        && immutable('stake')
+                        && immutable('planInviteCode'))
                       || isConfirmingAttendance()
                       || isCancelling()
                       || isStaking()
+                      || isJoiningPlan(requestId)
                     );
 
       // The creator may withdraw their own request while it is still open.

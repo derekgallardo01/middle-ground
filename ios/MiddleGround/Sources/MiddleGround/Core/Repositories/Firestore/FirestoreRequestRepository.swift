@@ -32,6 +32,36 @@ actor FirestoreRequestRepository: RequestRepository {
         try db.collection(Self.collection).document(request.id).setData(from: dto, merge: true)
     }
 
+    private static let inviteCollection = "invites"
+
+    /// Publishes the invite alongside the code already written on the request.
+    ///
+    /// Same collection and same shape as group invites: `get` is allowed so a code you were
+    /// told can be redeemed, `list` is denied so codes cannot be enumerated.
+    func publishPlanInvite(code: String, requestID: String, ownerID: String) async throws {
+        try await db.collection(Self.inviteCollection).document(code).setData([
+            "requestID": requestID,
+            "ownerID": ownerID,
+            "createdAt": Timestamp(date: Date())
+        ], merge: true)
+    }
+
+    func planInvite(forCode code: String) async throws -> String? {
+        let document = try await db.collection(Self.inviteCollection).document(code).getDocument()
+        guard document.exists else { return nil }
+        return document.data()?["requestID"] as? String
+    }
+
+    /// `arrayUnion` on both membership arrays and nothing else, which is exactly the shape
+    /// `isJoiningPlan` accepts — every other field stays byte-identical, so its immutability
+    /// guards hold.
+    func addParticipant(_ userID: String, to requestID: String) async throws {
+        try await db.collection(Self.collection).document(requestID).updateData([
+            "recipientIDs": FieldValue.arrayUnion([userID]),
+            "allParticipantIDs": FieldValue.arrayUnion([userID])
+        ])
+    }
+
     func deleteRequest(_ request: Request) async throws {
         try await db.collection(Self.collection).document(request.id).delete()
     }

@@ -51,6 +51,17 @@ struct ProfileView: View {
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
+            // A plan code adds one request rather than a group, so Profile would otherwise show
+            // no change at all and the code would look like it had failed.
+            .alert("You're in", isPresented: $viewModel.didJoinPlan) {
+                Button("Show me") {
+                    viewModel.didJoinPlan = false
+                    appState.selectedTab = .home
+                }
+                Button("Later", role: .cancel) { viewModel.didJoinPlan = false }
+            } message: {
+                Text("That code was for a single plan. You'll find it with your requests.")
+            }
         }
     }
 

@@ -88,6 +88,40 @@ final class RequestService {
         return updated
     }
 
+    /// Makes one plan joinable by someone outside your groups.
+    ///
+    /// "Schedule a date with someone" — they get this plan, not your life. Deliberately not
+    /// discovery: nothing is browsable, and the only way in is a code you hand over. The code
+    /// goes on the request first so `isJoiningPlan` can check it without the joiner writing it.
+    @discardableResult
+    func createPlanInvite(for request: Request, by userID: String) async throws -> Request {
+        guard request.creatorID == userID, request.isOpen else {
+            throw RequestError.notAllowedToInvite
+        }
+        if let existing = request.planInviteCode, !existing.isEmpty { return request }
+
+        let code = Relationship.generateInviteCode()
+        var updated = request
+        updated.planInviteCode = code
+        updated.updatedAt = Date()
+        try await repository.updateRequest(updated)
+        try await repository.publishPlanInvite(code: code, requestID: request.id, ownerID: userID)
+        return updated
+    }
+
+    /// Redeems a plan-invite code, joining that one plan.
+    ///
+    /// Works entirely from the invite document, exactly like joining a group: the request is
+    /// unreadable until this write lands, so there is nothing to check against beforehand.
+    func joinPlan(inviteCode code: String, userID: String) async throws {
+        let normalized = Relationship.normalizeInviteCode(code)
+        guard let requestID = try await repository.planInvite(forCode: normalized) else {
+            throw RequestError.inviteNotFound
+        }
+        try await repository.addParticipant(userID, to: requestID)
+        await analytics.track(.inviteRedeemed, userID: userID, requestID: requestID)
+    }
+
     /// Puts points on the plan happening. The other person must agree before it is live.
     func proposeStake(
         on request: Request,

@@ -44,6 +44,20 @@ actor CachedRequestRepository: RequestRepository {
         try await remote.deleteRequest(request)
     }
 
+    // Invites and membership are server-side concerns: there is nothing useful to cache, and
+    // a stale local copy of who can see a plan would be worse than none.
+    func publishPlanInvite(code: String, requestID: String, ownerID: String) async throws {
+        try await remote.publishPlanInvite(code: code, requestID: requestID, ownerID: ownerID)
+    }
+
+    func planInvite(forCode code: String) async throws -> String? {
+        try await remote.planInvite(forCode: code)
+    }
+
+    func addParticipant(_ userID: String, to requestID: String) async throws {
+        try await remote.addParticipant(userID, to: requestID)
+    }
+
     nonisolated func observeRequests(for userID: String) -> AsyncStream<[Request]> {
         AsyncStream { continuation in
             let task = Task {

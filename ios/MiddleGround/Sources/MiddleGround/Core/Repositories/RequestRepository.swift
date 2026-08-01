@@ -5,6 +5,16 @@ protocol RequestRepository: Sendable {
     func createRequest(_ request: Request) async throws
     func updateRequest(_ request: Request) async throws
     func deleteRequest(_ request: Request) async throws
+
+    /// Publishes an invite that grants access to one plan.
+    func publishPlanInvite(code: String, requestID: String, ownerID: String) async throws
+
+    /// The request a plan-invite code points at, or nil if the code is unknown.
+    func planInvite(forCode code: String) async throws -> String?
+
+    /// Adds a participant, touching only the two membership arrays — `isJoiningPlan` in
+    /// firestore.rules requires every other field to be byte-identical.
+    func addParticipant(_ userID: String, to requestID: String) async throws
     func observeRequests(for userID: String) -> AsyncStream<[Request]>
 }
 
@@ -32,6 +42,21 @@ actor MockRequestRepository: RequestRepository {
 
     func deleteRequest(_ request: Request) async throws {
         requests.removeAll { $0.id == request.id }
+    }
+
+    private var planInvites: [String: String] = [:]
+
+    func publishPlanInvite(code: String, requestID: String, ownerID: String) async throws {
+        planInvites[code] = requestID
+    }
+
+    func planInvite(forCode code: String) async throws -> String? {
+        planInvites[Relationship.normalizeInviteCode(code)]
+    }
+
+    func addParticipant(_ userID: String, to requestID: String) async throws {
+        guard let index = requests.firstIndex(where: { $0.id == requestID }) else { return }
+        requests[index].recipientIDs.append(userID)
     }
 
     nonisolated func observeRequests(for userID: String) -> AsyncStream<[Request]> {

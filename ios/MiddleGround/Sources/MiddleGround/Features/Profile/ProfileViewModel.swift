@@ -97,6 +97,12 @@ final class ProfileViewModel {
     }
 
     /// Redeems someone else's invite code.
+    /// Redeems a code, whichever kind it is.
+    ///
+    /// Group codes and single-plan codes look identical and come from the same collection, so
+    /// asking someone to know which they were handed would be asking them to know something the
+    /// sender never told them. Group first, because that is the far more common case; a plan
+    /// code simply is not a group code, and falling through costs one lookup.
     func joinGroup() async {
         guard let user else { return }
         isPairing = true
@@ -106,10 +112,23 @@ final class ProfileViewModel {
             _ = try await relationshipService.join(inviteCode: joinCodeInput, userID: user.id)
             joinCodeInput = ""
             await loadRelationships()
+            return
+        } catch {
+            // Fall through and try it as a plan code before reporting anything.
+        }
+
+        do {
+            try await requestService.joinPlan(inviteCode: joinCodeInput, userID: user.id)
+            joinCodeInput = ""
+            didJoinPlan = true
         } catch {
             errorMessage = error.localizedDescription
         }
     }
+
+    /// Set when a code turned out to be for a single plan, so the UI can point at Requests
+    /// rather than leaving someone on Profile wondering what happened.
+    var didJoinPlan = false
     var isLoading = false
     var isDeletingAccount = false
     var errorMessage: String?

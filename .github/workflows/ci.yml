@@ -22,8 +22,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The runner image's Xcode set changes without notice, and a pinned path that is no longer
+      # installed fails here — before a single file is compiled. That reads in the run list as a
+      # broken build, which is the most expensive kind of false alarm: it was red for two runs
+      # while the code was fine. Picking the newest installed Xcode cannot 404, and the listing
+      # is echoed so the log records what was actually available.
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_26.app
+        run: |
+          ls -d /Applications/Xcode*.app
+          latest=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Selecting $latest"
+          sudo xcode-select -s "$latest"
 
       - name: Show toolchain
         run: xcodebuild -version && swift --version

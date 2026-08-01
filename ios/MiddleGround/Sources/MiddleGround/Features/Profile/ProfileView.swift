@@ -238,6 +238,7 @@ struct ProfileView: View {
                             showsInviteCode: !relationship.isPaired
                                 && viewModel.unpairedRelationships.count > 1,
                             isLeaveDisabled: viewModel.isLeavingGroup,
+                            partnerReliability: viewModel.memberReliability[relationship.id],
                             onRename: { viewModel.beginRenaming(relationship) },
                             onLeave: { relationshipToLeave = relationship }
                         )

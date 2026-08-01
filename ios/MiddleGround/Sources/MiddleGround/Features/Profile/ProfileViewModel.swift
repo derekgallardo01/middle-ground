@@ -9,6 +9,7 @@ final class ProfileViewModel {
     private let gamificationService = Container.shared.gamificationService()
     private let notificationService = NotificationService.shared
     private let relationshipService = Container.shared.relationshipService()
+    private let requestService = Container.shared.requestService()
     private let signInManager = Container.shared.signInWithAppleManager()
 
     var user: User?
@@ -17,6 +18,41 @@ final class ProfileViewModel {
     var relationships: [Relationship] = []
 
     var unpairedRelationships: [Relationship] { relationships.filter { !$0.isPaired } }
+
+    // MARK: - Seeing someone else's reliability
+    //
+    // Deliberately not inside a couple. A reliability number your partner can quote back at you
+    // stops being feedback and becomes an argument, so partners keep theirs private while
+    // groups — where a no-show costs someone else their evening or their booking — do not.
+    //
+    // Computed from the plans you actually share, not from that person's whole history. It is
+    // the only thing the security rules let you read anyway, and it is the more honest number:
+    // how reliably plans *with you* happen, rather than a reputation formed elsewhere.
+
+    /// The other member's reliability, keyed by relationship ID. Empty for couples.
+    private(set) var memberReliability: [String: ReliabilityScore] = [:]
+
+    func canSeeReliability(in relationship: Relationship) -> Bool {
+        relationship.type != .couple && relationship.isPaired
+    }
+
+    private func loadMemberReliability() async {
+        guard let user else { return }
+        let visible = relationships.filter { canSeeReliability(in: $0) }
+        guard !visible.isEmpty,
+              let requests = try? await requestService.fetchRequests(for: user.id) else {
+            memberReliability = [:]
+            return
+        }
+
+        var scores: [String: ReliabilityScore] = [:]
+        for relationship in visible {
+            guard let otherID = relationship.partnerID(excluding: user.id) else { continue }
+            let shared = requests.filter { $0.isParticipant(otherID) }
+            scores[relationship.id] = ReliabilityScore.from(requests: shared, userID: otherID)
+        }
+        memberReliability = scores
+    }
 
     /// The prominent code, shown only when there is exactly one group it could belong to.
     ///
@@ -111,6 +147,7 @@ final class ProfileViewModel {
             MGLog.storage.error("Could not load relationships: \(error.localizedDescription, privacy: .public)")
         }
         await repairInviteIfNeeded()
+        await loadMemberReliability()
     }
 
     /// Republishes the invite document when the displayed code no longer resolves.

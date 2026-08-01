@@ -14,6 +14,14 @@ struct GroupRow: View {
     /// True only when the prominent single-group card is not already showing this same code.
     let showsInviteCode: Bool
     let isLeaveDisabled: Bool
+
+    /// The other member's reliability, and nil inside a couple.
+    ///
+    /// Partners do not see each other's: a number one person can quote back at the other stops
+    /// being feedback and becomes an argument. Groups do, because there a no-show costs someone
+    /// else their evening or their booking.
+    var partnerReliability: ReliabilityScore?
+
     let onRename: () -> Void
     let onLeave: () -> Void
 
@@ -52,6 +60,20 @@ struct GroupRow: View {
                         .foregroundStyle(MGColors.warm600)
                 }
                 .accessibilityLabel("Actions for \(relationship.label)")
+            }
+
+            if let reliability = partnerReliability, let percentage = reliability.percentage {
+                // Only once there is enough to say. Below that the card says nothing rather
+                // than putting a number next to a person on two data points.
+                HStack(spacing: MGSpacing.sm) {
+                    Image(systemName: "figure.wave")
+                        .foregroundStyle(MGColors.warm600)
+                    Text("Plans with you happen \(percentage)% of the time")
+                        .mgFont(.caption)
+                        .foregroundStyle(MGColors.warm600)
+                    Spacer()
+                }
+                .accessibilityElement(children: .combine)
             }
 
             if showsInviteCode {
@@ -100,6 +122,7 @@ struct GroupRow: View {
             ),
             showsInviteCode: false,
             isLeaveDisabled: false,
+            partnerReliability: nil,
             onRename: {},
             onLeave: {}
         )
@@ -107,6 +130,7 @@ struct GroupRow: View {
             relationship: Relationship(id: "2", participantIDs: ["a"], type: .friends),
             showsInviteCode: true,
             isLeaveDisabled: false,
+            partnerReliability: nil,
             onRename: {},
             onLeave: {}
         )

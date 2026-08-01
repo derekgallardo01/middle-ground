@@ -107,6 +107,14 @@ jobs:
           cache: npm
           cache-dependency-path: ios/MiddleGround/CloudFunctions/package-lock.json
 
+      # The Firestore emulator is a Java process, and firebase-tools dropped support for JDKs
+      # older than 21. Without this the job dies before running a single test — which looks
+      # exactly like a rules failure while proving nothing about the rules.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Install dependencies
         working-directory: ios/MiddleGround/CloudFunctions
         run: npm install

@@ -38,6 +38,19 @@ made it says so; where one is still open it says that too, rather than quietly p
 - **Cancelling records why instead of deleting the request.** ⚠️ *Rules branch undeployed.*
 - **A reliability score**, computed from confirmations and cancellations rather than stored.
   Visible only to the person it describes — see the open question below.
+- **Notifications people can control.** Five types, each switchable, stored in a collection of
+  their own because `users/{uid}` is readable by any signed-in user. Absence means send, so nobody
+  is migrated and nobody is silently muted. Two of the five did not exist before: a plan being
+  cancelled (which the response trigger never saw, because cancelling does not touch the
+  negotiation chain) and "did it happen?", which asks for the attendance every reliability idea is
+  computed from.
+- **A weekly nudge** naming the group that has gone longest without a plan — one push however many
+  qualify, and silent when something is already booked.
+- **Plan-scoped location sharing.** One point per tap, only while an accepted plan is inside its
+  window, deleted afterwards. ⚠️ *Gated on the App Store Connect privacy questionnaire.*
+- **The push badge counted the wrong things.** `recipientIDs + status == 'pending'` missed every
+  negotiation in flight: a counter-offer has status `countered`, and the turn after a counter
+  usually belongs to the creator, who is in neither.
 
 ### ⚠️ Three rules branches are written, unverified and undeployed
 

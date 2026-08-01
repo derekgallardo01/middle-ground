@@ -965,28 +965,39 @@ describe('shared locations', () => {
   const at = (offset) => new Date(Date.now() + offset);
   const asAdmin = () => testEnv.authenticatedContext('root', { admin: true }).firestore();
 
-  // A plan happening right now, so writes fall inside the window by default.
-  const livePlan = (overrides = {}) =>
-    request({ status: 'accepted', proposedTime: at(0), ...overrides });
+  const livePlan = (proposedTime) => request({ status: 'accepted', proposedTime });
 
-  const point = (expiresAt) => ({
+  // Expiry is derived from the plan's time, exactly as `Request.locationExpiry` does in Swift.
+  // The rules pin `expiresAt <= proposedTime + 4h` with no slack, so deriving it from `now`
+  // instead — as the first version of these tests did — fails by the handful of milliseconds
+  // between seeding the plan and writing the point. The slack does not belong in the rule: an
+  // expiry the writer picks freely is a point that outlives its plan.
+  const pointFor = (proposedTime, overrides = {}) => ({
     latitude: 40.7128,
     longitude: -74.006,
     sharedAt: at(0),
-    expiresAt: expiresAt || at(4 * HOUR),
+    expiresAt: new Date(proposedTime.getTime() + 4 * HOUR),
+    ...overrides,
   });
 
-  beforeEach(() => seed((db) => setDoc(doc(db, 'requests/r1'), livePlan())));
+  let planTime;
+
+  beforeEach(() => {
+    planTime = at(0);
+    return seed((db) => setDoc(doc(db, 'requests/r1'), livePlan(planTime)));
+  });
 
   test('a participant can share and read during the plan', async () => {
-    await assertSucceeds(setDoc(doc(asAlice(), 'requests/r1/locations/alice'), point()));
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'requests/r1/locations/alice'), pointFor(planTime)),
+    );
     await assertSucceeds(getDoc(doc(asBob(), 'requests/r1/locations/alice')));
   });
 
   // Including an admin. Every other private collection grants admin read; this one must not,
   // because "where a user was on Tuesday" should not follow from holding the admin flag.
   test('nobody outside the plan can read a point', async () => {
-    await seed((db) => setDoc(doc(db, 'requests/r1/locations/alice'), point()));
+    await seed((db) => setDoc(doc(db, 'requests/r1/locations/alice'), pointFor(planTime)));
 
     await assertFails(getDoc(doc(asMallory(), 'requests/r1/locations/alice')));
     await assertFails(getDoc(doc(asAnon(), 'requests/r1/locations/alice')));
@@ -994,72 +1005,74 @@ describe('shared locations', () => {
   });
 
   test('you cannot write a point as somebody else', async () => {
-    await assertFails(setDoc(doc(asBob(), 'requests/r1/locations/alice'), point()));
+    await assertFails(setDoc(doc(asBob(), 'requests/r1/locations/alice'), pointFor(planTime)));
   });
 
   test('an outsider cannot write a point at all', async () => {
-    await assertFails(setDoc(doc(asMallory(), 'requests/r1/locations/mallory'), point()));
+    await assertFails(
+      setDoc(doc(asMallory(), 'requests/r1/locations/mallory'), pointFor(planTime)),
+    );
   });
 
   test('too early is refused', async () => {
-    await seed((db) => setDoc(doc(db, 'requests/r2'), livePlan({ proposedTime: at(3 * HOUR) })));
+    const time = at(3 * HOUR);
+    await seed((db) => setDoc(doc(db, 'requests/r2'), livePlan(time)));
 
-    await assertFails(
-      setDoc(doc(asAlice(), 'requests/r2/locations/alice'), point(at(7 * HOUR))),
-    );
+    await assertFails(setDoc(doc(asAlice(), 'requests/r2/locations/alice'), pointFor(time)));
   });
 
   test('too late is refused', async () => {
-    await seed((db) => setDoc(doc(db, 'requests/r3'), livePlan({ proposedTime: at(-6 * HOUR) })));
+    const time = at(-6 * HOUR);
+    await seed((db) => setDoc(doc(db, 'requests/r3'), livePlan(time)));
 
-    await assertFails(
-      setDoc(doc(asAlice(), 'requests/r3/locations/alice'), point(at(-2 * HOUR))),
-    );
+    await assertFails(setDoc(doc(asAlice(), 'requests/r3/locations/alice'), pointFor(time)));
   });
 
   // An hour before is inside the window on purpose: "I'm five minutes away" is said on the way.
   test('an hour before the plan is allowed', async () => {
-    await seed((db) =>
-      setDoc(doc(db, 'requests/r4'), livePlan({ proposedTime: at(0.5 * HOUR) })),
-    );
+    const time = at(0.5 * HOUR);
+    await seed((db) => setDoc(doc(db, 'requests/r4'), livePlan(time)));
 
-    await assertSucceeds(
-      setDoc(doc(asAlice(), 'requests/r4/locations/alice'), point(at(4.5 * HOUR))),
-    );
+    await assertSucceeds(setDoc(doc(asAlice(), 'requests/r4/locations/alice'), pointFor(time)));
   });
 
   test('a plan nobody accepted has no window', async () => {
-    await seed((db) => setDoc(doc(db, 'requests/r5'), request({ proposedTime: at(0) })));
+    await seed((db) => setDoc(doc(db, 'requests/r5'), request({ proposedTime: planTime })));
 
-    await assertFails(setDoc(doc(asAlice(), 'requests/r5/locations/alice'), point()));
+    await assertFails(setDoc(doc(asAlice(), 'requests/r5/locations/alice'), pointFor(planTime)));
   });
 
   test('an undated request has no window', async () => {
     await seed((db) => setDoc(doc(db, 'requests/r6'), request({ status: 'accepted' })));
 
-    await assertFails(setDoc(doc(asAlice(), 'requests/r6/locations/alice'), point()));
+    await assertFails(setDoc(doc(asAlice(), 'requests/r6/locations/alice'), pointFor(planTime)));
   });
 
   // Without this the window is enforced on the write and then ignored by the thing that deletes
   // it — a point that outlives its plan by a year, written entirely within the rules.
   test('an expiry beyond the window is refused', async () => {
     await assertFails(
-      setDoc(doc(asAlice(), 'requests/r1/locations/alice'), point(at(48 * HOUR))),
+      setDoc(
+        doc(asAlice(), 'requests/r1/locations/alice'),
+        pointFor(planTime, { expiresAt: at(48 * HOUR) }),
+      ),
     );
   });
 
   test('an unexpected field is refused', async () => {
     await assertFails(
-      setDoc(doc(asAlice(), 'requests/r1/locations/alice'), { ...point(), accuracy: 5 }),
+      setDoc(
+        doc(asAlice(), 'requests/r1/locations/alice'),
+        { ...pointFor(planTime), accuracy: 5 },
+      ),
     );
   });
 
   // Taking it back must never be the thing that is refused.
   test('you can always withdraw your own point', async () => {
-    await seed((db) =>
-      setDoc(doc(db, 'requests/r7'), livePlan({ proposedTime: at(-48 * HOUR) })),
-    );
-    await seed((db) => setDoc(doc(db, 'requests/r7/locations/alice'), point()));
+    const time = at(-48 * HOUR);
+    await seed((db) => setDoc(doc(db, 'requests/r7'), livePlan(time)));
+    await seed((db) => setDoc(doc(db, 'requests/r7/locations/alice'), pointFor(time)));
 
     await assertSucceeds(deleteDoc(doc(asAlice(), 'requests/r7/locations/alice')));
   });

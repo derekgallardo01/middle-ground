@@ -257,6 +257,60 @@ final class GamificationServiceTests: XCTestCase {
         XCTAssertEqual(persisted?.acceptedCount, 9, "the mirror must not be reset to a fresh start")
     }
 
+    /// Stats alone left a new device showing the numbers with nothing behind them: a level with
+    /// no badges and no record of how it was reached.
+    func testRestoreBringsBackAchievementsAndTheActivityFeedToo() async {
+        let mirror = MockGamificationRepository()
+        await mirror.save(
+            GamificationStats(
+                streakDays: 3,
+                relationshipXP: 600,
+                level: 2,
+                growthScore: 20,
+                nextLevelXP: 1000
+            ),
+            for: userID
+        )
+        var earned = Achievement(
+            id: "ach_1",
+            title: "Great Communicator",
+            description: "d",
+            iconName: "trophy.fill",
+            requiredValue: 10,
+            metric: .negotiated
+        )
+        earned.unlockedAt = Date()
+        let logged = Activity(userID: userID, type: .xpEarned, title: "Accepted a plan", value: 25)
+        await mirror.save(
+            MirroredHistory(achievements: [earned], activities: [logged]),
+            for: userID
+        )
+
+        let fresh = GamificationService(store: defaults, mirror: mirror)
+        await fresh.restoreFromMirrorIfNeeded(for: userID)
+
+        let restoredAchievements = await fresh.achievements(for: userID)
+        let restoredActivities = await fresh.activities(for: userID)
+
+        XCTAssertTrue(
+            restoredAchievements.first { $0.id == "ach_1" }?.isUnlocked == true,
+            "an earned badge must come back"
+        )
+        XCTAssertEqual(restoredActivities.count, 1, "the feed must come back")
+        XCTAssertEqual(restoredActivities.first?.title, "Accepted a plan")
+    }
+
+    func testEarningAnAchievementMirrorsIt() async {
+        let mirror = MockGamificationRepository()
+        let service = GamificationService(store: defaults, mirror: mirror)
+
+        let logged = Activity(userID: userID, type: .xpEarned, title: "Something", value: 5)
+        await service.save(activities: [logged], for: userID)
+
+        let mirrored = try? await mirror.history(for: userID)
+        XCTAssertEqual(mirrored?.activities.count, 1, "the feed must reach the durable copy")
+    }
+
     /// Callers restore on every load, so a user with no progress anywhere must not re-read the
     /// mirror each time — the local store stays empty, so the nil check alone never settles.
     func testRestoreConsultsTheMirrorOnlyOnce() async {
@@ -282,6 +336,10 @@ private actor CountingGamificationRepository: GamificationRepository {
     }
 
     func save(_ stats: GamificationStats, for userID: String) async {}
+
+    func history(for userID: String) async throws -> MirroredHistory? { nil }
+
+    func save(_ history: MirroredHistory, for userID: String) async {}
 
     func allStats(limit: Int) async throws -> [String: GamificationStats] { [:] }
 }

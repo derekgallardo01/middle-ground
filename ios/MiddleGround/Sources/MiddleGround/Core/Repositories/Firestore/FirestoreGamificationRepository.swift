@@ -24,6 +24,24 @@ actor FirestoreGamificationRepository: GamificationRepository {
         }
     }
 
+    func history(for userID: String) async throws -> MirroredHistory? {
+        let document = try await db.collection(Self.collection).document(userID).getDocument()
+        guard document.exists else { return nil }
+        return try? document.data(as: MirroredHistoryDTO.self).toModel()
+    }
+
+    /// Writes into the same document as the stats, which is safe because every write here
+    /// merges: the two paths touch disjoint fields and neither clobbers the other.
+    func save(_ history: MirroredHistory, for userID: String) async {
+        do {
+            try db.collection(Self.collection)
+                .document(userID)
+                .setData(from: MirroredHistoryDTO(from: history), merge: true)
+        } catch {
+            MGLog.storage.error("History mirror failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     func allStats(limit: Int) async throws -> [String: GamificationStats] {
         let snapshot = try await db.collection(Self.collection).limit(to: limit).getDocuments()
         var result: [String: GamificationStats] = [:]
@@ -74,8 +92,34 @@ private struct GamificationStatsDTO: Codable {
             weekendAcceptedCount: weekendAcceptedCount,
             lastResponseDate: lastResponseDate?.dateValue(),
             // Mirrored, so per-category progression survives a reinstall along with the rest of
-            // the stats. Achievements and the activity feed are still local-only.
+            // the stats. Achievements and the activity feed ride in the same document via
+            // MirroredHistoryDTO.
             categoryXP: categoryXP ?? [:]
         )
+    }
+}
+
+/// Achievements and the activity feed, stored alongside the stats in the same document.
+///
+/// Both fields are optional so a mirror written before history was carried still decodes — the
+/// same tolerance every other stored type in this app needs, and for the same reason: a schema
+/// addition must never make older data unreadable.
+private struct MirroredHistoryDTO: Codable {
+    var achievements: [Achievement]?
+    var activities: [Activity]?
+
+    init(from history: MirroredHistory) {
+        self.achievements = history.achievements
+        // Newest first, then capped: if the feed has to be truncated, the entries worth keeping
+        // are the recent ones.
+        self.activities = Array(
+            history.activities
+                .sorted { $0.timestamp > $1.timestamp }
+                .prefix(MirroredHistory.activityLimit)
+        )
+    }
+
+    func toModel() -> MirroredHistory {
+        MirroredHistory(achievements: achievements ?? [], activities: activities ?? [])
     }
 }

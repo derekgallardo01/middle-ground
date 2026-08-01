@@ -201,8 +201,10 @@ actor GamificationService: GamificationServiceProtocol {
     /// Restores progress from the server when the device has none — the case that used to lose
     /// a user's entire history on reinstall or device change.
     ///
-    /// Restores the stats only: XP, level, streak and growth score. The mirror does not carry
-    /// achievements or the activity feed, so those still start empty on a new device.
+    /// Restores the stats *and* the history: XP, level, streak and growth score, plus the
+    /// achievements earned and the activity feed. Stats alone left a new device showing the
+    /// numbers with nothing behind them — a level with no badges and no record of how it was
+    /// reached.
     ///
     /// Callers invoke this on every load, so the attempt is recorded per user. Without that,
     /// a user who genuinely has no progress anywhere never populates the local store and would
@@ -210,22 +212,55 @@ actor GamificationService: GamificationServiceProtocol {
     func restoreFromMirrorIfNeeded(for userID: String) async {
         guard !restoreAttempted.contains(userID) else { return }
         restoreAttempted.insert(userID)
-        guard store.data(forKey: statsKey(for: userID)) == nil,
-              let remote = try? await mirror?.stats(for: userID),
-              let data = try? JSONEncoder().encode(remote) else { return }
-        store.set(data, forKey: statsKey(for: userID))
+        guard let mirror, store.data(forKey: statsKey(for: userID)) == nil else { return }
+
+        if let remote = try? await mirror.stats(for: userID),
+           let data = try? JSONEncoder().encode(remote) {
+            store.set(data, forKey: statsKey(for: userID))
+        }
+
+        // Written directly rather than through `save(achievements:)`, which would mirror
+        // straight back to the server the values just read from it.
+        guard let history = try? await mirror.history(for: userID) else { return }
+        if !history.achievements.isEmpty,
+           let data = try? JSONEncoder().encode(history.achievements) {
+            store.set(data, forKey: achievementsKey(for: userID))
+        }
+        if !history.activities.isEmpty,
+           let data = try? JSONEncoder().encode(history.activities) {
+            store.set(data, forKey: activitiesKey(for: userID))
+        }
     }
 
     func save(achievements: [Achievement], for userID: String) async {
         if let data = try? JSONEncoder().encode(achievements) {
             store.set(data, forKey: achievementsKey(for: userID))
         }
+        await mirrorHistory(for: userID)
     }
 
     func save(activities: [Activity], for userID: String) async {
         if let data = try? JSONEncoder().encode(activities) {
             store.set(data, forKey: activitiesKey(for: userID))
         }
+        await mirrorHistory(for: userID)
+    }
+
+    /// Pushes achievements and the feed to the durable copy.
+    ///
+    /// Only stats were mirrored before, so a reinstall restored someone's XP, level and streak
+    /// and started their badges and history from nothing — the numbers survived while everything
+    /// that explained them did not. Best-effort like the stats mirror: a failed write must never
+    /// cost the user the reward they just earned.
+    private func mirrorHistory(for userID: String) async {
+        guard let mirror else { return }
+        await mirror.save(
+            MirroredHistory(
+                achievements: await achievements(for: userID),
+                activities: await activities(for: userID)
+            ),
+            for: userID
+        )
     }
 
     // MARK: - Write path

@@ -24,6 +24,7 @@ enum RequestError: LocalizedError, Equatable {
     case notAllowedToRespond
     case notAllowedToCancel
     case notAllowedToConfirm
+    case notAllowedToStake
 
     var errorDescription: String? {
         switch self {
@@ -33,6 +34,8 @@ enum RequestError: LocalizedError, Equatable {
             return "Only the person who sent this can cancel it."
         case .notAllowedToConfirm:
             return "This plan isn't ready to confirm yet."
+        case .notAllowedToStake:
+            return "You can't put points on this plan."
         }
     }
 }
@@ -74,6 +77,8 @@ struct Request: Identifiable, Hashable, Codable {
     var confirmations: [String: ConfirmationOutcome]
     /// Why this was called off, when it was.
     var cancellationReason: CancellationReason?
+    /// Points both people have riding on this actually happening.
+    var stake: Stake?
     var createdAt: Date
     var updatedAt: Date
 
@@ -89,6 +94,7 @@ struct Request: Identifiable, Hashable, Codable {
          negotiationChain: [NegotiationMessage] = [],
          confirmations: [String: ConfirmationOutcome] = [:],
          cancellationReason: CancellationReason? = nil,
+         stake: Stake? = nil,
          createdAt: Date = Date(),
          updatedAt: Date = Date()) {
         self.id = id
@@ -103,6 +109,7 @@ struct Request: Identifiable, Hashable, Codable {
         self.negotiationChain = negotiationChain
         self.confirmations = confirmations
         self.cancellationReason = cancellationReason
+        self.stake = stake
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -128,6 +135,7 @@ struct Request: Identifiable, Hashable, Codable {
         cancellationReason = try container.decodeIfPresent(
             CancellationReason.self, forKey: .cancellationReason
         )
+        stake = try container.decodeIfPresent(Stake.self, forKey: .stake)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }

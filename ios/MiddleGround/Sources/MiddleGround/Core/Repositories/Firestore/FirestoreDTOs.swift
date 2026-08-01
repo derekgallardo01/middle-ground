@@ -18,6 +18,8 @@ struct RequestDTO: Codable, Identifiable {
     var confirmations: [String: String]?
     /// Optional: only set when a plan was called off.
     var cancellationReason: String?
+    /// Optional: only set once someone proposes points on the plan.
+    var stake: Stake?
     var allParticipantIDs: [String]
     var createdAt: Timestamp
     var updatedAt: Timestamp
@@ -35,6 +37,7 @@ struct RequestDTO: Codable, Identifiable {
         self.negotiationChain = request.negotiationChain.map { NegotiationMessageDTO(from: $0) }
         self.confirmations = request.confirmations.mapValues(\.rawValue)
         self.cancellationReason = request.cancellationReason?.rawValue
+        self.stake = request.stake
         self.allParticipantIDs = request.allParticipantIDs
         self.createdAt = Timestamp(date: request.createdAt)
         self.updatedAt = Timestamp(date: request.updatedAt)
@@ -67,6 +70,7 @@ struct RequestDTO: Codable, Identifiable {
             // same reason an unknown category no longer does.
             confirmations: (confirmations ?? [:]).compactMapValues(ConfirmationOutcome.init(rawValue:)),
             cancellationReason: cancellationReason.flatMap(CancellationReason.init(rawValue:)),
+            stake: stake,
             createdAt: createdAt.dateValue(),
             updatedAt: updatedAt.dateValue()
         )

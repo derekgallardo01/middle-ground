@@ -74,6 +74,8 @@ final class RequestService {
         if updated.isConfirmedComplete {
             updated.status = .completed
         }
+        // Nothing to write for the stake: its settlement is derived from these very
+        // confirmations, so it resolves the moment the second answer lands.
         updated.updatedAt = Date()
 
         try await repository.updateRequest(updated)
@@ -86,7 +88,36 @@ final class RequestService {
         return updated
     }
 
-    /// Withdraws a request. Only its creator may do this, and only while it is unanswered.
+    /// Puts points on the plan happening. The other person must agree before it is live.
+    func proposeStake(
+        on request: Request,
+        points: Int,
+        by userID: String
+    ) async throws -> Request {
+        guard request.isOpen, request.isParticipant(userID), request.stake == nil else {
+            throw RequestError.notAllowedToStake
+        }
+        var updated = request
+        updated.stake = Stake(proposedBy: userID, points: points)
+        updated.updatedAt = Date()
+        try await repository.updateRequest(updated)
+        return updated
+    }
+
+    /// Accepts the other person's proposed stake. Only they can — you cannot agree with yourself.
+    func acceptStake(on request: Request, by userID: String) async throws -> Request {
+        guard request.isOpen,
+              let stake = request.stake,
+              stake.canAccept(userID) else {
+            throw RequestError.notAllowedToStake
+        }
+        var updated = request
+        updated.stake?.acceptedBy = userID
+        updated.updatedAt = Date()
+        try await repository.updateRequest(updated)
+        return updated
+    }
+
     /// Withdraws a request, recording why.
     ///
     /// This used to delete the document. That erased the fact a plan had ever been made, so

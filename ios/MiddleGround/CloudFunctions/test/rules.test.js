@@ -192,6 +192,88 @@ describe('cancelling a request', () => {
   });
 });
 
+// Points on a plan happening. Staking is not turn-taking -- either person may propose and the
+// *other* must accept, which is exactly when it is not their turn -- so it needs its own branch.
+describe('staking points on a plan', () => {
+  beforeEach(() => seed((db) => setDoc(doc(db, 'requests/r1'), request())));
+
+  test('a participant can propose a stake', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asAlice(), 'requests/r1'), {
+        stake: { proposedBy: ALICE, points: 25 },
+        updatedAt: new Date(),
+      }),
+    );
+  });
+
+  test('the other person can accept it, even out of turn', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_s'), request({ stake: { proposedBy: BOB, points: 25 } })),
+    );
+    // Alice is the creator and it is not her turn to respond, but agreeing to a stake is not
+    // a response.
+    await assertSucceeds(
+      updateDoc(doc(asAlice(), 'requests/r_s'), {
+        stake: { proposedBy: BOB, points: 25, acceptedBy: ALICE },
+      }),
+    );
+  });
+
+  test('a non-participant cannot stake', async () => {
+    await assertFails(
+      updateDoc(doc(asMallory(), 'requests/r1'), { stake: { proposedBy: MALLORY, points: 25 } }),
+    );
+  });
+
+  test('staking cannot smuggle in an answer', async () => {
+    await assertFails(
+      updateDoc(doc(asAlice(), 'requests/r1'), {
+        stake: { proposedBy: ALICE, points: 25 },
+        status: 'accepted',
+      }),
+    );
+  });
+
+  test('a settled request cannot be staked on', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_done'), request({ status: 'accepted' })));
+    await assertFails(
+      updateDoc(doc(asAlice(), 'requests/r_done'), { stake: { proposedBy: ALICE, points: 25 } }),
+    );
+  });
+
+  // The settlement is derived from the confirmations, never stored, so there is nothing to
+  // forge -- but the stake itself must not be rewritable by whoever confirms or responds.
+  test('responding cannot rewrite the stake', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_t'), request({ stake: { proposedBy: ALICE, points: 10 } })),
+    );
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_t'), {
+        status: 'accepted',
+        stake: { proposedBy: ALICE, points: 500 },
+      }),
+    );
+  });
+
+  test('confirming attendance cannot rewrite the stake', async () => {
+    const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_u'), request({
+        status: 'accepted',
+        proposedTime: past,
+        confirmations: {},
+        stake: { proposedBy: ALICE, points: 10, acceptedBy: BOB },
+      })),
+    );
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_u'), {
+        confirmations: { [BOB]: 'happened' },
+        stake: { proposedBy: ALICE, points: 500, acceptedBy: BOB },
+      }),
+    );
+  });
+});
+
 // Recording whether an accepted plan actually happened — the only write permitted on a settled
 // request, and the signal every reliability idea is computed from.
 describe('confirming attendance', () => {

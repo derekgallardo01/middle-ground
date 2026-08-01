@@ -16,6 +16,7 @@ final class RequestEntity {
     /// Optional so SwiftData stores created before attendance existed still load.
     var confirmationsData: Data?
     var cancellationReasonRaw: String?
+    var stakeData: Data?
     var createdAt: Date
     var updatedAt: Date
     var needsSync: Bool
@@ -36,6 +37,7 @@ final class RequestEntity {
         self.negotiationChainData = try? JSONEncoder().encode(request.negotiationChain)
         self.confirmationsData = try? JSONEncoder().encode(request.confirmations)
         self.cancellationReasonRaw = request.cancellationReason?.rawValue
+        self.stakeData = request.stake.flatMap { try? JSONEncoder().encode($0) }
     }
 
     func update(from request: Request) {
@@ -52,6 +54,7 @@ final class RequestEntity {
         self.negotiationChainData = try? JSONEncoder().encode(request.negotiationChain)
         self.confirmationsData = try? JSONEncoder().encode(request.confirmations)
         self.cancellationReasonRaw = request.cancellationReason?.rawValue
+        self.stakeData = request.stake.flatMap { try? JSONEncoder().encode($0) }
     }
 
     func toModel() -> Request? {
@@ -92,6 +95,7 @@ final class RequestEntity {
             negotiationChain: negotiationChain,
             confirmations: confirmations,
             cancellationReason: cancellationReasonRaw.flatMap(CancellationReason.init(rawValue:)),
+            stake: stakeData.flatMap { try? JSONDecoder().decode(Stake.self, from: $0) },
             createdAt: createdAt,
             updatedAt: updatedAt
         )

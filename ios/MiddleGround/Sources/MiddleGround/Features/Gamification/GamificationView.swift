@@ -5,6 +5,7 @@ struct GamificationView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var levelNumber: CGFloat = 32
 
     @State private var viewModel = GamificationViewModel()
+    @State private var selectedStat: StatDetail?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -35,6 +36,13 @@ struct GamificationView: View {
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
                 await viewModel.loadGamificationData()
+            }
+            .sheet(item: $selectedStat) { stat in
+                StatDetailView(
+                    detail: stat,
+                    stats: viewModel.stats,
+                    weeklyCompletion: viewModel.weeklyCompletion
+                )
             }
         }
         .task {
@@ -138,23 +146,39 @@ struct GamificationView: View {
         .mgShadow(MGShadow.md)
     }
 
+    /// Both cards open a sheet explaining where their number came from.
+    ///
+    /// `Button` rather than `.onTapGesture`, so the button trait reaches VoiceOver — a tap
+    /// gesture announces these as plain text and gives no indication they do anything.
     private var statsRow: some View {
         HStack(spacing: 12) {
-            GamificationCard(
-                title: "Daily Streak",
-                value: "\(viewModel.stats.streakDays)",
-                subtitle: viewModel.stats.streakDays == 1 ? "day" : "days",
-                icon: "flame.fill",
-                color: MGColors.coral
-            )
-            GamificationCard(
-                title: "Growth Score",
-                value: "\(viewModel.stats.growthScore)",
-                subtitle: viewModel.stats.growthScore > 0 ? "Great job!" : "Just getting started",
-                icon: "chart.line.uptrend.xyaxis",
-                color: MGColors.indigo
-            )
+            Button {
+                selectedStat = .streak
+            } label: {
+                GamificationCard(
+                    title: "Daily Streak",
+                    value: "\(viewModel.stats.streakDays)",
+                    subtitle: viewModel.stats.streakDays == 1 ? "day" : "days",
+                    icon: "flame.fill",
+                    color: MGColors.coral
+                )
+            }
+            .accessibilityHint("Shows how your streak works and whether today counts")
+
+            Button {
+                selectedStat = .growth
+            } label: {
+                GamificationCard(
+                    title: "Growth Score",
+                    value: "\(viewModel.stats.growthScore)",
+                    subtitle: viewModel.stats.growthScore > 0 ? "Great job!" : "Just getting started",
+                    icon: "chart.line.uptrend.xyaxis",
+                    color: MGColors.indigo
+                )
+            }
+            .accessibilityHint("Shows how your score was calculated")
         }
+        .buttonStyle(ScaleButtonStyle())
     }
 }
 

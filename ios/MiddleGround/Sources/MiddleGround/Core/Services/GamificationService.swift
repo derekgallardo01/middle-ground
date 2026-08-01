@@ -189,6 +189,16 @@ actor GamificationService: GamificationServiceProtocol {
 
     @discardableResult
     func recordResponse(_ response: ResponseType, to request: Request, for userID: String) async -> GamificationOutcome {
+        // Restore before reading, or this method destroys progress.
+        //
+        // It reads local state and then writes the result through to the mirror. After a
+        // reinstall the local store is empty, so without this the first response builds on
+        // `defaultStats` and that write replaces the user's real history in Firestore —
+        // silently, and with nothing to recover from. Restoring here rather than in a view
+        // model means no screen can reach this method by a path that skips it, and the
+        // per-user `restoreAttempted` guard makes the repeat calls free.
+        await restoreFromMirrorIfNeeded(for: userID)
+
         var stats = await stats(for: userID)
         let calendar = Calendar.current
         let now = Date()

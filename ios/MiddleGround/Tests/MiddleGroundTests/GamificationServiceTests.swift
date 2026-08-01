@@ -91,6 +91,42 @@ final class GamificationServiceTests: XCTestCase {
         XCTAssertEqual(after.relationshipXP, 999)
     }
 
+    /// Responding on a fresh install must not wipe the account's history.
+    ///
+    /// `recordResponse` reads local progress and writes the result through to the mirror. After a
+    /// reinstall the local store is empty, so without restoring first it would build on zeroes and
+    /// that write would replace the real history in Firestore. This became reachable the moment
+    /// Home stopped loading stats: responding from the feed no longer passes through any screen
+    /// that restores.
+    func testRecordResponseRestoresBeforeAwardingOnAFreshInstall() async {
+        let mirror = MockGamificationRepository()
+        // Responded yesterday, so today's response should extend the streak rather than restart
+        // it — which is only possible if the restore happened.
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())
+        let existing = GamificationStats(
+            streakDays: 4,
+            relationshipXP: 800,
+            level: 2,
+            growthScore: 30,
+            nextLevelXP: 1000,
+            acceptedCount: 8,
+            negotiatedCount: 3,
+            lastResponseDate: yesterday
+        )
+        await mirror.save(existing, for: userID)
+
+        // A brand-new device: nothing in the local store at all.
+        let fresh = GamificationService(store: defaults, mirror: mirror)
+        let outcome = await fresh.recordResponse(.accept, to: .preview, for: userID)
+
+        XCTAssertEqual(outcome.stats.acceptedCount, 9, "should build on the restored 8, not on 0")
+        XCTAssertEqual(outcome.stats.relationshipXP, 800 + GamificationRules.xp(for: .accept))
+        XCTAssertEqual(outcome.stats.streakDays, 5, "the existing streak must extend, not restart")
+
+        let persisted = try? await mirror.stats(for: userID)
+        XCTAssertEqual(persisted?.acceptedCount, 9, "the mirror must not be reset to a fresh start")
+    }
+
     /// Callers restore on every load, so a user with no progress anywhere must not re-read the
     /// mirror each time — the local store stays empty, so the nil check alone never settles.
     func testRestoreConsultsTheMirrorOnlyOnce() async {

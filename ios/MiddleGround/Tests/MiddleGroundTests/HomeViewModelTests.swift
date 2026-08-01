@@ -34,13 +34,9 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.requests.isEmpty, "mock repository seeds requests")
     }
 
-    func testLoadStatsPopulatesStats() async {
-        let viewModel = HomeViewModel()
-        await viewModel.loadCurrentUser()
-        await viewModel.loadStats()
-
-        XCTAssertGreaterThanOrEqual(viewModel.stats.level, 1)
-    }
+    // Home no longer loads or shows gamification stats — the streak and growth score live on the
+    // Activities tab. The restore that `loadStats` used to perform now happens inside
+    // `recordResponse`, covered by GamificationServiceTests.
 
     /// The header's count must follow whose turn it is, not `status == .pending`.
     ///

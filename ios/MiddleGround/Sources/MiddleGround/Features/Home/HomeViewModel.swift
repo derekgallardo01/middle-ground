@@ -20,7 +20,6 @@ final class HomeViewModel {
     /// being pointed at is disabled, because there is nobody to send to.
     var isPaired = false
     var inviteCode: String?
-    var stats: GamificationStats = GamificationStats(streakDays: 0, relationshipXP: 0, level: 1, growthScore: 0, nextLevelXP: 500)
     var isLoading = false
     var errorMessage: String?
 
@@ -45,7 +44,6 @@ final class HomeViewModel {
             await loadCurrentUser()
             await loadRelationshipState()
             await loadRequests()
-            await loadStats()
         }
     }
 
@@ -68,14 +66,6 @@ final class HomeViewModel {
         isPaired = relationships.contains(where: \.isPaired)
         inviteCode = relationships.first { !$0.isPaired }?.inviteCode
         hasLoadedRelationship = true
-    }
-
-    func loadStats() async {
-        guard let currentUser else { return }
-        // Home shows the streak and growth score too, so it has to restore as well — otherwise
-        // a reinstalled user sees zeroes here until they happen to open the Activities tab.
-        await gamificationService.restoreFromMirrorIfNeeded(for: currentUser.id)
-        stats = await gamificationService.stats(for: currentUser.id)
     }
 
     func loadRequests() async {
@@ -147,9 +137,10 @@ final class HomeViewModel {
                     requests[index] = updated
                 }
 
-                // Award XP / streak / achievements, then reflect the new totals immediately.
+                // Award XP / streak / achievements. Home no longer displays the totals — they
+                // live on Activities — but the celebration still reports what this response
+                // earned, from the outcome rather than from stored state.
                 let outcome = await gamificationService.recordResponse(response, to: request, for: currentUser.id)
-                stats = outcome.stats
                 celebrate(response: response, outcome: outcome)
             } catch {
                 errorMessage = "Failed to send response."

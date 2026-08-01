@@ -5,7 +5,10 @@ struct HomeView: View {
     @State private var selectedRequest: Request?
     @State private var showCreateRequest = false
     @State private var showSpontaneous = false
-    @Namespace private var animationNamespace
+
+    /// Set when the feed's Negotiate button opened the detail screen, so it can open straight
+    /// into the composer. Cleared on every other navigation.
+    @State private var composingRequestID: String?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AppState.self) private var appState
@@ -18,13 +21,10 @@ struct HomeView: View {
 
                 ScrollView {
                     LazyVStack(spacing: 20) {
-                        // Placeholders rather than defaults while the first load is in flight.
-                        // These render "Hello, there" and a 0-day streak before the user and
-                        // their stats arrive, so the screen visibly rewrites itself a beat
-                        // after opening.
+                        // A placeholder rather than a default while the first load is in flight.
+                        // This renders "Hello, there" before the user arrives, so the screen
+                        // visibly rewrites itself a beat after opening.
                         header
-                            .redacted(reason: viewModel.hasLoaded ? [] : .placeholder)
-                        statsRow
                             .redacted(reason: viewModel.hasLoaded ? [] : .placeholder)
                         feedSection
                     }
@@ -54,7 +54,7 @@ struct HomeView: View {
             .navigationTitle("Middle Ground")
             .navigationBarTitleDisplayMode(.large)
             .navigationDestination(item: $selectedRequest) { request in
-                RequestDetailView(request: request, namespace: animationNamespace)
+                RequestDetailView(request: request, startComposing: composingRequestID == request.id)
             }
             .sheet(isPresented: $showCreateRequest) {
                 CreateRequestView { _ in
@@ -161,24 +161,36 @@ struct HomeView: View {
         }
     }
 
-    private var statsRow: some View {
-        HStack(spacing: 12) {
-            GamificationCard(
-                title: "Daily Streak",
-                value: "\(viewModel.stats.streakDays)",
-                subtitle: viewModel.stats.streakDays == 1 ? "day" : "days",
-                icon: "flame.fill",
-                color: MGColors.coral
-            )
-            GamificationCard(
-                title: "Growth Score",
-                value: "\(viewModel.stats.growthScore)",
-                subtitle: viewModel.stats.growthScore > 0 ? "Great job!" : "Just getting started",
-                icon: "chart.line.uptrend.xyaxis",
-                color: MGColors.indigo
-            )
+    private func open(_ request: Request) {
+        if reduceMotion {
+            selectedRequest = request
+        } else {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                selectedRequest = request
+            }
         }
+        Haptics.shared.impact(.light)
     }
+
+    /// Negotiate opens the request instead of answering it.
+    ///
+    /// From the feed it used to send `.negotiate` with no text — a bubble reading "🤝 Negotiate"
+    /// and nothing else. Worse, responding hands the turn over, so the composer the user needed
+    /// was gone by the time they arrived: they could ask to negotiate but never say what they
+    /// wanted. Accept and Decline are complete actions on their own and still send from here.
+    private func respond(to request: Request, with response: ResponseType) {
+        guard response == .negotiate else {
+            viewModel.respond(to: request, with: response)
+            return
+        }
+        composingRequestID = request.id
+        open(request)
+    }
+
+    // The Daily Streak and Growth Score cards used to sit here, between the greeting and the
+    // feed. Neither was actionable, and together they pushed the requests — the only thing on
+    // this screen anyone can act on — most of a card further down. Both still live on the
+    // Activities tab, where they are now tappable and explain how they were calculated.
 
     /// Two genuinely different empty states, because there are two genuinely different reasons
     /// the feed is empty — and only one of them is solved by writing a request.
@@ -226,25 +238,18 @@ struct HomeView: View {
             } else {
                 ForEach(viewModel.requests) { request in
                     Button {
-                        if !reduceMotion {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                                selectedRequest = request
-                            }
-                        } else {
-                            selectedRequest = request
-                        }
-                        Haptics.shared.impact(.light)
+                        composingRequestID = nil
+                        open(request)
                     } label: {
                         // A nil closure hides the response buttons. Previously this was always
                         // non-nil, so a creator saw Accept/Decline on their own request.
                         RequestCard(
                             request: request,
                             onRespond: viewModel.canRespond(to: request)
-                                ? { response in viewModel.respond(to: request, with: response) }
+                                ? { response in respond(to: request, with: response) }
                                 : nil,
                             isResponding: viewModel.isResponding(to: request)
                         )
-                        .matchedGeometryEffect(id: "card_\(request.id)", in: animationNamespace, properties: .frame, anchor: .topLeading)
                     }
                     .buttonStyle(PlainButtonStyle())
                     .accessibilityLabel("Request: \(request.title), status \(request.status.displayName)")

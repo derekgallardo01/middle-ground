@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The package targets iOS, so everything builds against a simulator.
+  # `swift build` would target the host and fail on `import UIKit`.
+  DESTINATION: 'platform=iOS Simulator,name=iPhone 17'
+
+jobs:
+  test:
+    name: Build & Test (iOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.app
+
+      - name: Show toolchain
+        run: xcodebuild -version && swift --version
+
+      # Package.resolved is committed, so this restores an exact dependency set.
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ runner.os }}-${{ hashFiles('ios/MiddleGround/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Build and test
+        working-directory: ios/MiddleGround
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -scheme MiddleGround \
+            -destination "$DESTINATION" \
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/.spm" \
+            -resultBundlePath TestResults.xcresult \
+            test | xcbeautify
+
+      - name: Generate and build the app shell
+        run: |
+          brew install xcodegen
+          cd ios/MiddleGround/App
+          xcodegen generate
+          set -o pipefail
+          xcodebuild \
+            -project MiddleGround.xcodeproj \
+            -scheme MiddleGroundApp \
+            -destination "$DESTINATION" \
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/.spm" \
+            CODE_SIGNING_ALLOWED=NO \
+            build | xcbeautify
+
+      # The Release configuration had never been compiled anywhere. That matters because it
+      # is the only build where the `#if DEBUG` guards actually take effect — the anonymous
+      # test-user sign-in, PreviewAuthService, and the mock repository registrations all
+      # compile out here and nowhere else. A break in that path is invisible in Debug.
+      - name: Build Release configuration
+        run: |
+          cd ios/MiddleGround/App
+          set -o pipefail
+          xcodebuild \
+            -project MiddleGround.xcodeproj \
+            -scheme MiddleGroundApp \
+            -configuration Release \
+            -destination "$DESTINATION" \
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/.spm" \
+            CODE_SIGNING_ALLOWED=NO \
+            build | xcbeautify
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ios/MiddleGround/TestResults.xcresult
+          retention-days: 7
+
+  lint:
+    name: SwiftLint
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SwiftLint
+        run: brew install swiftlint
+      - name: Lint
+        run: swiftlint lint --strict --reporter github-actions-logging
+
+  rules:
+    name: Firestore rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ios/MiddleGround/CloudFunctions/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ios/MiddleGround/CloudFunctions
+        run: npm install
+
+      # Exercises firestore.rules against the emulator so the security model is
+      # actually tested rather than reviewed by eye.
+      - name: Test security rules
+        working-directory: ios/MiddleGround
+        run: npx --yes firebase-tools emulators:exec --only firestore "cd CloudFunctions && npm test"

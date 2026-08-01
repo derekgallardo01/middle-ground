@@ -101,6 +101,65 @@ final class RequestDetailViewModel {
             ?? URL(string: "https://maps.apple.com")!
     }
 
+    // MARK: - Points on the plan
+
+    /// What the stake row should show, if anything.
+    enum StakeState: Equatable {
+        /// Nothing staked yet, and this plan is still open.
+        case available
+        /// You proposed it; they have not agreed.
+        case awaitingThem(points: Int)
+        /// They proposed it and you can agree.
+        case awaitingYou(points: Int)
+        /// Agreed, riding on whether the plan happens.
+        case live(points: Int)
+        case settled(StakeSettlement, points: Int)
+    }
+
+    var stakeState: StakeState? {
+        guard let currentUserID, request.isParticipant(currentUserID) else { return nil }
+
+        guard let stake = request.stake else {
+            // Only worth offering on a plan that could still happen.
+            return request.isOpen ? .available : nil
+        }
+        if let settlement = request.stakeSettlement {
+            return .settled(settlement, points: stake.points)
+        }
+        if stake.isAccepted { return .live(points: stake.points) }
+        return stake.canAccept(currentUserID)
+            ? .awaitingYou(points: stake.points)
+            : .awaitingThem(points: stake.points)
+    }
+
+    func proposeStake(points: Int) async {
+        guard let currentUserID else { return }
+        await runStakeAction {
+            try await self.requestService.proposeStake(
+                on: self.request, points: points, by: currentUserID
+            )
+        }
+    }
+
+    func acceptStake() async {
+        guard let currentUserID else { return }
+        await runStakeAction {
+            try await self.requestService.acceptStake(on: self.request, by: currentUserID)
+        }
+    }
+
+    private func runStakeAction(_ work: @escaping () async throws -> Request) async {
+        isSending = true
+        errorMessage = nil
+        defer { isSending = false }
+        do {
+            request = try await work()
+            Haptics.shared.impact(.light)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     // MARK: - Did it happen?
 
     var needsAttendanceConfirmation: Bool {

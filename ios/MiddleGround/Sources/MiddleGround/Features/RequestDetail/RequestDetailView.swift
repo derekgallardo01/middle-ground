@@ -45,6 +45,18 @@ struct RequestDetailView: View {
                             .transition(.opacity)
                     }
 
+                    if let stakeState = viewModel.stakeState {
+                        StakeRow(
+                            state: stakeState,
+                            partnerName: viewModel.partnerName ?? "your partner",
+                            isBusy: viewModel.isSending,
+                            onPropose: { points in
+                                Task { await viewModel.proposeStake(points: points) }
+                            },
+                            onAccept: { Task { await viewModel.acceptStake() } }
+                        )
+                    }
+
                     NegotiationView(viewModel: viewModel, composerFocused: $composerFocused)
 
                     Spacer(minLength: 40)

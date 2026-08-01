@@ -115,7 +115,7 @@ service cloud.firestore {
     // Cloud Functions fan-out) can check membership in one comparison.
     // Accepting, declining or completing settles a decision; nothing may reopen it.
     function isSettled() {
-      return resource.data.status in ['accepted', 'declined', 'completed'];
+      return resource.data.status in ['accepted', 'declined', 'completed', 'cancelled'];
     }
 
     function lastMessage() {
@@ -133,6 +133,30 @@ service cloud.firestore {
       return resource.data.negotiationChain.size() == 0
         ? uid() in resource.data.recipientIDs
         : (lastMessage().senderID != uid() || lastMessage().responseType == 'save');
+    }
+
+    // Withdrawing your own request, which is now a write rather than a delete.
+    //
+    // Cancelling used to delete the document, which erased the fact a plan had ever been made
+    // along with any chance of "cancelled three times in a row" meaning something. Keeping the
+    // record means the creator needs a way to close it that is not their turn to speak — the
+    // ordinary response path requires `isMyTurn()`, and the person cancelling has usually just
+    // been answered.
+    //
+    // Narrow on purpose: only the creator, only from an open state, only into `cancelled`, and
+    // only `status`, `cancellationReason` and `updatedAt` may move. It cannot be used to edit
+    // the plan or to answer on anyone's behalf.
+    function isCancelling() {
+      return resource.data.creatorID == uid()
+        && !isSettled()
+        && request.resource.data.status == 'cancelled'
+        && immutable('creatorID')
+        && immutable('recipientIDs')
+        && immutable('allParticipantIDs')
+        && immutable('title')
+        && immutable('proposedTime')
+        && immutable('negotiationChain')
+        && immutable('createdAt');
     }
 
     // Recording whether an accepted plan actually happened.
@@ -185,6 +209,7 @@ service cloud.firestore {
                         && immutable('recipientIDs')
                         && immutable('allParticipantIDs'))
                       || isConfirmingAttendance()
+                      || isCancelling()
                     );
 
       // The creator may withdraw their own request while it is still open.

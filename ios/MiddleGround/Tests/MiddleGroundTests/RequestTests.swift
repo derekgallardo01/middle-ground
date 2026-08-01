@@ -233,6 +233,37 @@ final class RequestTests: XCTestCase {
         XCTAssertEqual(RequestStatus.declined.color, MGColors.coral)
     }
 
+    // MARK: - Cancellation
+    //
+    // Cancelling used to delete the document, which erased the fact a plan had ever been made —
+    // and with it any chance of "cancelled three times in a row" meaning something.
+
+    func testACancelledRequestIsClosedAndAnswerableByNobody() {
+        var request = Request.preview
+        request.status = .cancelled
+
+        XCTAssertFalse(request.isOpen)
+        XCTAssertTrue(request.awaitingResponseFrom.isEmpty)
+        XCTAssertFalse(request.canCancel(as: request.creatorID), "it cannot be cancelled twice")
+    }
+
+    func testCancellingIsOnlyForTheCreatorAndOnlyWhileOpen() {
+        let request = Request.previewAwaitingMe
+
+        XCTAssertTrue(request.canCancel(as: request.creatorID))
+        XCTAssertFalse(request.canCancel(as: request.recipientIDs[0]))
+
+        var settled = request
+        settled.status = .accepted
+        XCTAssertFalse(settled.canCancel(as: settled.creatorID))
+    }
+
+    func testEveryCancellationReasonHasAName() {
+        for reason in CancellationReason.allCases {
+            XCTAssertFalse(reason.displayName.isEmpty, "\(reason) has no display name")
+        }
+    }
+
     // MARK: - Unknown categories
     //
     // A category added in a later release used to make every request using it silently vanish for

@@ -1,147 +1,5 @@
 import Foundation
 
-enum RequestCategory: String, Codable, CaseIterable, Identifiable {
-    case relationship
-    case friends
-    case family
-    case daily
-    case travel
-    case spontaneous
-    case dating
-    case chill
-
-    /// A category this build does not recognise, kept so the request still appears.
-    ///
-    /// Decoding used to fail closed: `RequestDTO.toModel()` returned nil on an unknown raw value
-    /// and the repository `compactMap`ped it away, so a request created in a category added after
-    /// your build shipped was not an error — it was simply *absent*. One person sends a plan, the
-    /// other never sees it, and nothing anywhere reports a problem. Falling back here means the
-    /// worst case is a request with a generic icon rather than a request that does not exist.
-    ///
-    /// Deliberately excluded from `allCases` so it can never be picked when composing.
-    case unknown
-
-    static var allCases: [RequestCategory] {
-        [.relationship, .friends, .family, .daily, .travel, .spontaneous, .dating, .chill]
-    }
-
-    var id: String { rawValue }
-
-    /// Never fails. Unrecognised values become `.unknown`.
-    init(storedValue: String) {
-        self = RequestCategory(rawValue: storedValue) ?? .unknown
-    }
-
-    var displayName: String {
-        switch self {
-        case .relationship: return "Relationship"
-        case .friends: return "Friends"
-        case .family: return "Family"
-        case .daily: return "Daily Life"
-        case .travel: return "Travel"
-        case .spontaneous: return "Spontaneous"
-        case .dating: return "Dating"
-        case .chill: return "Chill"
-        case .unknown: return "Other"
-        }
-    }
-
-    var iconName: String {
-        switch self {
-        case .relationship: return "heart.fill"
-        case .friends: return "person.2.fill"
-        case .family: return "house.fill"
-        case .daily: return "checklist"
-        case .travel: return "airplane"
-        case .spontaneous: return "bolt.fill"
-        case .dating: return "heart.circle.fill"
-        case .chill: return "sofa.fill"
-        case .unknown: return "questionmark.circle"
-        }
-    }
-}
-
-/// Whether an accepted plan actually took place, as reported by one participant.
-///
-/// This is the signal the app never collected. A request's life ended at `accepted`, and
-/// `RequestStatus.completed` was a state nothing ever assigned — so there was no record of
-/// whether anyone turned up, and nothing that depends on attendance could be computed from it.
-enum ConfirmationOutcome: String, Codable, Hashable, Sendable {
-    case happened
-    case didNotHappen
-}
-
-enum ResponseType: String, Codable, CaseIterable, Identifiable {
-    case accept
-    case decline
-    case negotiate
-    case reschedule
-    case counter
-    case save
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .accept: return "Accept"
-        case .decline: return "Decline"
-        case .negotiate: return "Negotiate"
-        case .reschedule: return "Reschedule"
-        case .counter: return "Counter"
-        case .save: return "Save"
-        }
-    }
-
-    var emoji: String {
-        switch self {
-        case .accept: return "✅"
-        case .decline: return "❌"
-        case .negotiate: return "🤝"
-        case .reschedule: return "⏰"
-        case .counter: return "📝"
-        case .save: return "❤️"
-        }
-    }
-
-    /// Past-tense phrasing for the activity feed.
-    var activityDescription: String {
-        switch self {
-        case .accept: return "Accepted a request"
-        case .decline: return "Declined a request"
-        case .negotiate: return "Found a middle ground"
-        case .reschedule: return "Rescheduled a plan"
-        case .counter: return "Sent a counter-offer"
-        case .save: return "Saved a request for later"
-        }
-    }
-}
-
-enum RequestStatus: String, Codable, Identifiable {
-    case pending
-    case accepted
-    case declined
-    case negotiated
-    case rescheduled
-    case countered
-    case saved
-    case completed
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .pending: return "Pending"
-        case .accepted: return "Accepted"
-        case .declined: return "Declined"
-        case .negotiated: return "Negotiating"
-        case .rescheduled: return "Rescheduled"
-        case .countered: return "Countered"
-        case .saved: return "Saved"
-        case .completed: return "Completed"
-        }
-    }
-}
-
 struct NegotiationMessage: Identifiable, Hashable, Codable {
     let id: String
     let senderID: String
@@ -214,6 +72,8 @@ struct Request: Identifiable, Hashable, Codable {
     var negotiationChain: [NegotiationMessage]
     /// What each participant said about whether the plan happened, keyed by user ID.
     var confirmations: [String: ConfirmationOutcome]
+    /// Why this was called off, when it was.
+    var cancellationReason: CancellationReason?
     var createdAt: Date
     var updatedAt: Date
 
@@ -228,6 +88,7 @@ struct Request: Identifiable, Hashable, Codable {
          status: RequestStatus = .pending,
          negotiationChain: [NegotiationMessage] = [],
          confirmations: [String: ConfirmationOutcome] = [:],
+         cancellationReason: CancellationReason? = nil,
          createdAt: Date = Date(),
          updatedAt: Date = Date()) {
         self.id = id
@@ -241,6 +102,7 @@ struct Request: Identifiable, Hashable, Codable {
         self.status = status
         self.negotiationChain = negotiationChain
         self.confirmations = confirmations
+        self.cancellationReason = cancellationReason
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -263,6 +125,9 @@ struct Request: Identifiable, Hashable, Codable {
         confirmations = try container.decodeIfPresent(
             [String: ConfirmationOutcome].self, forKey: .confirmations
         ) ?? [:]
+        cancellationReason = try container.decodeIfPresent(
+            CancellationReason.self, forKey: .cancellationReason
+        )
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
@@ -298,7 +163,7 @@ struct Request: Identifiable, Hashable, Codable {
     /// terminal is what previously froze a request the moment anyone replied.
     var isOpen: Bool {
         switch status {
-        case .accepted, .declined, .completed:
+        case .accepted, .declined, .completed, .cancelled:
             return false
         case .pending, .negotiated, .rescheduled, .countered, .saved:
             return true

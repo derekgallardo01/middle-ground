@@ -87,11 +87,34 @@ final class RequestService {
     }
 
     /// Withdraws a request. Only its creator may do this, and only while it is unanswered.
-    func cancel(_ request: Request, by userID: String) async throws {
+    /// Withdraws a request, recording why.
+    ///
+    /// This used to delete the document. That erased the fact a plan had ever been made, so
+    /// "cancelled three times in a row" could never mean anything — you cannot build a
+    /// reliability signal on records that vanish when they become inconvenient. The request now
+    /// moves to `.cancelled` and keeps its history; the other person still sees that it existed
+    /// and why it was called off, which is the point of telling them at all.
+    @discardableResult
+    func cancel(
+        _ request: Request,
+        reason: CancellationReason?,
+        by userID: String
+    ) async throws -> Request {
         guard request.canCancel(as: userID) else {
             throw RequestError.notAllowedToCancel
         }
-        try await repository.deleteRequest(request)
-        await analytics.track(.requestCancelled, userID: userID, requestID: request.id)
+        var updated = request
+        updated.status = .cancelled
+        updated.cancellationReason = reason
+        updated.updatedAt = Date()
+
+        try await repository.updateRequest(updated)
+        await analytics.track(
+            .requestCancelled,
+            userID: userID,
+            requestID: request.id,
+            metadata: reason.map { ["reason": $0.rawValue] } ?? [:]
+        )
+        return updated
     }
 }

@@ -28,7 +28,10 @@ struct RequestDetailView: View {
                     // from `currentUserID`, which is in memory, so they are correct on the
                     // first frame rather than appearing a beat later. The animation now covers
                     // an actual change of turn, not the arrival of the viewer's own identity.
-                    if viewModel.needsAttendanceConfirmation {
+                    if viewModel.request.status == .cancelled {
+                        cancelledRow
+                            .transition(.opacity)
+                    } else if viewModel.needsAttendanceConfirmation {
                         attendanceRow
                             .transition(.opacity.combined(with: .move(edge: .bottom)))
                     } else if viewModel.canRespond {
@@ -239,17 +242,41 @@ struct RequestDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         .accessibilityElement(children: .contain)
         // An alert rather than a confirmationDialog: on iOS 26 the dialog presents as a popover
-        // whose actions are not exposed as accessibility buttons.
-        .alert("Cancel this request?", isPresented: $showCancelConfirmation) {
-            Button("Keep it", role: .cancel) {}
-            Button("Cancel request", role: .destructive) {
-                Task {
-                    if await viewModel.cancelRequest() { dismiss() }
+        // whose actions are not exposed as accessibility buttons. Each reason is its own button
+        // for the same reason — a picker inside an alert is not reachable.
+        .alert("Why are you cancelling?", isPresented: $showCancelConfirmation) {
+            ForEach(CancellationReason.allCases) { reason in
+                Button(reason.displayName) {
+                    Task { await viewModel.cancelRequest(reason: reason) }
                 }
             }
+            Button("Keep it", role: .cancel) {}
         } message: {
-            Text("Your partner will no longer see it. This can't be undone.")
+            Text("""
+            Your partner sees that you cancelled and why. The plan stays in your history \
+            rather than disappearing.
+            """)
         }
+    }
+
+    /// Shown once a plan has been called off, so the record reads as a record.
+    private var cancelledRow: some View {
+        HStack(spacing: MGSpacing.md) {
+            Image(systemName: "xmark.circle")
+                .foregroundStyle(MGColors.warm600)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Cancelled")
+                    .mgFont(.body)
+                if let reason = viewModel.request.cancellationReason {
+                    Text(reason.displayName)
+                        .mgFont(.bodySmall)
+                        .foregroundStyle(MGColors.warm600)
+                }
+            }
+            Spacer()
+        }
+        .mgSurfaceCard()
+        .accessibilityElement(children: .combine)
     }
 
     private var header: some View {

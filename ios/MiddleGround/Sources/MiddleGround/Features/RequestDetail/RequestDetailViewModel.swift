@@ -166,7 +166,11 @@ final class RequestDetailViewModel {
     }
 
     /// Withdraws the request. Creator-only, enforced again in the service and the rules.
-    func cancelRequest() async -> Bool {
+    /// Cancelling keeps the request and records why, rather than deleting it.
+    ///
+    /// The screen no longer needs to dismiss afterwards — there is still something to look at,
+    /// and the other person can see that a plan existed and what happened to it.
+    func cancelRequest(reason: CancellationReason?) async -> Bool {
         guard let currentUser else {
             errorMessage = "Not signed in."
             return false
@@ -175,7 +179,7 @@ final class RequestDetailViewModel {
         errorMessage = nil
         defer { isSending = false }
         do {
-            try await requestService.cancel(request, by: currentUser.id)
+            request = try await requestService.cancel(request, reason: reason, by: currentUser.id)
             didCancel = true
             Haptics.shared.notification(.success)
             return true

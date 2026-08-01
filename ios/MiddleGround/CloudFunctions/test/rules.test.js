@@ -148,6 +148,50 @@ describe('requests', () => {
   });
 });
 
+// Cancelling keeps the record instead of deleting it, so "cancelled three times in a row" can
+// ever mean anything.
+describe('cancelling a request', () => {
+  beforeEach(() => seed((db) => setDoc(doc(db, 'requests/r1'), request())));
+
+  test('the creator can cancel with a reason', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asAlice(), 'requests/r1'), {
+        status: 'cancelled',
+        cancellationReason: 'unwell',
+        updatedAt: new Date(),
+      }),
+    );
+  });
+
+  test('a recipient cannot cancel someone else request', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r1'), { status: 'cancelled' }),
+    );
+  });
+
+  test('cancelling cannot rewrite the plan', async () => {
+    await assertFails(
+      updateDoc(doc(asAlice(), 'requests/r1'), {
+        status: 'cancelled',
+        title: 'Something else',
+      }),
+    );
+  });
+
+  test('an already settled request cannot be cancelled', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_done'), request({ status: 'accepted' })));
+    await assertFails(
+      updateDoc(doc(asAlice(), 'requests/r_done'), { status: 'cancelled' }),
+    );
+  });
+
+  // Cancelled is settled, so the record must not be removable afterwards either.
+  test('a cancelled request cannot then be deleted', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_x'), request({ status: 'cancelled' })));
+    await assertFails(deleteDoc(doc(asAlice(), 'requests/r_x')));
+  });
+});
+
 // Recording whether an accepted plan actually happened — the only write permitted on a settled
 // request, and the signal every reliability idea is computed from.
 describe('confirming attendance', () => {

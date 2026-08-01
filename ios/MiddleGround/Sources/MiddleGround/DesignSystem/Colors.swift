@@ -92,6 +92,8 @@ extension RequestStatus {
         case .negotiated, .countered: return Color(light: 0x6D28D9, dark: 0xC4B5FD)
         case .rescheduled: return Color(light: 0x0369A1, dark: 0x7DD3FC)
         case .saved: return Color(light: 0x9F1239, dark: 0xFDA4AF)
+        // Cancelled is history, not a failure — neutral rather than alarming.
+        case .cancelled: return MGColors.warm600
         }
     }
 
@@ -103,6 +105,7 @@ extension RequestStatus {
         case .negotiated, .countered: return MGColors.lavender
         case .rescheduled: return MGColors.sky
         case .saved: return MGColors.coral.opacity(0.8)
+        case .cancelled: return MGColors.warm400
         }
     }
 }

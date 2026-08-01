@@ -90,6 +90,52 @@ final class RequestDetailViewModel {
         "Waiting for \(partnerName ?? "your partner") to respond"
     }
 
+    // MARK: - Did it happen?
+
+    var needsAttendanceConfirmation: Bool {
+        guard let currentUserID else { return false }
+        return request.needsConfirmation(from: currentUserID)
+    }
+
+    /// How a plan that has been asked about ended up.
+    ///
+    /// A disagreement is its own outcome rather than a tie broken in someone's favour: one
+    /// person cannot record the other as absent, and a contested plan is what an appeal would
+    /// argue over, so it settles nothing on its own.
+    /// Semantic only — the view supplies the wording, icon and colour, so this stays free of
+    /// SwiftUI like the other view models.
+    enum AttendanceSummary: Equatable {
+        case happened
+        case didNotHappen
+        case disputed
+        case waitingOnThem(String)
+    }
+
+    var attendanceSummary: AttendanceSummary? {
+        guard let currentUserID, let mine = request.confirmations[currentUserID] else { return nil }
+        guard request.everyoneHasAnswered else {
+            return .waitingOnThem(partnerName ?? "your partner")
+        }
+        if request.isDisputed { return .disputed }
+        return mine == .happened ? .happened : .didNotHappen
+    }
+
+    func confirmAttendance(_ outcome: ConfirmationOutcome) async {
+        guard let currentUserID else { return }
+        isSending = true
+        errorMessage = nil
+        defer { isSending = false }
+        do {
+            request = try await requestService.confirmAttendance(
+                of: request, outcome: outcome, by: currentUserID
+            )
+            Haptics.shared.notification(.success)
+        } catch {
+            errorMessage = error.localizedDescription
+            Haptics.shared.notification(.error)
+        }
+    }
+
     init(request: Request) {
         self.request = request
         Task { await loadCurrentUser() }

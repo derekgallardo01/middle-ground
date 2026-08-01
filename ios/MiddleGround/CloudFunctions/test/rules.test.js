@@ -127,6 +127,97 @@ describe('requests', () => {
     await assertFails(deleteDoc(doc(asBob(), 'requests/r1')));
     await assertSucceeds(deleteDoc(doc(asAlice(), 'requests/r1')));
   });
+
+  // The rule used to allow the creator to delete anything they created, settled or not, even
+  // though its own comment claimed otherwise. Once attendance is recorded on a request, that is
+  // a way to erase your own no-shows.
+  test('the creator cannot delete a settled request', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_done'), request({ status: 'accepted' })));
+    await assertFails(deleteDoc(doc(asAlice(), 'requests/r_done')));
+  });
+
+  // Cancelling something the other person countered is legitimate, and the client offers it —
+  // a stricter rule would refuse a button the app shows.
+  test('the creator can still cancel a request mid-negotiation', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_mid'), request({
+        status: 'countered',
+        negotiationChain: [{ id: 'm1', senderID: BOB, responseType: 'counter', timestamp: new Date() }],
+      })),
+    );
+    await assertSucceeds(deleteDoc(doc(asAlice(), 'requests/r_mid')));
+  });
+});
+
+// Recording whether an accepted plan actually happened — the only write permitted on a settled
+// request, and the signal every reliability idea is computed from.
+describe('confirming attendance', () => {
+  const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  const accepted = (overrides = {}) =>
+    request({ status: 'accepted', proposedTime: past, confirmations: {}, ...overrides });
+
+  beforeEach(() => seed((db) => setDoc(doc(db, 'requests/r_past'), accepted())));
+
+  test('a participant can record their own answer', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_past'), { confirmations: { [BOB]: 'happened' } }),
+    );
+  });
+
+  test('a participant cannot answer for the other person', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_past'), { confirmations: { [ALICE]: 'didNotHappen' } }),
+    );
+  });
+
+  test('a non-participant cannot answer at all', async () => {
+    await assertFails(
+      updateDoc(doc(asMallory(), 'requests/r_past'), { confirmations: { [MALLORY]: 'happened' } }),
+    );
+  });
+
+  test('a plan that has not happened yet cannot be confirmed', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_future'), accepted({ proposedTime: future })),
+    );
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_future'), { confirmations: { [BOB]: 'happened' } }),
+    );
+  });
+
+  test('confirming cannot be used to edit the plan itself', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_past'), {
+        confirmations: { [BOB]: 'happened' },
+        title: 'Something else entirely',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_past'), {
+        confirmations: { [BOB]: 'happened' },
+        proposedTime: future,
+      }),
+    );
+  });
+
+  // A request with no time has no moment to ask about, so it never enters confirmation.
+  test('an undated plan cannot be confirmed', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_undated'), accepted({ proposedTime: null })),
+    );
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_undated'), { confirmations: { [BOB]: 'happened' } }),
+    );
+  });
+
+  // Settled requests are otherwise frozen, and must stay that way.
+  test('confirming does not reopen the decision', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_past'), { status: 'pending' }),
+    );
+  });
 });
 
 describe('turn taking on a request', () => {

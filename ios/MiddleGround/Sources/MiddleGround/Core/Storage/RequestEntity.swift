@@ -14,6 +14,8 @@ final class RequestEntity {
     var statusRaw: String
     var negotiationChainData: Data?
     var savedForLater: Bool
+    /// Optional so SwiftData stores created before attendance existed still load.
+    var confirmationsData: Data?
     var createdAt: Date
     var updatedAt: Date
     var needsSync: Bool
@@ -33,6 +35,7 @@ final class RequestEntity {
         self.updatedAt = request.updatedAt
         self.needsSync = false
         self.negotiationChainData = try? JSONEncoder().encode(request.negotiationChain)
+        self.confirmationsData = try? JSONEncoder().encode(request.confirmations)
     }
 
     func update(from request: Request) {
@@ -48,6 +51,7 @@ final class RequestEntity {
         self.createdAt = request.createdAt
         self.updatedAt = request.updatedAt
         self.negotiationChainData = try? JSONEncoder().encode(request.negotiationChain)
+        self.confirmationsData = try? JSONEncoder().encode(request.confirmations)
     }
 
     func toModel() -> Request? {
@@ -66,6 +70,15 @@ final class RequestEntity {
             negotiationChain = []
         }
 
+        let confirmations: [String: ConfirmationOutcome]
+        if let data = confirmationsData {
+            confirmations = (try? JSONDecoder().decode(
+                [String: ConfirmationOutcome].self, from: data
+            )) ?? [:]
+        } else {
+            confirmations = [:]
+        }
+
         return Request(
             id: id,
             creatorID: creatorID,
@@ -78,6 +91,7 @@ final class RequestEntity {
             status: status,
             negotiationChain: negotiationChain,
             savedForLater: savedForLater,
+            confirmations: confirmations,
             createdAt: createdAt,
             updatedAt: updatedAt
         )

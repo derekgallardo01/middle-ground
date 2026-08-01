@@ -28,11 +28,17 @@ struct RequestDetailView: View {
                     // from `currentUserID`, which is in memory, so they are correct on the
                     // first frame rather than appearing a beat later. The animation now covers
                     // an actual change of turn, not the arrival of the viewer's own identity.
-                    if viewModel.canRespond {
+                    if viewModel.needsAttendanceConfirmation {
+                        attendanceRow
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    } else if viewModel.canRespond {
                         quickResponseRow
                             .transition(.opacity.combined(with: .move(edge: .bottom)))
                     } else if viewModel.isAwaitingResponse {
                         waitingRow
+                            .transition(.opacity)
+                    } else if let outcome = viewModel.attendanceSummary {
+                        attendanceSummaryRow(outcome)
                             .transition(.opacity)
                     }
 
@@ -114,6 +120,90 @@ struct RequestDetailView: View {
             reaching you entirely, leave the group from your Profile.
             """)
         }
+    }
+
+    /// Asked once the plan's time has passed: did it actually happen?
+    ///
+    /// The app never collected this. A request's life ended at `accepted`, so there was no record
+    /// of whether anyone turned up — and nothing that depends on attendance could be built.
+    private var attendanceRow: some View {
+        VStack(alignment: .leading, spacing: MGSpacing.md) {
+            Text("Did this happen?")
+                .mgFont(.h3)
+            Text("Your answer is yours alone — the other person is asked separately.")
+                .mgFont(.bodySmall)
+                .foregroundStyle(MGColors.warm600)
+
+            HStack(spacing: MGSpacing.md) {
+                Button {
+                    Task { await viewModel.confirmAttendance(.happened) }
+                } label: {
+                    Label("Yes, it did", systemImage: "checkmark.circle.fill")
+                        .mgFont(.body)
+                        .foregroundStyle(MGColors.onAccent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, MGSpacing.md)
+                        .background(MGColors.teal)
+                        .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .disabled(viewModel.isSending)
+
+                Button {
+                    Task { await viewModel.confirmAttendance(.didNotHappen) }
+                } label: {
+                    Label("No, it didn't", systemImage: "xmark.circle")
+                        .mgFont(.body)
+                        .foregroundStyle(MGColors.slate)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, MGSpacing.md)
+                        .background(MGColors.warm100)
+                        .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .disabled(viewModel.isSending)
+            }
+        }
+        .mgSurfaceCard()
+    }
+
+    /// Where a confirmed plan ended up, once this user has already answered.
+    private func attendanceSummaryRow(_ summary: RequestDetailViewModel.AttendanceSummary) -> some View {
+        let message: String
+        let icon: String
+        let tint: Color
+
+        switch summary {
+        case .happened:
+            message = "You both confirmed this happened."
+            icon = "checkmark.circle.fill"
+            tint = MGColors.teal
+        case .didNotHappen:
+            message = "You both said this didn't happen."
+            icon = "xmark.circle"
+            tint = MGColors.warm600
+        case .disputed:
+            // Named rather than resolved. A contested plan is what an appeal would argue over,
+            // so it settles nothing on its own and scores nothing either way.
+            message = "You remember this differently."
+            icon = "questionmark.circle"
+            tint = MGColors.warm600
+        case .waitingOnThem(let name):
+            message = "Waiting for \(name) to confirm."
+            icon = "hourglass"
+            tint = MGColors.warm600
+        }
+
+        return HStack(spacing: MGSpacing.md) {
+            Image(systemName: icon)
+                .foregroundStyle(tint)
+            Text(message)
+                .mgFont(.body)
+                .foregroundStyle(MGColors.warm600)
+            Spacer()
+        }
+        .mgSurfaceCard()
+        .accessibilityElement(children: .combine)
     }
 
     /// What the creator sees on their own unanswered request.

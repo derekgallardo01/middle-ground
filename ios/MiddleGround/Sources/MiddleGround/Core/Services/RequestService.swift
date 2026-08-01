@@ -50,6 +50,42 @@ final class RequestService {
         return updated
     }
 
+    /// Records whether an accepted plan actually happened.
+    ///
+    /// The only write permitted on a settled request, and the signal every reliability idea is
+    /// computed from — until this existed, an accepted request simply stopped changing and
+    /// `RequestStatus.completed` was a state nothing ever assigned.
+    ///
+    /// Writes only this user's own answer, mirroring `isConfirmingAttendance()` in
+    /// firestore.rules. The status advances to `.completed` only when *everyone* has said it
+    /// happened: one person cannot record the other as absent, and a disagreement stays
+    /// unresolved rather than being decided in someone's favour.
+    func confirmAttendance(
+        of request: Request,
+        outcome: ConfirmationOutcome,
+        by userID: String
+    ) async throws -> Request {
+        guard request.needsConfirmation(from: userID) else {
+            throw RequestError.notAllowedToConfirm
+        }
+
+        var updated = request
+        updated.confirmations[userID] = outcome
+        if updated.isConfirmedComplete {
+            updated.status = .completed
+        }
+        updated.updatedAt = Date()
+
+        try await repository.updateRequest(updated)
+        await analytics.track(
+            .requestConfirmed,
+            userID: userID,
+            requestID: request.id,
+            metadata: ["outcome": outcome.rawValue]
+        )
+        return updated
+    }
+
     /// Withdraws a request. Only its creator may do this, and only while it is unanswered.
     func cancel(_ request: Request, by userID: String) async throws {
         guard request.canCancel(as: userID) else {

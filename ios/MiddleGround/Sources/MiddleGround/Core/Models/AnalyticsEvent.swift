@@ -46,6 +46,8 @@ enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
     case requestCreated = "request_created"
     case requestResponded = "request_responded"
     case requestCancelled = "request_cancelled"
+    /// Someone said whether an accepted plan actually happened.
+    case requestConfirmed = "request_confirmed"
     case appOpened = "app_opened"
 
     var id: String { rawValue }
@@ -61,6 +63,7 @@ enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
         case .requestCreated: return "Created a request"
         case .requestResponded: return "Responded"
         case .requestCancelled: return "Cancelled a request"
+        case .requestConfirmed: return "Confirmed a plan"
         case .appOpened: return "Opened the app"
         }
     }
@@ -76,6 +79,7 @@ enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
         case .requestCreated: return "square.and.pencil"
         case .requestResponded: return "arrowshape.turn.up.left"
         case .requestCancelled: return "xmark.circle"
+        case .requestConfirmed: return "checkmark.circle"
         case .appOpened: return "iphone"
         }
     }

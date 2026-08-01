@@ -135,6 +135,33 @@ service cloud.firestore {
         : (lastMessage().senderID != uid() || lastMessage().responseType == 'save');
     }
 
+    // Recording whether an accepted plan actually happened.
+    //
+    // This is the one write allowed on a settled request, and it exists because the app
+    // otherwise never learns the outcome of anything: a request's life ended at `accepted`,
+    // and `completed` was a status nothing ever assigned. Attendance is what every reliability
+    // idea is computed from, so it has to be collected, and collected honestly.
+    //
+    // The narrow shape is the point. A participant may add or change ONLY their own key in
+    // `confirmations`, only once the plan's time has passed, and may not touch anything else —
+    // so nobody can record the other person as absent, backdate an answer, or edit the plan
+    // they are being asked about. `get('confirmations', {})` keeps documents written before the
+    // field existed evaluable rather than denied.
+    function isConfirmingAttendance() {
+      return resource.data.status == 'accepted'
+        && resource.data.proposedTime != null
+        && resource.data.proposedTime < request.time
+        && request.resource.data.confirmations.diff(
+             resource.data.get('confirmations', {})
+           ).affectedKeys() == [uid()].toSet()
+        && immutable('creatorID')
+        && immutable('recipientIDs')
+        && immutable('allParticipantIDs')
+        && immutable('proposedTime')
+        && immutable('title')
+        && immutable('negotiationChain');
+    }
+
     match /requests/{requestId} {
       allow get, list: if (signedIn() && uid() in resource.data.allParticipantIDs) || isAdmin();
 
@@ -151,14 +178,29 @@ service cloud.firestore {
       // close a shared decision alone or farm XP for it.
       allow update: if signedIn()
                     && uid() in resource.data.allParticipantIDs
-                    && !isSettled()
-                    && isMyTurn()
-                    && immutable('creatorID')
-                    && immutable('recipientIDs')
-                    && immutable('allParticipantIDs');
+                    && (
+                      (!isSettled()
+                        && isMyTurn()
+                        && immutable('creatorID')
+                        && immutable('recipientIDs')
+                        && immutable('allParticipantIDs'))
+                      || isConfirmingAttendance()
+                    );
 
-      // The creator's only write is withdrawing their own unanswered request.
-      allow delete: if signedIn() && resource.data.creatorID == uid();
+      // The creator may withdraw their own request while it is still open.
+      //
+      // The rule used to permit deleting any request they created, settled or not. The client's
+      // `canCancel` is `isOpen && isCreator`, but nothing talking to Firestore directly had to
+      // honour that. Harmless while a request was only a plan; once attendance is recorded on
+      // it, an unrestricted delete is a way to erase your own no-shows — so the constraint moves
+      // to where it is actually enforced.
+      //
+      // `!isSettled()` and not "no replies yet": cancelling a request someone has countered is
+      // legitimate and the client offers it, so a stricter rule here would refuse a button the
+      // app shows.
+      allow delete: if signedIn()
+                    && resource.data.creatorID == uid()
+                    && !isSettled();
     }
 
     // ---------------------------------------------------------- user_tokens

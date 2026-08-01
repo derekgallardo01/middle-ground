@@ -61,6 +61,16 @@ enum RequestCategory: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+/// Whether an accepted plan actually took place, as reported by one participant.
+///
+/// This is the signal the app never collected. A request's life ended at `accepted`, and
+/// `RequestStatus.completed` was a state nothing ever assigned — so there was no record of
+/// whether anyone turned up, and nothing that depends on attendance could be computed from it.
+enum ConfirmationOutcome: String, Codable, Hashable, Sendable {
+    case happened
+    case didNotHappen
+}
+
 enum ResponseType: String, Codable, CaseIterable, Identifiable {
     case accept
     case decline
@@ -155,6 +165,7 @@ struct NegotiationMessage: Identifiable, Hashable, Codable {
 enum RequestError: LocalizedError, Equatable {
     case notAllowedToRespond
     case notAllowedToCancel
+    case notAllowedToConfirm
 
     var errorDescription: String? {
         switch self {
@@ -162,6 +173,8 @@ enum RequestError: LocalizedError, Equatable {
             return "Only the person this was sent to can respond."
         case .notAllowedToCancel:
             return "Only the person who sent this can cancel it."
+        case .notAllowedToConfirm:
+            return "This plan isn't ready to confirm yet."
         }
     }
 }
@@ -198,6 +211,8 @@ struct Request: Identifiable, Hashable, Codable {
     var status: RequestStatus
     var negotiationChain: [NegotiationMessage]
     var savedForLater: Bool
+    /// What each participant said about whether the plan happened, keyed by user ID.
+    var confirmations: [String: ConfirmationOutcome]
     var createdAt: Date
     var updatedAt: Date
 
@@ -212,6 +227,7 @@ struct Request: Identifiable, Hashable, Codable {
          status: RequestStatus = .pending,
          negotiationChain: [NegotiationMessage] = [],
          savedForLater: Bool = false,
+         confirmations: [String: ConfirmationOutcome] = [:],
          createdAt: Date = Date(),
          updatedAt: Date = Date()) {
         self.id = id
@@ -225,8 +241,32 @@ struct Request: Identifiable, Hashable, Codable {
         self.status = status
         self.negotiationChain = negotiationChain
         self.savedForLater = savedForLater
+        self.confirmations = confirmations
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    /// Tolerates requests stored before attendance was recorded.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        creatorID = try container.decode(String.self, forKey: .creatorID)
+        recipientIDs = try container.decode([String].self, forKey: .recipientIDs)
+        category = try container.decode(RequestCategory.self, forKey: .category)
+        title = try container.decode(String.self, forKey: .title)
+        details = try container.decodeIfPresent(String.self, forKey: .details)
+        proposedTime = try container.decodeIfPresent(Date.self, forKey: .proposedTime)
+        location = try container.decodeIfPresent(String.self, forKey: .location)
+        status = try container.decode(RequestStatus.self, forKey: .status)
+        negotiationChain = try container.decodeIfPresent(
+            [NegotiationMessage].self, forKey: .negotiationChain
+        ) ?? []
+        savedForLater = try container.decodeIfPresent(Bool.self, forKey: .savedForLater) ?? false
+        confirmations = try container.decodeIfPresent(
+            [String: ConfirmationOutcome].self, forKey: .confirmations
+        ) ?? [:]
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
 
     var allParticipantIDs: [String] {
@@ -302,6 +342,46 @@ struct Request: Identifiable, Hashable, Codable {
 
     var isPending: Bool {
         status == .pending
+    }
+
+    // MARK: - Did it happen?
+    //
+    // Attendance is the input every reliability idea depends on, and the app collected none of
+    // it: an accepted request simply stopped changing. These mirror `isConfirmingAttendance()`
+    // in firestore.rules — the client must not offer an answer the backend will refuse.
+
+    /// Only a dated plan can be asked about: "split the grocery run" has no moment to confirm.
+    var isAwaitingAttendance: Bool {
+        guard status == .accepted, let time = proposedTime else { return false }
+        return time < Date()
+    }
+
+    /// Whether this person still owes an answer about whether it happened.
+    func needsConfirmation(from userID: String) -> Bool {
+        isAwaitingAttendance && isParticipant(userID) && confirmations[userID] == nil
+    }
+
+    /// Answers so far, in participant order, ignoring anyone who has not replied.
+    private var recordedOutcomes: [ConfirmationOutcome] {
+        allParticipantIDs.compactMap { confirmations[$0] }
+    }
+
+    var everyoneHasAnswered: Bool {
+        recordedOutcomes.count == allParticipantIDs.count
+    }
+
+    /// Both said it happened — the only route to `.completed`.
+    var isConfirmedComplete: Bool {
+        everyoneHasAnswered && recordedOutcomes.allSatisfy { $0 == .happened }
+    }
+
+    /// They disagree about whether it happened.
+    ///
+    /// Deliberately its own state rather than a tie broken in someone's favour. One person
+    /// cannot record the other as absent, and a contested outcome is what an appeal would
+    /// later argue over — so it scores nothing either way.
+    var isDisputed: Bool {
+        everyoneHasAnswered && Set(recordedOutcomes).count > 1
     }
 
     /// Appends a response and advances the status.

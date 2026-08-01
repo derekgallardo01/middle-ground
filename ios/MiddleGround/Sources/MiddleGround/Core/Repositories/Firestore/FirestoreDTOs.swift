@@ -37,9 +37,14 @@ struct RequestDTO: Codable, Identifiable {
     }
 
     func toModel() -> Request? {
-        guard let id,
-              let categoryEnum = RequestCategory(rawValue: category),
-              let statusEnum = RequestStatus(rawValue: status) else {
+        // An unrecognised category no longer discards the request.
+        //
+        // This guard used to include `RequestCategory(rawValue:)`, so a category added in a later
+        // release made every request using it silently vanish for anyone on an older build — the
+        // repository `compactMap`s, so there was no error to notice. Status still fails closed:
+        // a request whose state cannot be read cannot be safely acted on, whereas one whose
+        // category cannot be read is merely unlabelled.
+        guard let id, let statusEnum = RequestStatus(rawValue: status) else {
             return nil
         }
 
@@ -47,7 +52,7 @@ struct RequestDTO: Codable, Identifiable {
             id: id,
             creatorID: creatorID,
             recipientIDs: recipientIDs,
-            category: categoryEnum,
+            category: RequestCategory(storedValue: category),
             title: title,
             details: details,
             proposedTime: proposedTime?.dateValue(),
@@ -122,6 +127,8 @@ struct RelationshipDTO: Codable, Identifiable {
     var type: String
     var createdAt: Timestamp
     var growthScore: Int
+    /// Optional so documents written before groups could be named still decode.
+    var name: String?
     var inviteCode: String
 
     init(from relationship: Relationship) {
@@ -130,6 +137,7 @@ struct RelationshipDTO: Codable, Identifiable {
         self.type = relationship.type.rawValue
         self.createdAt = Timestamp(date: relationship.createdAt)
         self.growthScore = relationship.growthScore
+        self.name = relationship.name
         self.inviteCode = relationship.inviteCode
     }
 
@@ -144,6 +152,7 @@ struct RelationshipDTO: Codable, Identifiable {
             type: typeEnum,
             createdAt: createdAt.dateValue(),
             growthScore: growthScore,
+            name: name,
             inviteCode: inviteCode
         )
     }

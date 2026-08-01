@@ -51,8 +51,11 @@ final class RequestEntity {
     }
 
     func toModel() -> Request? {
-        guard let category = RequestCategory(rawValue: categoryRaw),
-              let status = RequestStatus(rawValue: statusRaw) else {
+        // Same fallback as the Firestore DTO: an unrecognised category must not make a cached
+        // request disappear. Without this the offline cache would drop exactly the requests the
+        // network path now keeps.
+        let category = RequestCategory(storedValue: categoryRaw)
+        guard let status = RequestStatus(rawValue: statusRaw) else {
             return nil
         }
 

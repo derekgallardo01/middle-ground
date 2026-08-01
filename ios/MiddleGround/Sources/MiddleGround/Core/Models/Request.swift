@@ -7,8 +7,30 @@ enum RequestCategory: String, Codable, CaseIterable, Identifiable {
     case daily
     case travel
     case spontaneous
+    case dating
+    case chill
+
+    /// A category this build does not recognise, kept so the request still appears.
+    ///
+    /// Decoding used to fail closed: `RequestDTO.toModel()` returned nil on an unknown raw value
+    /// and the repository `compactMap`ped it away, so a request created in a category added after
+    /// your build shipped was not an error — it was simply *absent*. One person sends a plan, the
+    /// other never sees it, and nothing anywhere reports a problem. Falling back here means the
+    /// worst case is a request with a generic icon rather than a request that does not exist.
+    ///
+    /// Deliberately excluded from `allCases` so it can never be picked when composing.
+    case unknown
+
+    static var allCases: [RequestCategory] {
+        [.relationship, .friends, .family, .daily, .travel, .spontaneous, .dating, .chill]
+    }
 
     var id: String { rawValue }
+
+    /// Never fails. Unrecognised values become `.unknown`.
+    init(storedValue: String) {
+        self = RequestCategory(rawValue: storedValue) ?? .unknown
+    }
 
     var displayName: String {
         switch self {
@@ -18,6 +40,9 @@ enum RequestCategory: String, Codable, CaseIterable, Identifiable {
         case .daily: return "Daily Life"
         case .travel: return "Travel"
         case .spontaneous: return "Spontaneous"
+        case .dating: return "Dating"
+        case .chill: return "Chill"
+        case .unknown: return "Other"
         }
     }
 
@@ -29,6 +54,9 @@ enum RequestCategory: String, Codable, CaseIterable, Identifiable {
         case .daily: return "checklist"
         case .travel: return "airplane"
         case .spontaneous: return "bolt.fill"
+        case .dating: return "heart.circle.fill"
+        case .chill: return "sofa.fill"
+        case .unknown: return "questionmark.circle"
         }
     }
 }
@@ -149,6 +177,8 @@ enum RequestLimits {
     static let details = 1_000
     static let message = 1_000
     static let reportNote = 500
+    /// Group names sit in pickers and single-line rows, so they are capped far shorter.
+    static let groupName = 40
 
     /// Trims to `limit` without splitting a grapheme cluster (an emoji stays whole).
     static func clamp(_ text: String, to limit: Int) -> String {

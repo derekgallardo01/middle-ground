@@ -232,4 +232,37 @@ final class RequestTests: XCTestCase {
         XCTAssertEqual(RequestStatus.accepted.color, MGColors.teal)
         XCTAssertEqual(RequestStatus.declined.color, MGColors.coral)
     }
+
+    // MARK: - Unknown categories
+    //
+    // A category added in a later release used to make every request using it silently vanish for
+    // anyone on an older build: decoding returned nil and the repository compactMapped it away, so
+    // there was no error to notice — the request simply was not in the list. These pin the
+    // fallback, because the failure it prevents is invisible by construction.
+
+    func testAnUnrecognisedCategoryDecodesToUnknownRatherThanFailing() {
+        XCTAssertEqual(RequestCategory(storedValue: "poker_night"), .unknown)
+        XCTAssertEqual(RequestCategory(storedValue: ""), .unknown)
+    }
+
+    func testKnownCategoriesStillDecodeToThemselves() {
+        for category in RequestCategory.allCases {
+            XCTAssertEqual(RequestCategory(storedValue: category.rawValue), category)
+        }
+    }
+
+    /// `.unknown` is a decoding destination, never a choice. It must not appear in the compose
+    /// picker, which is driven by `allCases`.
+    func testUnknownIsNotSelectable() {
+        XCTAssertFalse(RequestCategory.allCases.contains(.unknown))
+        XCTAssertTrue(RequestCategory.allCases.contains(.dating))
+        XCTAssertTrue(RequestCategory.allCases.contains(.chill))
+    }
+
+    func testEveryCategoryHasADisplayNameAndIcon() {
+        for category in RequestCategory.allCases + [.unknown] {
+            XCTAssertFalse(category.displayName.isEmpty, "\(category) has no display name")
+            XCTAssertFalse(category.iconName.isEmpty, "\(category) has no icon")
+        }
+    }
 }

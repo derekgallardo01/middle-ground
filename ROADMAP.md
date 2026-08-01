@@ -150,15 +150,46 @@ it is an ordinary `Request`.
 Sized as **S** (days), **M** (a week or two), **L** (a month+), **XL** (needs partnerships or
 staffing before code).
 
+## ⚠️ Prerequisite for everything below: "did it happen?" — M
+
+**The app has no idea whether a plan actually took place, and nothing below works without that.**
+
+Missed reservations, missed trips, a record of people missing, three cancellations in a row,
+attendance-based scoring — every one of these is computed from whether an accepted plan was
+honoured. The app never learns that. A request's life ends at `accepted`.
+
+`RequestStatus.completed` already exists, and it is decoration: it has a display name, a badge
+colour, and it counts as settled in `Request.isOpen` — but **nothing anywhere assigns it**. It is
+read in four places and written in none. This is the same shape of defect as `.reschedule` before it
+got a trigger: a fully modelled state with no way to enter it.
+
+So the first thing to build in this cluster is the confirmation step from your notes —
+*Cancel / Confirm / Reject* and *"confirmation of the action"*. After a plan's `proposedTime`
+passes, both participants are asked whether it happened. That single signal is what produces:
+
+- attendance and no-show records (missed reservations, missed trips)
+- a defensible reliability score, rather than one derived from intentions
+- the evidence an appeal is argued over
+
+Design notes worth settling early: what happens when the two people disagree about whether it
+happened; what a non-answer means (silence must not equal a no-show, or the score punishes people
+for not opening the app); and how far after the fact confirmation stays open.
+
+**Nothing else in this section should be specced before this is.** A penalty derived from a signal
+the app does not collect is a penalty derived from nothing.
+
 ## Reliability & reputation — L
 
-**Decided: penalties are in, with an appeals path.**
+**Decided: penalties are in, with an appeals path.** Blocked on the prerequisite above.
 
 Raw items: popularity score · missed reservations subtract · missed trips · record of people missing
-· cancellation reasons (list) · cancel three times in a row → penalty · punishment · closure ·
-appeal rejection via moderator/staff · rejection reasons · review other group members · leaderboard
-of activity scores · people rate the activities · motivation betting *(undefined — needs a
-definition before it can be specced)*.
+· cancellation reasons (list) · cancel three times in a row → penalty · punishment · score ·
+cancel / confirm / reject · confirmation of the action · appeal rejection via moderator/staff ·
+rejection reasons (list) · rejection denials *(undefined)* · review other group members ·
+"leadership of score for activities" *(read as a leaderboard — confirm)* · people rate the
+activities · closure *(undefined)* · motivation betting *(undefined)* · stats or metrics
+*(unclear whether user-facing or the existing admin panel, which already reports totals, funnel
+and per-user stats)*.
 
 Constraints that come with the decision:
 
@@ -200,12 +231,18 @@ knows `proposedTime`, so a conflict check is a small addition to
 
 ## Location sharing — M, gated on privacy work
 
-Location sharing · only active plans are shared, never inactive · starts on the day of the plan.
+Location sharing · "only active steps are shared for location, not inactive" · starts on the day of
+the plan.
 
 The scoping instinct is good — time-boxed, plan-scoped sharing is far easier to justify than
 continuous tracking. Still requires `NSLocationWhenInUseUsageDescription`, App Privacy answers, and
-a clear in-app explanation. Treat the "only active, only on the day" constraint as a hard
-requirement, not a setting.
+a clear in-app explanation. Treat "only active, only on the day" as a hard requirement, not a
+setting.
+
+**One ambiguity to resolve first.** "Active steps" reads two ways: only while a plan is *active*
+(the intended scoping, harmless), or sharing *step/movement data* (a different and much heavier
+category of health data, with its own HealthKit permissions and privacy disclosures). These are not
+the same feature and should not be specced together.
 
 ## Activity categories — S, mostly covered by S1
 
@@ -213,6 +250,19 @@ Fishing · basketball · workout · events · dating · chill · activity levels
 
 The first four are *content* within categories, not new categories. Skill points and levels overlap
 the existing gamification system — extend `GamificationRules` rather than building a parallel one.
+
+## "Schedule a date with someone" — size unknown, needs scoping
+
+Listed beside Dating and Chill, and it does not necessarily belong with them.
+
+If "someone" means a person you are already grouped with, it is covered by S1 and costs nothing.
+If it means **someone you are not yet connected to**, it is a different product: discovery,
+matching, messaging strangers, consent and safety controls, and App Review guideline 1.2 obligations
+far beyond what pairing-by-invite-code requires today. Every relationship in the app currently
+begins with a code shared privately between two people who already know each other; this would be
+the first feature that breaks that assumption.
+
+Worth answering before it is sized, because the two readings differ by an order of magnitude.
 
 ## Smaller, already-adjacent — S
 
@@ -224,6 +274,27 @@ the existing gamification system — extend `GamificationRules` rather than buil
   score, now that `StatDetailView` explains how it is calculated.
 - **Cancel the last minute** — needs a definition: a distinct late-cancel action, or a normal cancel
   the reliability score weights by proximity to the plan?
+
+---
+
+## Needs a definition before it can be specced
+
+Terms from the brainstorm that I could not turn into a spec without inventing what they mean. Left
+as your words rather than guessed at:
+
+| Term | Why it is blocking |
+|---|---|
+| **Gate Guardian** | Sits under Profile with identity verification. Access control? A person who vouches for someone? |
+| **Authorized Representative** | Same cluster. Someone acting on another's behalf — a carer, a parent, an assistant? Changes the account model if so. |
+| **Closure** | Appears between punishment and score. Closing out a plan (which the confirmation step above would cover), or closing an account/dispute? |
+| **Motivation Betting** | Staking something on following through. If it involves money it is a payments feature with App Review implications (3.1.1, and gambling rules depending on the shape). |
+| **Rejection Denials** | Denying a rejection, or denials *of* an appeal against a rejection? |
+| **Stats or metrics** | User-facing stats, or the admin panel — which already reports totals, the funnel, and per-user stats? |
+| **"Leadership of score for activities"** | Read as a leaderboard. Confirm — it could equally mean who leads/owns an activity within a group. |
+| **"Only active steps"** (location) | Only while a plan is active, or step/movement data? Different features, different permissions. |
+| **"Schedule a date with someone"** | Inside an existing group, or discovery of new people? See above. |
+
+Answering the first four unblocks most of the identity and reliability clusters.
 
 ---
 

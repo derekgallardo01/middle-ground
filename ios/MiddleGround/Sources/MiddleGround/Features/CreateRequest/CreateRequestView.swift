@@ -22,6 +22,16 @@ struct CreateRequestView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // Only on a blank sheet. Once there is a title, offering to overwrite it is a
+                // way to lose what someone just typed.
+                if viewModel.title.isEmpty {
+                    Section("Quick start") {
+                        templateRow
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                }
+
                 Section("What kind of request?") {
                     RequestTypePicker(selected: $viewModel.category)
                 }
@@ -94,6 +104,39 @@ struct CreateRequestView: View {
         }
         .task {
             await viewModel.loadCurrentUserAndPartners()
+        }
+    }
+
+    /// Prefills title and category, then leaves the user in the normal compose flow — the sheet
+    /// stays open so they can add a note or a time before sending.
+    private var templateRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: MGSpacing.sm) {
+                ForEach(RequestTemplate.all) { template in
+                    Button {
+                        viewModel.apply(template)
+                        Haptics.shared.impact(.light)
+                    } label: {
+                        HStack(spacing: MGSpacing.xs) {
+                            Text(template.emoji)
+                            Text(template.title)
+                                .mgFont(.bodySmall)
+                                .foregroundStyle(MGColors.slate)
+                        }
+                        .lineLimit(1)
+                        .padding(.vertical, MGSpacing.sm)
+                        .padding(.horizontal, MGSpacing.md)
+                        .background(MGColors.surface)
+                        .clipShape(Capsule())
+                        .mgShadow(MGShadow.sm)
+                    }
+                    .buttonStyle(ScaleButtonStyle())
+                    .accessibilityLabel(template.title)
+                    .accessibilityHint("Fills in the title and category for you")
+                }
+            }
+            .padding(.horizontal, MGSpacing.lg)
+            .padding(.vertical, MGSpacing.xs)
         }
     }
 

@@ -66,6 +66,13 @@
   ],
   "fieldOverrides": [
     {
+      "_comment": "Shared locations are deleted rather than kept. TTL is what makes 'it expires with the plan' true on the server instead of only in the client's filter — without it a coordinate written for one evening sits in Firestore indefinitely, which is not what the App Privacy answers say. Firestore promises deletion within 24 hours of `expiresAt`, not at the instant, so FirestoreSharedLocationRepository also filters lapsed points on read.",
+      "collectionGroup": "locations",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "_comment": "Usage events are written on every user action and are never read after the reporting window, so without a TTL the collection grows without bound while carrying personal data indefinitely. Firestore deletes each document 90 days after its `at` value. Requires Blaze — under Spark this returns HTTP 403 and fails the whole firestore deploy. The 90-day retention sentence in docs/legal/privacy-policy.md must stay in step with this.",
       "collectionGroup": "events",
       "fieldPath": "at",

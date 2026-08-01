@@ -369,6 +369,58 @@ service cloud.firestore {
                     && !isSettled();
     }
 
+    // ------------------------------------------------ requests/{id}/locations
+    // A point somebody chose to share for one plan, readable only by that plan's participants.
+    //
+    // The time window is enforced HERE and not only in the app. A client that has been tampered
+    // with is the entire threat model for a location feature: if the window lived only in Swift,
+    // "share my location" would in practice mean "share my location whenever, forever", and the
+    // promise the App Privacy answers make would be false. `request.time` is the server's clock,
+    // which is the point — a device with its clock wound forward gets nowhere.
+    //
+    // Reads are NOT window-gated. A point written legitimately stays readable until it is deleted
+    // or expires, because the alternative is a pin that vanishes mid-journey when the window
+    // closes while someone is still looking at it. Expiry is what bounds the read, via TTL on
+    // `expiresAt` plus the client filter.
+    match /requests/{requestId}/locations/{userId} {
+      function plan() {
+        return get(/databases/$(database)/documents/requests/$(requestId)).data;
+      }
+
+      function inPlan() {
+        return signedIn() && uid() in plan().allParticipantIDs;
+      }
+
+      // Only an accepted, dated plan, and only around the time it is meant to happen. Opening an
+      // hour early is deliberate: "I'm five minutes away" is said on the way, not on arrival.
+      function planIsLive() {
+        return plan().status == 'accepted'
+          && plan().proposedTime is timestamp
+          && request.time >= plan().proposedTime - duration.value(1, 'h')
+          && request.time <= plan().proposedTime + duration.value(4, 'h');
+      }
+
+      // Pinned so a coordinate cannot be written with an expiry of its own choosing — otherwise
+      // the window is enforced on the write and then quietly ignored by the thing that deletes it.
+      function isWellFormed() {
+        return request.resource.data.keys().hasOnly(
+                 ['latitude', 'longitude', 'sharedAt', 'expiresAt'])
+          && request.resource.data.latitude is number
+          && request.resource.data.longitude is number
+          && request.resource.data.expiresAt is timestamp
+          && request.resource.data.expiresAt <= plan().proposedTime + duration.value(4, 'h');
+      }
+
+      // No admin read, unlike gamification and events. Nothing in the admin panel wants this,
+      // and "where a user was on Tuesday" is the one thing that should not be readable by
+      // somebody merely because they hold the admin flag.
+      allow get, list: if inPlan();
+      allow create, update: if inPlan() && uid() == userId && planIsLive() && isWellFormed();
+      // Always allowed, window or no window: taking it back must never be the thing that is
+      // refused. Participants may also clear a stale point when the plan is done.
+      allow delete: if signedIn() && (uid() == userId || inPlan());
+    }
+
     // ---------------------------------------------------------- user_tokens
     // FCM device tokens. Written by the client, read only by Cloud Functions via the
     // Admin SDK (which bypasses these rules), so clients never read anyone's tokens.

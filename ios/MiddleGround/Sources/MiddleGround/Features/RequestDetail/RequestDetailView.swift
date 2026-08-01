@@ -67,6 +67,17 @@ struct RequestDetailView: View {
                         )
                     }
 
+                    if viewModel.canShareLocation {
+                        LocationRow(
+                            mine: viewModel.mySharedLocation,
+                            others: viewModel.partnerSharedLocations,
+                            partnerName: viewModel.partnerName ?? "them",
+                            isBusy: viewModel.isSharingLocation,
+                            onShare: { Task { await viewModel.shareLocation() } },
+                            onStop: { Task { await viewModel.stopSharingLocation() } }
+                        )
+                    }
+
                     NegotiationView(viewModel: viewModel, composerFocused: $composerFocused)
 
                     Spacer(minLength: 40)

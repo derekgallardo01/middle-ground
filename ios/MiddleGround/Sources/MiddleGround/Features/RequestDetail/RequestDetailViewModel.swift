@@ -10,6 +10,8 @@ final class RequestDetailViewModel {
     private let userRepository = Container.shared.userRepository()
     private let eventRepository = Container.shared.eventRepository()
     private let analytics = Container.shared.analyticsService()
+    private let sharedLocationRepository = Container.shared.sharedLocationRepository()
+    private let locationService = Container.shared.locationService()
 
     var request: Request
     var currentUser: User?
@@ -252,6 +254,81 @@ final class RequestDetailViewModel {
     func loadCurrentUser() async {
         currentUser = await authService.currentUser()
         await loadPartnerName()
+        await loadSharedLocations()
+    }
+
+    // MARK: - Location, for the hours around this plan
+    //
+    // Deliberately narrow. Sharing is only possible while an accepted, dated plan is inside its
+    // window, it sends one point rather than starting a feed, and the point is deleted when the
+    // window closes. Same rule in `firestore.rules`, because a rule that lives only here is a
+    // rule a tampered client does not have.
+
+    /// Everyone's currently-visible points, mine included.
+    private(set) var sharedLocations: [SharedLocation] = []
+    var isSharingLocation = false
+
+    var canShareLocation: Bool {
+        guard let currentUser else { return false }
+        return request.canShareLocation(as: currentUser.id)
+    }
+
+    var mySharedLocation: SharedLocation? {
+        guard let currentUser else { return nil }
+        return sharedLocations.first { $0.userID == currentUser.id }
+    }
+
+    var partnerSharedLocations: [SharedLocation] {
+        sharedLocations.filter { $0.userID != currentUser?.id }
+    }
+
+    func loadSharedLocations() async {
+        // Nothing to load outside the window, and no reason to spend a read finding that out.
+        guard request.isWithinLocationWindow() else {
+            sharedLocations = []
+            return
+        }
+        sharedLocations = (try? await sharedLocationRepository.locations(forRequest: request.id)) ?? []
+    }
+
+    func shareLocation() async {
+        guard let currentUser, let expiry = request.locationExpiry else { return }
+        isSharingLocation = true
+        defer { isSharingLocation = false }
+
+        do {
+            let coordinate = try await locationService.currentCoordinate()
+            let point = SharedLocation(
+                userID: currentUser.id,
+                latitude: coordinate.latitude,
+                longitude: coordinate.longitude,
+                sharedAt: Date(),
+                expiresAt: expiry
+            )
+            try await sharedLocationRepository.share(point, forRequest: request.id)
+            await loadSharedLocations()
+            Haptics.shared.notification(.success)
+        } catch {
+            errorMessage = error.localizedDescription
+            Haptics.shared.notification(.error)
+        }
+    }
+
+    /// Withdrawing has to work whenever, which is why the rules allow the delete outside the
+    /// window too. Being unable to take a location back is the one failure worth designing out.
+    func stopSharingLocation() async {
+        guard let currentUser else { return }
+        isSharingLocation = true
+        defer { isSharingLocation = false }
+        do {
+            try await sharedLocationRepository.stopSharing(
+                userID: currentUser.id,
+                forRequest: request.id
+            )
+            await loadSharedLocations()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     /// Resolves the other participant's name so the waiting state can say who we're waiting on.

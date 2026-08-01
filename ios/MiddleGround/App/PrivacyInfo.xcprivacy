@@ -30,6 +30,26 @@
 
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
+		<!-- Coarse location, and only when the user taps to share it.
+		     Written to requests/{id}/locations/{uid} as a single point, readable only by that
+		     plan's participants, and deleted when the plan's window closes (Firestore TTL on
+		     `expiresAt`, plus a client-side filter because TTL is only promised within 24h).
+		     There is no tracking and no background collection: the app asks for When In Use and
+		     takes one fix per tap. Declared as Precise=false — desiredAccuracy is
+		     kCLLocationAccuracyHundredMeters, which is not a precise location. -->
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeCoarseLocation</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<true/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+
 		<!-- Display name, written to users/{uid} on sign-in. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>

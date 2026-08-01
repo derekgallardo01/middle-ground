@@ -133,6 +133,14 @@ targets:
           Middle Ground checks whether a suggested time is already busy in your calendar.
           Your events stay on your device and are never uploaded or shared.
 
+        # When In Use, and only that. Sharing is a tap that sends one point to the people on one
+        # agreed plan, during the hours around it — there is no tracking, no background updates
+        # and nothing to leave running. `Always` would need a background mode and a justification
+        # at review that this feature does not have and does not want.
+        NSLocationWhenInUseUsageDescription: >-
+          Middle Ground shares your location only when you tap to share it, only with the people
+          on that plan, and only around the time it is happening. It is deleted afterwards.
+
     # NOTE: there is deliberately no `entitlements:` block.
     #
     # XcodeGen writes exactly one entitlements file per target and sets

@@ -277,20 +277,30 @@ update. Google Calendar needs OAuth and a verification review. High user value: 
 knows `proposedTime`, so a conflict check is a small addition to
 `Features/Calendar/CalendarViewModel.swift`.
 
-## Location sharing — M, gated on privacy work
+## Location sharing — ✅ built, gated on App Privacy answers
 
-Location sharing · "only active steps are shared for location, not inactive" · starts on the day of
-the plan.
+**Settled and built.** "Only active steps" meant only while a plan is *active* — not step or
+movement data, which would have been HealthKit and a much heavier posture.
 
-The scoping instinct is good — time-boxed, plan-scoped sharing is far easier to justify than
-continuous tracking. Still requires `NSLocationWhenInUseUsageDescription`, App Privacy answers, and
-a clear in-app explanation. Treat "only active, only on the day" as a hard requirement, not a
-setting.
+What shipped:
 
-**One ambiguity to resolve first.** "Active steps" reads two ways: only while a plan is *active*
-(the intended scoping, harmless), or sharing *step/movement data* (a different and much heavier
-category of health data, with its own HealthKit permissions and privacy disclosures). These are not
-the same feature and should not be specced together.
+- Sharing exists only while an **accepted, dated** plan is inside its window: an hour before its
+  time until four hours after. Opening early is deliberate — "I'm five minutes away" is said on the
+  way, not on arrival. An undated request never qualifies.
+- One point per tap, not a feed. `requestLocation()` returns a single fix and stops, so there is no
+  stream to leave running and nothing happens in the background.
+- **When In Use** only. `Always` would need a background mode and a justification at review this
+  feature does not have.
+- Readable only by that plan's participants, and **deleted** afterwards — Firestore TTL on
+  `expiresAt`, plus a client filter because TTL is promised within 24 hours rather than instantly.
+- The window is enforced in `firestore.rules` against the **server** clock, not only in Swift. A
+  rule that lives only in the client is a rule a tampered client does not have, and that is the
+  entire threat model for a location feature.
+
+⚠️ **Still gated on one manual step**: the App Privacy questionnaire in App Store Connect. The
+manifest (`App/PrivacyInfo.xcprivacy`) and the questionnaire are separate declarations and a
+mismatch is a rejection. Answer Coarse Location · linked · not tracking · App Functionality. Full
+notes in `docs/APP_REVIEW_NOTES.md`.
 
 ## Activity categories — S, mostly covered by S1
 

@@ -121,6 +121,26 @@ extension Container {
         }
     }
 
+    var sharedLocationRepository: Factory<SharedLocationRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockSharedLocationRepository()
+            }
+            #endif
+            return FirestoreSharedLocationRepository()
+        }
+    }
+
+    /// Mocked in previews and UI tests so nothing depends on where the host machine is.
+    var locationService: Factory<LocationProviding> {
+        Factory(self) {
+            AppConfiguration.useMockRepositories
+                ? MockLocationService() as LocationProviding
+                : LocationService()
+        }
+    }
+
     var notificationSettingsRepository: Factory<NotificationSettingsRepository> {
         Factory(self) {
             #if DEBUG

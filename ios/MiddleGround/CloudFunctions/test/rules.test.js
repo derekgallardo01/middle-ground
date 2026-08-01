@@ -958,6 +958,113 @@ describe('gamification mirror', () => {
   });
 });
 
+// The window is the whole feature. If it is enforced only in Swift, "share my location for this
+// plan" means "share my location whenever", and the App Privacy answers become untrue.
+describe('shared locations', () => {
+  const HOUR = 60 * 60 * 1000;
+  const at = (offset) => new Date(Date.now() + offset);
+  const asAdmin = () => testEnv.authenticatedContext('root', { admin: true }).firestore();
+
+  // A plan happening right now, so writes fall inside the window by default.
+  const livePlan = (overrides = {}) =>
+    request({ status: 'accepted', proposedTime: at(0), ...overrides });
+
+  const point = (expiresAt) => ({
+    latitude: 40.7128,
+    longitude: -74.006,
+    sharedAt: at(0),
+    expiresAt: expiresAt || at(4 * HOUR),
+  });
+
+  beforeEach(() => seed((db) => setDoc(doc(db, 'requests/r1'), livePlan())));
+
+  test('a participant can share and read during the plan', async () => {
+    await assertSucceeds(setDoc(doc(asAlice(), 'requests/r1/locations/alice'), point()));
+    await assertSucceeds(getDoc(doc(asBob(), 'requests/r1/locations/alice')));
+  });
+
+  // Including an admin. Every other private collection grants admin read; this one must not,
+  // because "where a user was on Tuesday" should not follow from holding the admin flag.
+  test('nobody outside the plan can read a point', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r1/locations/alice'), point()));
+
+    await assertFails(getDoc(doc(asMallory(), 'requests/r1/locations/alice')));
+    await assertFails(getDoc(doc(asAnon(), 'requests/r1/locations/alice')));
+    await assertFails(getDoc(doc(asAdmin(), 'requests/r1/locations/alice')));
+  });
+
+  test('you cannot write a point as somebody else', async () => {
+    await assertFails(setDoc(doc(asBob(), 'requests/r1/locations/alice'), point()));
+  });
+
+  test('an outsider cannot write a point at all', async () => {
+    await assertFails(setDoc(doc(asMallory(), 'requests/r1/locations/mallory'), point()));
+  });
+
+  test('too early is refused', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r2'), livePlan({ proposedTime: at(3 * HOUR) })));
+
+    await assertFails(
+      setDoc(doc(asAlice(), 'requests/r2/locations/alice'), point(at(7 * HOUR))),
+    );
+  });
+
+  test('too late is refused', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r3'), livePlan({ proposedTime: at(-6 * HOUR) })));
+
+    await assertFails(
+      setDoc(doc(asAlice(), 'requests/r3/locations/alice'), point(at(-2 * HOUR))),
+    );
+  });
+
+  // An hour before is inside the window on purpose: "I'm five minutes away" is said on the way.
+  test('an hour before the plan is allowed', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r4'), livePlan({ proposedTime: at(0.5 * HOUR) })),
+    );
+
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'requests/r4/locations/alice'), point(at(4.5 * HOUR))),
+    );
+  });
+
+  test('a plan nobody accepted has no window', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r5'), request({ proposedTime: at(0) })));
+
+    await assertFails(setDoc(doc(asAlice(), 'requests/r5/locations/alice'), point()));
+  });
+
+  test('an undated request has no window', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r6'), request({ status: 'accepted' })));
+
+    await assertFails(setDoc(doc(asAlice(), 'requests/r6/locations/alice'), point()));
+  });
+
+  // Without this the window is enforced on the write and then ignored by the thing that deletes
+  // it — a point that outlives its plan by a year, written entirely within the rules.
+  test('an expiry beyond the window is refused', async () => {
+    await assertFails(
+      setDoc(doc(asAlice(), 'requests/r1/locations/alice'), point(at(48 * HOUR))),
+    );
+  });
+
+  test('an unexpected field is refused', async () => {
+    await assertFails(
+      setDoc(doc(asAlice(), 'requests/r1/locations/alice'), { ...point(), accuracy: 5 }),
+    );
+  });
+
+  // Taking it back must never be the thing that is refused.
+  test('you can always withdraw your own point', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r7'), livePlan({ proposedTime: at(-48 * HOUR) })),
+    );
+    await seed((db) => setDoc(doc(db, 'requests/r7/locations/alice'), point()));
+
+    await assertSucceeds(deleteDoc(doc(asAlice(), 'requests/r7/locations/alice')));
+  });
+});
+
 // What someone has chosen to be interrupted about is theirs to know.
 describe('notification settings', () => {
   beforeEach(() =>

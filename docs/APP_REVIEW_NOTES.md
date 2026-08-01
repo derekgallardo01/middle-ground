@@ -122,6 +122,7 @@ the user, none used for tracking:
 
 | Category | Type | Purpose |
 |---|---|---|
+| **Location** | **Coarse Location** | **App Functionality** — ⚠️ new, see below |
 | Contact Info | Name | App Functionality |
 | Contact Info | Email Address | App Functionality |
 | Identifiers | User ID | App Functionality |
@@ -131,6 +132,32 @@ the user, none used for tracking:
 | User Content | Other User Content | App Functionality |
 
 Answer **No** to "Do you or your third-party partners use data for tracking?"
+
+### ⚠️ Location is new and must be answered before the next submission
+
+Plan-scoped location sharing is in the build. The App Privacy answers in App Store Connect are
+**not** updated automatically by the manifest — `App/PrivacyInfo.xcprivacy` and the questionnaire
+are two separate declarations, and a mismatch is a rejection.
+
+Answer it as: **Coarse Location**, **linked** to the user, **not** used for tracking, purpose
+**App Functionality**. Precise Location is *not* collected — `desiredAccuracy` is
+`kCLLocationAccuracyHundredMeters`.
+
+What the reviewer should be told, and what is true:
+
+- Sharing is a tap. Nothing is collected in the background and there is no tracking; the app uses
+  `requestLocation()`, which returns one fix and stops.
+- Authorisation is **When In Use** only. There is no `Always` request and no background location
+  mode in the entitlements.
+- A shared point is readable only by the participants of that one plan, and only while the plan is
+  inside its window — an hour before its time until four hours after. This is enforced in
+  `firestore.rules` against the server clock, not just in the app.
+- Points are deleted, not archived: Firestore TTL on `expiresAt`, plus a client filter because TTL
+  deletion is promised within 24 hours rather than instantly.
+
+The calendar permission added earlier is read-only and stays on the device, so it collects nothing
+and needs no questionnaire row — but `NSCalendarsFullAccessUsageDescription` is new since 1.0 and
+a reviewer will see the prompt.
 
 ## Building the upload
 

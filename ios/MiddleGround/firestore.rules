@@ -287,20 +287,30 @@ service cloud.firestore {
       // the creator, and the rules refused their answer. The invariant that actually matters
       // is unchanged — you may never answer your own last message, so one person still cannot
       // close a shared decision alone or farm XP for it.
+      // Two shapes, and the membership gate belongs to only one of them.
+      //
+      // Every write by an existing participant sits inside `uid() in allParticipantIDs`.
+      // Joining by invite cannot: the whole point is that the joiner is *not* a participant
+      // yet, so gating it behind that check made the branch unreachable — the rules tests
+      // caught it as the one legitimate case failing while all seven denials passed.
+      // `isJoiningPlan` does its own authorisation, and a tighter one: it requires a valid
+      // invite naming this exact request.
       allow update: if signedIn()
-                    && uid() in resource.data.allParticipantIDs
                     && (
-                      (!isSettled()
-                        && isMyTurn()
-                        && isResponseStatus()
-                        && immutable('creatorID')
-                        && immutable('recipientIDs')
-                        && immutable('allParticipantIDs')
-                        && immutable('stake')
-                        && immutable('planInviteCode'))
-                      || isConfirmingAttendance()
-                      || isCancelling()
-                      || isStaking()
+                      (uid() in resource.data.allParticipantIDs
+                        && (
+                          (!isSettled()
+                            && isMyTurn()
+                            && isResponseStatus()
+                            && immutable('creatorID')
+                            && immutable('recipientIDs')
+                            && immutable('allParticipantIDs')
+                            && immutable('stake')
+                            && immutable('planInviteCode'))
+                          || isConfirmingAttendance()
+                          || isCancelling()
+                          || isStaking()
+                        ))
                       || isJoiningPlan(requestId)
                     );
 

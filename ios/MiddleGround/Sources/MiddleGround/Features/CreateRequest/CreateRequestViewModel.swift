@@ -18,10 +18,21 @@ final class CreateRequestViewModel {
         !relationships.isEmpty && relationships.allSatisfy { !$0.isPaired }
     }
 
+    /// Prefills from a template. Nothing is sent — the user still reviews, adds a time if they
+    /// want one, and picks who it goes to.
+    func apply(_ template: RequestTemplate) {
+        title = template.title
+        category = template.category
+    }
+
     /// The code to share when nobody has joined yet, so the empty state can offer the share
     /// sheet inline instead of naming the Profile tab it cannot open.
+    ///
+    /// Nil when several groups are unpaired: `first` picked an arbitrary one, which could invite
+    /// someone into a group the user was not thinking about. Profile shows each group's own code.
     var inviteCode: String? {
-        relationships.first { !$0.isPaired }?.inviteCode
+        let unpaired = relationships.filter { !$0.isPaired }
+        return unpaired.count == 1 ? unpaired.first?.inviteCode : nil
     }
 
     func label(for relationship: Relationship) -> String {

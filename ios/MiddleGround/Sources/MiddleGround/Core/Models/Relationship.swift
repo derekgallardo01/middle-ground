@@ -40,6 +40,13 @@ struct Relationship: Identifiable, Hashable, Codable {
     var createdAt: Date
     var growthScore: Int
 
+    /// What the members call this group.
+    ///
+    /// Optional because groups were previously identified only by `type`, which is fine for one
+    /// group and useless for two — "Friends" and "Friends" are indistinguishable in a picker.
+    /// Existing documents have no name and must keep decoding.
+    var name: String?
+
     /// Short human-shareable code a second person enters to join this relationship.
     var inviteCode: String
 
@@ -49,6 +56,7 @@ struct Relationship: Identifiable, Hashable, Codable {
         type: RelationshipType,
         createdAt: Date = Date(),
         growthScore: Int = 0,
+        name: String? = nil,
         inviteCode: String = Relationship.generateInviteCode()
     ) {
         self.id = id
@@ -56,7 +64,16 @@ struct Relationship: Identifiable, Hashable, Codable {
         self.type = type
         self.createdAt = createdAt
         self.growthScore = growthScore
+        self.name = name
         self.inviteCode = inviteCode
+    }
+
+    /// What to call this group when the partner's name is not the right label — a named group, or
+    /// the type as a last resort. `RelationshipService.displayLabels` prefers a partner's name for
+    /// two-person groups; this is the fallback chain behind it.
+    var label: String {
+        if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty { return name }
+        return type.displayName
     }
 
     /// True once a second person has joined — until then no requests can be sent.

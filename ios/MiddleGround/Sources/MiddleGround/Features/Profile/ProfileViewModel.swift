@@ -16,9 +16,17 @@ final class ProfileViewModel {
     var notificationsEnabled = false
     var relationships: [Relationship] = []
 
-    /// The code this user shares to invite a partner, if they own an unpaired relationship.
-    var inviteCode: String? {
-        relationships.first { !$0.isPaired }?.inviteCode ?? relationships.first?.inviteCode
+    var unpairedRelationships: [Relationship] { relationships.filter { !$0.isPaired } }
+
+    /// The prominent code, shown only when there is exactly one group it could belong to.
+    ///
+    /// This used to be `relationships.first { !$0.isPaired }?.inviteCode`, which with more than
+    /// one unpaired group picked an arbitrary one — so the screen could show the code for a
+    /// different group than the user believed they were inviting to, and the invitee would land
+    /// somewhere unexpected. With several, the per-group rows carry their own codes instead and
+    /// this stays nil rather than guessing.
+    var soleInviteCode: String? {
+        unpairedRelationships.count == 1 ? unpairedRelationships.first?.inviteCode : nil
     }
 
     var isPaired: Bool { relationships.contains(where: \.isPaired) }
@@ -110,15 +118,21 @@ final class ProfileViewModel {
     /// Reachable after the group's owner leaves: they revoke their code on the way out, which
     /// would otherwise leave the remaining member showing a code nobody can redeem.
     private func repairInviteIfNeeded() async {
-        guard let user,
-              let relationship = relationships.first(where: { !$0.isPaired }),
-              relationship.participantIDs.first == user.id
-        else { return }
+        guard let user else { return }
+        // Every unpaired group this user owns, not just whichever came back first — with more
+        // than one, repairing only the first left the others showing codes nobody can redeem.
+        let owned = unpairedRelationships.filter { $0.participantIDs.first == user.id }
+        guard !owned.isEmpty else { return }
 
-        guard let repaired = try? await relationshipService.repairInvite(
-            for: relationship, userID: user.id
-        ), repaired != relationship.inviteCode else { return }
-
+        var repairedAny = false
+        for relationship in owned {
+            if let repaired = try? await relationshipService.repairInvite(
+                for: relationship, userID: user.id
+            ), repaired != relationship.inviteCode {
+                repairedAny = true
+            }
+        }
+        guard repairedAny else { return }
         relationships = (try? await relationshipService.relationships(for: user.id)) ?? relationships
     }
 
@@ -146,9 +160,12 @@ final class ProfileViewModel {
         }
     }
 
-    /// Issues a new invite code, retiring the old one.
-    func regenerateInviteCode() async {
-        guard let user, let relationship = relationships.first(where: { !$0.isPaired }) else { return }
+    /// Issues a new invite code for a specific group, retiring the old one.
+    ///
+    /// Takes the group explicitly. Choosing it internally meant rotating whichever unpaired
+    /// group happened to be first, which with several is not necessarily the one on screen.
+    func regenerateInviteCode(for relationship: Relationship) async {
+        guard let user else { return }
         isPairing = true
         errorMessage = nil
         defer { isPairing = false }
@@ -158,6 +175,29 @@ final class ProfileViewModel {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - Renaming
+
+    var relationshipToRename: Relationship?
+    var renameInput = ""
+
+    func beginRenaming(_ relationship: Relationship) {
+        relationshipToRename = relationship
+        renameInput = relationship.name ?? ""
+    }
+
+    /// Any participant may rename — it is a shared label, not the owner's.
+    func commitRename() async {
+        guard let relationship = relationshipToRename else { return }
+        relationshipToRename = nil
+        do {
+            try await relationshipService.rename(relationship, to: renameInput)
+            await loadRelationships()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        renameInput = ""
     }
 
     func loadUser() async {

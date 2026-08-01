@@ -64,7 +64,12 @@ final class HomeViewModel {
             return
         }
         isPaired = relationships.contains(where: \.isPaired)
-        inviteCode = relationships.first { !$0.isPaired }?.inviteCode
+        // Only when one group could own it. With several unpaired groups `first` picked an
+        // arbitrary one, so this prompt could hand out the code for a group the user was not
+        // thinking about. Nil here makes InvitePrompt point at Profile, where each group shows
+        // its own code.
+        let unpaired = relationships.filter { !$0.isPaired }
+        inviteCode = unpaired.count == 1 ? unpaired.first?.inviteCode : nil
         hasLoadedRelationship = true
     }
 

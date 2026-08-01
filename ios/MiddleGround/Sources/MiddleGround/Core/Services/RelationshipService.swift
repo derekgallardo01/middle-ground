@@ -144,19 +144,40 @@ actor RelationshipService {
         return newCode
     }
 
-    /// Resolves a display label per relationship: the partner's name when known,
-    /// falling back to the relationship type so the UI never shows an empty row.
+    /// Resolves a display label per relationship.
+    ///
+    /// Precedence is name → partner → type. A name the members chose beats a name we inferred:
+    /// two groups containing the same person, or two groups of the same type, are otherwise
+    /// indistinguishable in the Compose picker. The type remains the last resort so a row is
+    /// never blank.
     func displayLabels(for relationships: [Relationship], currentUserID: String) async -> [String: String] {
         var labels: [String: String] = [:]
         for relationship in relationships {
-            if let partnerID = relationship.partnerID(excluding: currentUserID),
-               let partner = try? await userRepository.user(id: partnerID),
-               !partner.name.isEmpty {
+            if let name = relationship.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty {
+                labels[relationship.id] = name
+            } else if let partnerID = relationship.partnerID(excluding: currentUserID),
+                      let partner = try? await userRepository.user(id: partnerID),
+                      !partner.name.isEmpty {
                 labels[relationship.id] = partner.name
             } else {
                 labels[relationship.id] = relationship.type.displayName
             }
         }
         return labels
+    }
+
+    /// Renames a group. Any participant may do this — it is a shared label, not an owner's.
+    ///
+    /// Needs no security-rule change: the general update branch pins only `inviteCode`, `type`
+    /// and `createdAt`, so `name` was always writable by a participant. `RelationshipRulesTests`
+    /// asserts that, so it stays true on purpose rather than by omission.
+    ///
+    /// An all-whitespace name clears the name rather than storing blanks that would render as an
+    /// empty row.
+    func rename(_ relationship: Relationship, to name: String) async throws {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        var updated = relationship
+        updated.name = trimmed.isEmpty ? nil : RequestLimits.clamp(trimmed, to: RequestLimits.groupName)
+        try await repository.saveRelationship(updated)
     }
 }

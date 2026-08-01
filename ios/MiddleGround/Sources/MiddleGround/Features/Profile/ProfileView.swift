@@ -148,8 +148,13 @@ struct ProfileView: View {
     }
 
     @ViewBuilder
+    /// The prominent invite card, shown only when exactly one group could own the code.
+    ///
+    /// With several unpaired groups this stays hidden and each group row carries its own code
+    /// instead — a single big code on screen cannot say which group it joins, and picking one
+    /// arbitrarily is how someone ends up invited into the wrong group.
     private var inviteSection: some View {
-        if let code = viewModel.inviteCode, !viewModel.isPaired {
+        if let code = viewModel.soleInviteCode, let relationship = viewModel.unpairedRelationships.first {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Invite")
                     .mgFont(.h2)
@@ -195,7 +200,7 @@ struct ProfileView: View {
                     // Codes used to be permanent and were never deleted after pairing, so
                     // anyone who ever saw one kept indefinite access. This is the revoke.
                     Button {
-                        Task { await viewModel.regenerateInviteCode() }
+                        Task { await viewModel.regenerateInviteCode(for: relationship) }
                     } label: {
                         Label("Generate a new code", systemImage: "arrow.clockwise")
                             .mgFont(.bodySmall)
@@ -226,34 +231,16 @@ struct ProfileView: View {
 
                 VStack(spacing: 0) {
                     ForEach(viewModel.relationships) { relationship in
-                        HStack(spacing: 12) {
-                            Image(systemName: relationship.type.iconName)
-                                .foregroundStyle(MGColors.indigo)
-                                .frame(width: 24)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(relationship.type.displayName)
-                                    .mgFont(.body)
-                                Text(relationship.isPaired ? "Paired" : "Waiting for someone to join")
-                                    .mgFont(.caption)
-                                    .foregroundStyle(MGColors.warm600)
-                            }
-
-                            Spacer()
-
-                            Button(role: .destructive) {
-                                relationshipToLeave = relationship
-                            } label: {
-                                Text("Leave")
-                                    .mgFont(.bodySmall)
-                                    .foregroundStyle(MGColors.coral)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(viewModel.isLeavingGroup)
-                            .accessibilityLabel("Leave \(relationship.type.displayName) group")
-                        }
-                        .padding()
-                        .background(MGColors.surface)
+                        GroupRow(
+                            relationship: relationship,
+                            // Suppressed when the prominent card above is already showing this
+                            // exact code, which is the single-unpaired-group case.
+                            showsInviteCode: !relationship.isPaired
+                                && viewModel.unpairedRelationships.count > 1,
+                            isLeaveDisabled: viewModel.isLeavingGroup,
+                            onRename: { viewModel.beginRenaming(relationship) },
+                            onLeave: { relationshipToLeave = relationship }
+                        )
                     }
                 }
                 .mgCard(radius: MGRadius.lg)
@@ -277,6 +264,19 @@ struct ProfileView: View {
                 You'll stop seeing each other's requests and they won't be able to send you \
                 new ones. This can't be undone.
                 """)
+            }
+            .alert(
+                "Name this group",
+                isPresented: Binding(
+                    get: { viewModel.relationshipToRename != nil },
+                    set: { if !$0 { viewModel.relationshipToRename = nil } }
+                )
+            ) {
+                TextField("e.g. Sunday hikers", text: $viewModel.renameInput)
+                Button("Cancel", role: .cancel) { viewModel.relationshipToRename = nil }
+                Button("Save") { Task { await viewModel.commitRename() } }
+            } message: {
+                Text("Everyone in the group sees this name. Leave it empty to go back to the group type.")
             }
         }
     }

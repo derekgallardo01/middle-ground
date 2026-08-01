@@ -192,6 +192,8 @@ enum RequestLimits {
     static let reportNote = 500
     /// Group names sit in pickers and single-line rows, so they are capped far shorter.
     static let groupName = 40
+    /// A place name, not an address essay.
+    static let location = 120
 
     /// Trims to `limit` without splitting a grapheme cluster (an emoji stays whole).
     static func clamp(_ text: String, to limit: Int) -> String {

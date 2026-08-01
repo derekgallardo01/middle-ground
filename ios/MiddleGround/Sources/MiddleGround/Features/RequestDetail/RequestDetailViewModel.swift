@@ -90,6 +90,17 @@ final class RequestDetailViewModel {
         "Waiting for \(partnerName ?? "your partner") to respond"
     }
 
+    /// A Maps search for a free-text place name.
+    ///
+    /// Percent-encoded rather than interpolated: an ampersand or a space in "Joe's Bar & Grill"
+    /// would otherwise produce a malformed URL and a link that silently does nothing. Falls back
+    /// to Maps itself if encoding somehow fails, so the link is never dead.
+    func mapsURL(for place: String) -> URL {
+        let encoded = place.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        return URL(string: "https://maps.apple.com/?q=\(encoded)")
+            ?? URL(string: "https://maps.apple.com")!
+    }
+
     // MARK: - Did it happen?
 
     var needsAttendanceConfirmation: Bool {

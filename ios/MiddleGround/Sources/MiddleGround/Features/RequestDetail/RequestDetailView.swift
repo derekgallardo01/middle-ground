@@ -278,6 +278,21 @@ struct RequestDetailView: View {
                 }
                 .foregroundStyle(MGColors.warm600)
             }
+
+            if let place = viewModel.request.location, !place.isEmpty {
+                // Tappable, because a place name you cannot look up is barely worth storing.
+                // Maps handles an unrecognised string gracefully by searching for it.
+                Link(destination: viewModel.mapsURL(for: place)) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "mappin.and.ellipse")
+                        Text(place)
+                            .mgFont(.bodySmall)
+                    }
+                    .foregroundStyle(MGColors.indigo)
+                }
+                .accessibilityLabel("Location: \(place)")
+                .accessibilityHint("Opens in Maps")
+            }
         }
         .padding(20)
         .background(MGColors.surface)

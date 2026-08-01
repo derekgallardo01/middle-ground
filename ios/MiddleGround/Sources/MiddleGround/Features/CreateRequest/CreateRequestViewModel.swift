@@ -61,6 +61,12 @@ final class CreateRequestViewModel {
         set { detailsStorage = RequestLimits.clamp(newValue, to: RequestLimits.details) }
     }
 
+    private var locationStorage: String = ""
+    var location: String {
+        get { locationStorage }
+        set { locationStorage = RequestLimits.clamp(newValue, to: RequestLimits.location) }
+    }
+
     var proposedTime: Date = Date() {
         didSet { scheduleAvailabilityCheck() }
     }
@@ -150,7 +156,11 @@ final class CreateRequestViewModel {
             category: category,
             title: title.trimmingCharacters(in: .whitespaces),
             details: details.isEmpty ? nil : details,
-            proposedTime: includeTime ? proposedTime : nil
+            proposedTime: includeTime ? proposedTime : nil,
+            location: {
+                let trimmed = location.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }()
         )
 
         do {

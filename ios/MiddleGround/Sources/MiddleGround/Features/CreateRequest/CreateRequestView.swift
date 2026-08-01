@@ -45,6 +45,13 @@ struct CreateRequestView: View {
                     TextField("Add a note (optional)", text: $viewModel.details, axis: .vertical)
                         .mgFont(.bodySmall)
                         .lineLimit(3...6)
+
+                    // `location` has been on the model, the DTO and the security rules since the
+                    // beginning and was rendered nowhere — stored on every request and readable
+                    // by nobody. This is the field finally having a use.
+                    TextField("Where? (optional)", text: $viewModel.location)
+                        .mgFont(.bodySmall)
+                        .textInputAutocapitalization(.words)
                 }
 
                 Section("When?") {

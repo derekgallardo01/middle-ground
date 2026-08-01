@@ -133,7 +133,18 @@ final class RequestDetailViewModel {
         counterText.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
-    func respond(with response: ResponseType, text: String? = nil) async {
+    /// A time attached to the counter being written, if the user picked one.
+    var counterProposedTime: Date?
+
+    /// A time on its own is a complete counter-proposal — "how about Sunday?" needs no prose.
+    var canSendCounter: Bool { !isCounterEmpty || counterProposedTime != nil }
+
+    /// `newTime` moves the proposed time along with the response.
+    ///
+    /// Without it a counter is text only: "Sunday instead?" changes nothing but the transcript,
+    /// so accepting that counter produced an accepted request still carrying the original date —
+    /// and a Calendar entry on a day neither person agreed to.
+    func respond(with response: ResponseType, text: String? = nil, newTime: Date? = nil) async {
         guard let currentUser else {
             errorMessage = "Not signed in."
             return
@@ -142,7 +153,9 @@ final class RequestDetailViewModel {
         errorMessage = nil
         do {
             let previous = request
-            request = try await requestService.respond(to: request, with: response, text: text, by: currentUser.id)
+            var outgoing = request
+            if let newTime { outgoing.proposedTime = newTime }
+            request = try await requestService.respond(to: outgoing, with: response, text: text, by: currentUser.id)
             counterText = ""
             let outcome = await gamificationService.recordResponse(response, to: previous, for: currentUser.id)
 
@@ -174,8 +187,12 @@ final class RequestDetailViewModel {
     }
 
     func sendCounter() async {
-        guard !isCounterEmpty else { return }
-        await respond(with: .counter, text: counterText)
+        guard canSendCounter else { return }
+        let time = counterProposedTime
+        // A counter with only a time still needs to read as something in the transcript.
+        let message = isCounterEmpty ? (time.map(Self.rescheduleText(for:)) ?? "") : counterText
+        await respond(with: .counter, text: message, newTime: time)
+        counterProposedTime = nil
     }
 
     func saveForLater() async {

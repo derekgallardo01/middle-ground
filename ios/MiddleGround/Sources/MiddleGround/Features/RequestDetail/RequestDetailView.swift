@@ -5,11 +5,17 @@ struct RequestDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showCancelConfirmation = false
-    var namespace: Namespace.ID
 
-    init(request: Request, namespace: Namespace.ID) {
+    /// Drives the counter composer at the bottom of the negotiation thread.
+    @FocusState private var composerFocused: Bool
+
+    /// Open straight into composing, for when the user chose "Negotiate" from the feed and the
+    /// thing they actually wanted was the text field.
+    private let startComposing: Bool
+
+    init(request: Request, startComposing: Bool = false) {
         _viewModel = State(wrappedValue: RequestDetailViewModel(request: request))
-        self.namespace = namespace
+        self.startComposing = startComposing
     }
 
     var body: some View {
@@ -30,7 +36,7 @@ struct RequestDetailView: View {
                             .transition(.opacity)
                     }
 
-                    NegotiationView(viewModel: viewModel)
+                    NegotiationView(viewModel: viewModel, composerFocused: $composerFocused)
 
                     Spacer(minLength: 40)
                 }
@@ -83,6 +89,13 @@ struct RequestDetailView: View {
                     }
                     .accessibilityLabel("More actions")
                 }
+            }
+        }
+        .task {
+            // Arriving from the feed's Negotiate button: the user has already said they want to
+            // suggest something, so put them in the field rather than making them find it.
+            if startComposing, viewModel.canRespond {
+                composerFocused = true
             }
         }
         .alert("Oops", isPresented: .constant(viewModel.errorMessage != nil)) {
@@ -180,7 +193,13 @@ struct RequestDetailView: View {
         .background(MGColors.surface)
         .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         .mgShadow(MGShadow.md)
-        .matchedGeometryEffect(id: "card_\(viewModel.request.id)", in: namespace, properties: .frame, anchor: .topLeading, isSource: false)
+        // No matchedGeometryEffect here, deliberately.
+        //
+        // This card used to consume the feed card's frame with `isSource: false`. The two views
+        // live on opposite sides of a NavigationStack push, so the effect could never animate
+        // between them — but it was not harmless either: the card took the *feed* card's
+        // geometry, which pushed it hundreds of points down the screen, narrowed it until the
+        // title truncated, and left the negotiation content overlapping the status badge.
     }
 
     private var quickResponseRow: some View {
@@ -196,8 +215,16 @@ struct RequestDetailView: View {
                 ResponseButton(type: .accept, emphasis: .prominent, isBusy: viewModel.isSending) {
                     Task { await viewModel.respond(with: .accept) }
                 }
+                // Opens the composer instead of sending.
+                //
+                // This used to fire `.negotiate` with no text at all, which sent the other
+                // person a bubble reading "🤝 Negotiate" and nothing else — and, because
+                // responding hands over the turn, it simultaneously hid the one field you
+                // could have explained yourself in. You could ask to negotiate but never say
+                // what you wanted. Reschedule already collects its content before sending;
+                // this now does the same.
                 ResponseButton(type: .negotiate, isBusy: viewModel.isSending) {
-                    Task { await viewModel.respond(with: .negotiate) }
+                    composerFocused = true
                 }
                 ResponseButton(type: .reschedule, isBusy: viewModel.isSending) {
                     viewModel.showReschedulePicker = true
@@ -254,9 +281,8 @@ struct RequestDetailView: View {
 }
 
 #Preview {
-    @Previewable @Namespace var namespace
     AppConfiguration.useMockRepositories = true
     return NavigationStack {
-        RequestDetailView(request: .previewNegotiating, namespace: namespace)
+        RequestDetailView(request: .previewNegotiating)
     }
 }

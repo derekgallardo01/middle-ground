@@ -310,6 +310,17 @@ struct ProfileView: View {
                 .padding()
                 .background(MGColors.surface)
 
+                // Only shown when the OS permission is granted. With notifications off at the
+                // system level these switches control nothing, and a row of switches that
+                // change nothing is worse than no row at all — the user turns one off, nothing
+                // was arriving anyway, and they learn the screen is decorative.
+                if viewModel.notificationsEnabled {
+                    ForEach(NotificationKind.allCases) { kind in
+                        Divider().padding(.leading)
+                        notificationToggle(for: kind)
+                    }
+                }
+
                 Divider()
                     .padding(.leading)
 
@@ -335,6 +346,24 @@ struct ProfileView: View {
             }
             .mgCard(radius: MGRadius.lg)
         }
+    }
+
+    private func notificationToggle(for kind: NotificationKind) -> some View {
+        Toggle(isOn: .init(
+            get: { viewModel.isEnabled(kind) },
+            set: { enabled in Task { await viewModel.setEnabled(kind, enabled) } }
+        )) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(kind.title)
+                    .mgFont(.body)
+                Text(kind.explanation)
+                    .mgFont(.caption)
+                    .foregroundStyle(MGColors.warm600)
+            }
+        }
+        .padding()
+        .padding(.leading, 12)
+        .background(MGColors.surface)
     }
 
     private var aboutSection: some View {

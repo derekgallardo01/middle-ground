@@ -403,6 +403,22 @@ service cloud.firestore {
       allow delete: if signedIn() && uid() == userId;
     }
 
+    // -------------------------------------------- notification preferences
+    // Which kinds of push a person wants. Their own document and nobody else's: what someone
+    // has chosen to be interrupted about is theirs to know.
+    //
+    // Its own collection rather than a field on `users/{uid}`, which any signed-in user may
+    // read, or on `user_tokens/{uid}`, which nobody may read at all — device tokens are
+    // deliberately write-only, so settings kept there could never be shown back to their owner.
+    //
+    // A missing document means everything is on. New users and everyone who predates this get
+    // the same behaviour they had, with nothing to migrate.
+    match /notification_settings/{userId} {
+      allow read: if (signedIn() && uid() == userId) || isAdmin();
+      allow create, update: if signedIn() && uid() == userId;
+      allow delete: if signedIn() && uid() == userId;
+    }
+
     // -------------------------------------------------------------- reports
     // Abuse reports (App Review guideline 1.2). A user files one against content they can
     // see; only an admin can read them. Write-only from the reporter's side on purpose —

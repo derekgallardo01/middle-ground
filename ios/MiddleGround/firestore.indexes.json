@@ -19,12 +19,30 @@
       ]
     },
     {
-      "_comment": "CloudFunctions pendingCountFor() — the push badge is the recipient's real pending count, which needs an array-contains plus an equality.",
+      "_comment": "CloudFunctions pendingCountFor() — the push badge counts every unsettled request this user belongs to, then narrows to the ones awaiting their reply in JS. Membership is `allParticipantIDs`, not `recipientIDs`: after a counter-offer the turn belongs to the creator, who is in neither the recipients nor a `pending` status.",
       "collectionGroup": "requests",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "recipientIDs", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "allParticipantIDs", "arrayConfig": "CONTAINS" },
         { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "_comment": "weeklyNudge in CloudFunctions reads a user's plans newest-first to find which group has gone longest without one. Ordering by `proposedTime` also does the filtering: undated requests lack the field and Firestore omits them, which is correct — a chore is not a plan.",
+      "collectionGroup": "requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "allParticipantIDs", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "proposedTime", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "_comment": "promptForAttendance in CloudFunctions finds accepted plans whose time fell inside one hourly window — an equality on `status` plus a range on `proposedTime`.",
+      "collectionGroup": "requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "proposedTime", "order": "ASCENDING" }
       ]
     },
     {

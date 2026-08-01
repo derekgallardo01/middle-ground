@@ -228,9 +228,10 @@ the app does not collect is a penalty derived from nothing.
 Raw items: popularity score · missed reservations subtract · missed trips · record of people missing
 · cancellation reasons (list) · cancel three times in a row → penalty · punishment · score ·
 cancel / confirm / reject · confirmation of the action · appeal rejection via moderator/staff ·
-rejection reasons (list) · rejection denials *(undefined)* · review other group members ·
-"leadership of score for activities" *(read as a leaderboard — confirm)* · people rate the
-activities · closure *(undefined)* · motivation betting *(undefined)* · stats or metrics
+rejection reasons (list) · rejection denials *(defined: disputing a decline — gated on a moderator queue)* ·
+review other group members · "leadership of score for activities" *(defined: a leaderboard,
+groups only)* · people rate the activities · closure *(defined: the confirmation step, built)* ·
+motivation betting *(defined: points, built)* · stats or metrics
 *(unclear whether user-facing or the existing admin panel, which already reports totals, funnel
 and per-user stats)*.
 
@@ -241,6 +242,10 @@ Constraints that come with the decision:
   The safest split is the one already discussed — penalties apply to venue bookings and group/public
   plans where a no-show costs someone money; couples keep a positive-only score.
 - **Appeals imply staffing.** A moderator queue is an operational commitment, not a feature.
+  This is what gates **Rejection Denials** (defined below) — the screens are small, the standing
+  obligation to answer them is not.
+- **A leaderboard inherits the couples exclusion.** "Leadership of score" is a ranking within a
+  group, and a ranking between two partners is the weaponisation problem with a rank attached.
 - Every penalty needs a recorded reason, or the score is unexplainable — the same defect just fixed
   on Growth Score, at higher stakes.
 - App Review guideline 1.2 (user-generated content) applies once users rate each other: reporting,
@@ -330,15 +335,43 @@ reading, clearly a **proposal**, with what changes if it is wrong. Cross out and
 | **Gate Guardian** | An approval gate: a nominated person who must approve a plan before it reaches you | If it means controlling *who may contact you*, it is a blocking/allowlist feature instead — a different screen and a different rules change |
 | **Authorized Representative** | Delegated authority: someone who may accept or decline on another's behalf | Changes the account model. Actions would need "acting as" attribution, and `firestore.rules` would have to let a third party write to a request they are not a participant of — a significant widening |
 | **Start at 0** | Reputation is earned from zero rather than granted as a default | If a score can go *below* zero, penalties need a floor and a story for what a negative score means socially |
-| **Closure** | The terminal step that ends a plan and locks its outcome — i.e. the confirmation step now built | If it means closing a *dispute* or an *account*, it belongs with appeals or with account deletion, both of which already partly exist |
-| **Motivation Betting** | Both people stake **points** on following through; the stake moves on a no-show | If real money: payments, App Review 3.1.1, and possibly gambling rules. An entirely different size of feature and the one most likely to fail review |
-| **Rejection Denials** | Disputing someone's rejection — the entry point to appeals | Could equally be the *outcome* of an appeal (an appeal being denied), which is a moderator-facing screen rather than a user-facing one |
+| ~~**Closure**~~ ✅ **settled** | The terminal step that ends a plan and locks its outcome — the confirmation step, **already built** | — |
+| ~~**Motivation Betting**~~ ✅ **settled: points** | Both people stake **points** on following through; the stake moves on a no-show. **Built** — see `Stake.swift` | Real money is explicitly out. It would pull in payments, App Review 3.1.1 and possibly gambling rules |
+| ~~**Rejection Denials**~~ ✅ **settled** | Disputing someone's decline or no-show claim — the **entry point to appeals**. See the definition below | — |
 | **Stats or metrics** | User-facing per-group stats | The admin panel already reports totals, the funnel and per-user stats. If that is what you meant, it exists — and now loads in about one round trip instead of twenty-four |
-| **"Leadership of score for activities"** | A leaderboard ranking within a group | Could mean who *leads or organises* an activity, which is a role on a request rather than a ranking |
-| **"Only active steps"** (location) | Share location only while a plan is active | If it means step/movement data, that is HealthKit: separate permissions, separate privacy disclosures, and a much heavier posture |
+| ~~**"Leadership of score for activities"**~~ ✅ **settled** | A **leaderboard** ranking within a group. See the constraint below | — |
+| ~~**"Only active steps"** (location)~~ ✅ **settled** | Share location **only while a plan is active** — foreground, on demand, a point rather than a feed | HealthKit step data is explicitly out |
 | **"Schedule a date with someone"** | Someone already in one of your groups | If it means people you are *not* connected to, that is discovery and matching — it breaks the assumption that every relationship starts with a code shared privately between two people who already know each other |
 
-Answering the first four unblocks most of the identity and reliability clusters.
+Five of these are now settled and struck through. What remains open is **Gate Guardian**,
+**Authorized Representative**, **Start at 0**, **Stats or metrics**, and **"Schedule a date with
+someone"** — the first two are the ones that would change the account model, so they are the ones
+worth answering next.
+
+### Rejection Denials — settled definition
+
+Disputing someone else's decline or no-show claim: you said it happened, they said it did not, and
+this is where that disagreement goes. It is the entry point to appeals.
+
+**The blocker is operational, not technical.** A dispute has to be resolved by somebody, and that
+somebody is a moderator queue — a commitment to answer within a stated window, staffed by a real
+person, for as long as the app exists. The code is a few screens; the queue is a standing
+obligation. Nothing here should ship until there is an answer to "who reads these, and by when".
+
+Note the smaller version that needs no queue: a disputed plan already resolves to *no* settlement
+rather than a wrong one — `stakeSettlement` returns nil when the two answers disagree, so nobody
+loses points to a claim nobody adjudicated. Disagreement is already safe. Appeals only add the
+ability to *overturn*, which is exactly the part that needs a human.
+
+### "Leadership of score for activities" — settled definition
+
+A leaderboard ranking within a group: who has shown up most, planned most, followed through most.
+
+⚠️ **It follows the same rule as the reliability score: groups yes, couples no.** A leaderboard
+between two partners is the identical weaponisation risk that kept reliability out of couples, only
+with a rank attached — being second of two is not a statistic, it is an accusation. `canSeeReliability(in:)`
+already encodes exactly this split (`relationship.type != .couple`), and the leaderboard must reuse
+it rather than inventing a second, subtly different rule.
 
 ---
 

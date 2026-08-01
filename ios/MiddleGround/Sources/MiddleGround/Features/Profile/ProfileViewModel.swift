@@ -8,6 +8,7 @@ final class ProfileViewModel {
     private let authService = Container.shared.authService()
     private let gamificationService = Container.shared.gamificationService()
     private let notificationService = NotificationService.shared
+    private let notificationSettingsRepository = Container.shared.notificationSettingsRepository()
     private let relationshipService = Container.shared.relationshipService()
     private let requestService = Container.shared.requestService()
     private let signInManager = Container.shared.signInWithAppleManager()
@@ -15,6 +16,7 @@ final class ProfileViewModel {
     var user: User?
     var stats: GamificationStats?
     var notificationsEnabled = false
+    var notificationSettings = NotificationSettings()
     var relationships: [Relationship] = []
 
     var unpairedRelationships: [Relationship] { relationships.filter { !$0.isPaired } }
@@ -268,6 +270,44 @@ final class ProfileViewModel {
     func checkNotificationStatus() async {
         await notificationService.checkAuthorizationStatus()
         notificationsEnabled = notificationService.hasPermission
+        if notificationsEnabled { await loadNotificationSettings() }
+    }
+
+    // MARK: - Which notifications
+
+    /// Loaded rather than assumed, and unchanged on failure.
+    ///
+    /// A failed read leaves every switch on, which matches what the backend does with a document
+    /// it cannot read. Showing a switch as on while the server has it off is the smaller lie:
+    /// the alternative is showing everything off and having the user tap one, which writes it
+    /// back on and quietly discards whatever else they had muted.
+    func loadNotificationSettings() async {
+        guard let user else { return }
+        guard let loaded = try? await notificationSettingsRepository.settings(for: user.id) else {
+            return
+        }
+        notificationSettings = loaded
+    }
+
+    func isEnabled(_ kind: NotificationKind) -> Bool {
+        notificationSettings.isEnabled(kind)
+    }
+
+    /// Writes immediately, and reverts the switch if the write fails.
+    ///
+    /// Optimistic because a switch that waits for a round trip before moving feels broken. The
+    /// revert is what keeps that honest: a mute that silently failed to save would leave someone
+    /// certain they had turned something off while it kept arriving.
+    func setEnabled(_ kind: NotificationKind, _ enabled: Bool) async {
+        guard let user else { return }
+        let previous = notificationSettings
+        notificationSettings.set(kind, enabled: enabled)
+        do {
+            try await notificationSettingsRepository.save(notificationSettings, for: user.id)
+        } catch {
+            notificationSettings = previous
+            errorMessage = "Couldn't save that. Check your connection and try again."
+        }
     }
 
     /// iOS has no API to revoke notification permission, so turning it off opens Settings.

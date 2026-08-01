@@ -120,7 +120,9 @@ jobs:
         run: npm install
 
       # Exercises firestore.rules against the emulator so the security model is
-      # actually tested rather than reviewed by eye.
-      - name: Test security rules
+      # actually tested rather than reviewed by eye. Also runs the delivery tests, which need
+      # no emulator but share the runner — who gets a push, and what the badge says, are the
+      # two things no screen displays and therefore nothing else would catch.
+      - name: Test security rules and push delivery
         working-directory: ios/MiddleGround
         run: npx --yes firebase-tools emulators:exec --only firestore "cd CloudFunctions && npm test"

@@ -958,6 +958,31 @@ describe('gamification mirror', () => {
   });
 });
 
+// What someone has chosen to be interrupted about is theirs to know.
+describe('notification settings', () => {
+  beforeEach(() =>
+    seed((db) => setDoc(doc(db, 'notification_settings/alice'), { newRequest: false })),
+  );
+
+  test('you can read and write your own', async () => {
+    await assertSucceeds(getDoc(doc(asAlice(), 'notification_settings/alice')));
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'notification_settings/alice'), { newRequest: true }),
+    );
+  });
+
+  test('you cannot read or write someone else settings', async () => {
+    await assertFails(getDoc(doc(asBob(), 'notification_settings/alice')));
+    await assertFails(
+      setDoc(doc(asBob(), 'notification_settings/alice'), { newRequest: true }),
+    );
+  });
+
+  test('an anonymous client is refused', async () => {
+    await assertFails(getDoc(doc(asAnon(), 'notification_settings/alice')));
+  });
+});
+
 describe('unmatched paths', () => {
   test('a collection with no rule is denied', async () => {
     await assertFails(getDoc(doc(asAlice(), 'secrets/s1')));

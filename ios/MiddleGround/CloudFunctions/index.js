@@ -25,7 +25,7 @@ const { defineSecret } = require('firebase-functions/params');
 // 1st-gen, for the auth trigger only. See the note above.
 const functionsV1 = require('firebase-functions/v1');
 
-const { getUserName, notifyUsers } = require('./push');
+const { getUserName, notifyUsers, NotificationType } = require('./push');
 const { purgeUserData } = require('./purge');
 const { sendAlert, when } = require('./alerts');
 
@@ -33,6 +33,23 @@ initializeApp();
 const db = () => getFirestore();
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
+
+const HOUR = 60 * 60 * 1000;
+
+/**
+ * Mirrors `CancellationReason.displayName` in Swift.
+ *
+ * Duplicated rather than shared because there is no code path between the app and the functions;
+ * an unknown value falls back rather than showing a raw enum case, so an added reason reads badly
+ * for one deploy instead of shipping "somethingCameUp" to someone's lock screen.
+ */
+const CANCELLATION_REASONS = {
+  somethingCameUp: 'Something came up',
+  unwell: 'Not feeling well',
+  plansChanged: 'Our plans changed',
+  runningLate: 'Running too late',
+  noLongerNeeded: 'No longer needed',
+};
 
 /**
  * Options for every function that sends mail.
@@ -62,7 +79,7 @@ exports.notifyNewRequest = onDocumentCreated('requests/{requestId}', async (even
       request_id: event.params.requestId,
       type: 'new_request',
     },
-  });
+  }, NotificationType.newRequest);
 });
 
 /** Notifies everyone except the responder when a request gains a response. */
@@ -91,8 +108,214 @@ exports.notifyRequestResponse = onDocumentUpdated('requests/{requestId}', async 
       request_id: event.params.requestId,
       type: 'request_response',
     },
-  });
+  }, NotificationType.response);
 });
+
+/**
+ * Tells everyone else when a plan is called off.
+ *
+ * Cancelling does not append to the negotiation chain — it sets the status and a reason — so
+ * `notifyRequestResponse` above never sees it. Without this the plan simply disappears from the
+ * other person's list with no explanation, which is the worst possible way to learn that dinner
+ * is off. Only the creator may cancel, so everybody else is told.
+ */
+exports.notifyPlanCancelled = onDocumentUpdated('requests/{requestId}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after) return null;
+  if (before.status === 'cancelled' || after.status !== 'cancelled') return null;
+
+  const cancellerName = await getUserName(after.creatorID);
+  const others = (after.allParticipantIDs || []).filter((id) => id !== after.creatorID);
+  if (others.length === 0) return null;
+
+  return notifyUsers(others, {
+    notification: {
+      title: `${cancellerName} cancelled "${after.title}"`,
+      body: CANCELLATION_REASONS[after.cancellationReason] || 'No reason given.',
+    },
+    data: {
+      request_id: event.params.requestId,
+      type: 'plan_cancelled',
+    },
+  }, NotificationType.planCancelled);
+});
+
+/**
+ * Asks whether a plan actually happened, a few hours after it was due.
+ *
+ * Attendance is the input the reliability score, stakes and every missed-plan idea are computed
+ * from, and until now nothing asked for it: an accepted plan simply stopped changing and the app
+ * waited for someone to open it and notice the prompt.
+ *
+ * The window is what keeps this exactly-once without storing a "we asked" flag on the request.
+ * The hour is floored first, so the boundaries do not drift with the few seconds a scheduled run
+ * takes to start, and each plan therefore falls inside exactly one hourly window — no repeats,
+ * no gaps. A flag would have been more robust to a missed run, but the client rewrites the whole
+ * request document when it responds, which would silently drop a field the Swift model does not
+ * know about and re-ask every hour.
+ *
+ * Four hours of grace, because the stored time is when a plan *starts*. Asking whether dinner
+ * happened while people are still at dinner would train them to ignore the question.
+ */
+const CONFIRM_AFTER_HOURS = 4;
+
+exports.promptForAttendance = onSchedule(
+  { schedule: '0 * * * *', timeZone: 'America/New_York' },
+  async () => {
+    const hourStart = new Date(Math.floor(Date.now() / HOUR) * HOUR);
+    const until = new Date(hourStart.getTime() - CONFIRM_AFTER_HOURS * HOUR);
+    const since = new Date(until.getTime() - HOUR);
+
+    const snapshot = await db()
+      .collection('requests')
+      .where('status', '==', 'accepted')
+      .where('proposedTime', '>=', since)
+      .where('proposedTime', '<', until)
+      .get();
+
+    if (snapshot.empty) return;
+    console.log(`Asking about ${snapshot.size} plan(s) that were due between ${since} and ${until}`);
+
+    await Promise.all(
+      snapshot.docs.map(async (doc) => {
+        const request = doc.data();
+        const confirmations = request.confirmations || {};
+        const unanswered = (request.allParticipantIDs || []).filter((id) => !confirmations[id]);
+        if (unanswered.length === 0) return;
+
+        await notifyUsers(unanswered, {
+          notification: {
+            title: 'Did it happen?',
+            body: `Let us know how "${request.title}" went.`,
+          },
+          data: {
+            request_id: doc.id,
+            type: 'confirm_plan',
+          },
+        }, NotificationType.confirmPlan);
+      })
+    );
+  }
+);
+
+// -------------------------------------------------------- weekly nudge
+
+/**
+ * Once a week, tells one person about one group that has nothing planned.
+ *
+ * Thursday morning on purpose: the weekend is close enough to act on and far enough away that
+ * something can still be arranged. A Sunday reminder arrives after the window it is about.
+ *
+ * The hard constraint is one push, however many groups qualify. Three defensible notifications
+ * on the same morning still read as spam, and the cost of that is not the three — it is the
+ * notification permission being switched off entirely, taking the cancellation and did-it-happen
+ * pushes with it. So the quietest group is picked and the rest wait for next week.
+ *
+ * Silent when there is nothing to say. A nudge that arrives while you have three plans booked is
+ * the fastest way to teach someone this app does not know what it is talking about.
+ */
+const NUDGE_HISTORY_LIMIT = 50;
+
+exports.weeklyNudge = onSchedule(
+  { schedule: '0 10 * * 4', timeZone: 'America/New_York' },
+  async () => {
+    // Reading every user and every relationship is honest at this size and will not stay that
+    // way. The shape that scales is a per-user scheduled fan-out (a task queue keyed by user),
+    // and the moment to build it is when this function's runtime becomes visible — not before.
+    const [users, relationships] = await Promise.all([
+      db().collection('users').get(),
+      db().collection('relationships').get(),
+    ]);
+
+    const groupsByUser = new Map();
+    relationships.forEach((doc) => {
+      const group = doc.data();
+      const members = group.participantIDs || [];
+      if (members.length !== 2) return; // Unpaired: there is nobody to plan with yet.
+      members.forEach((id) => {
+        if (!groupsByUser.has(id)) groupsByUser.set(id, []);
+        groupsByUser.get(id).push({ id: doc.id, ...group });
+      });
+    });
+
+    const nudged = await Promise.all(
+      users.docs.map((doc) => nudgeIfQuiet(doc.id, groupsByUser.get(doc.id) || [])),
+    );
+    console.log(`Nudged ${nudged.filter(Boolean).length} of ${users.size} user(s)`);
+  }
+);
+
+async function nudgeIfQuiet(userId, groups) {
+  if (groups.length === 0) return false;
+
+  // Undated requests are deliberately invisible here: ordering by `proposedTime` drops documents
+  // that lack the field, and "split the grocery run" is a task rather than a plan. Nudging
+  // someone to make plans because their only shared item is a chore would be wrong twice.
+  const snapshot = await db()
+    .collection('requests')
+    .where('allParticipantIDs', 'array-contains', userId)
+    .orderBy('proposedTime', 'desc')
+    .limit(NUDGE_HISTORY_LIMIT)
+    .get();
+
+  const now = Date.now();
+  const plans = snapshot.docs
+    .map((doc) => doc.data())
+    .filter((request) => request.status !== 'cancelled' && request.status !== 'declined');
+
+  const quiet = groups
+    .map((group) => {
+      const partnerId = group.participantIDs.find((id) => id !== userId);
+      const shared = plans.filter((plan) => (plan.allParticipantIDs || []).includes(partnerId));
+      const upcoming = shared.some((plan) => toMillis(plan.proposedTime) > now);
+      if (upcoming) return null;
+
+      // No plan ever means measuring from when the group was created, so a pair who have never
+      // used it are not silently exempt from the one message aimed squarely at them.
+      const last = shared[0] ? toMillis(shared[0].proposedTime) : toMillis(group.createdAt);
+      return { group, partnerId, since: last, ever: shared.length > 0 };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.since - b.since);
+
+  if (quiet.length === 0) return false;
+
+  const quietest = quiet[0];
+  const partnerName = await getUserName(quietest.partnerId);
+  const who = quietest.group.name || `you and ${partnerName}`;
+  const gap = describeGap(now - quietest.since);
+
+  await notifyUsers([userId], {
+    notification: {
+      title: 'Plan something?',
+      body: quietest.ever
+        ? `Nothing on the calendar for ${who} in ${gap}.`
+        : `${capitalise(who)} haven't planned anything yet.`,
+    },
+    data: { relationship_id: quietest.group.id, type: 'weekly_nudge' },
+  }, NotificationType.weeklyNudge);
+  return true;
+}
+
+/** Firestore hands back a Timestamp; a seeded or hand-written document might not. */
+function toMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  return new Date(value).getTime();
+}
+
+/** Rounded to the unit somebody would actually use out loud. */
+function describeGap(milliseconds) {
+  const days = Math.floor(milliseconds / (24 * HOUR));
+  if (days >= 60) return `${Math.floor(days / 30)} months`;
+  if (days >= 30) return 'a month';
+  if (days >= 14) return `${Math.floor(days / 7)} weeks`;
+  if (days >= 7) return 'a week';
+  return `${days} days`;
+}
+
+const capitalise = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 
 // ------------------------------------------------------ operator alerts
 //

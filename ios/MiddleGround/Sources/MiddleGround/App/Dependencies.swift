@@ -121,6 +121,17 @@ extension Container {
         }
     }
 
+    var notificationSettingsRepository: Factory<NotificationSettingsRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockNotificationSettingsRepository()
+            }
+            #endif
+            return FirestoreNotificationSettingsRepository()
+        }
+    }
+
     var gamificationService: Factory<GamificationServiceProtocol> {
         Factory(self) {
             AppConfiguration.useMockRepositories

@@ -50,6 +50,136 @@ final class GamificationServiceTests: XCTestCase {
         XCTAssertTrue(achievements.allSatisfy { !$0.isUnlocked })
     }
 
+    // MARK: - Per-category progression
+
+    func testRespondingAwardsXPToTheRequestsOwnCategory() async {
+        let travel = Request(
+            creatorID: "partner",
+            recipientIDs: [userID],
+            category: .travel,
+            title: "Weekend away"
+        )
+        let outcome = await service.recordResponse(.accept, to: travel, for: userID)
+
+        XCTAssertEqual(outcome.stats.categoryXP["travel"], GamificationRules.xp(for: .accept))
+        XCTAssertEqual(outcome.stats.level(for: .travel), 1)
+        XCTAssertNil(outcome.stats.categoryXP["dating"], "other categories must be untouched")
+    }
+
+    /// A category this build cannot name should not accrue a level under a "?" icon.
+    func testUnknownCategoryEarnsNoCategoryXP() async {
+        let mystery = Request(
+            creatorID: "partner",
+            recipientIDs: [userID],
+            category: .unknown,
+            title: "???"
+        )
+        let outcome = await service.recordResponse(.accept, to: mystery, for: userID)
+
+        XCTAssertTrue(outcome.stats.categoryXP.isEmpty)
+        XCTAssertEqual(
+            outcome.stats.relationshipXP,
+            GamificationRules.xp(for: .accept),
+            "overall XP is still awarded"
+        )
+    }
+
+    func testRankedCategoriesHidesEmptyOnesAndOrdersByProgress() {
+        let stats = GamificationStats(
+            streakDays: 0,
+            relationshipXP: 0,
+            level: 1,
+            growthScore: 0,
+            nextLevelXP: 500,
+            categoryXP: ["dating": 40, "travel": 900, "chill": 0]
+        )
+
+        XCTAssertEqual(stats.rankedCategories.map(\.category), [.travel, .dating])
+        XCTAssertEqual(stats.level(for: .travel), 2)
+        XCTAssertEqual(stats.level(for: .family), 1, "a category with no XP is still level 1")
+    }
+
+    /// The same class of failure as the unknown-category fallback: a blob written before the
+    /// field existed must load rather than throw away everything alongside it.
+    func testStatsWrittenBeforeCategoryXPExistedStillDecode() throws {
+        let legacy = """
+        {"streakDays":3,"relationshipXP":150,"level":1,"growthScore":12,"nextLevelXP":500}
+        """
+
+        let decoded = try JSONDecoder().decode(GamificationStats.self, from: Data(legacy.utf8))
+
+        XCTAssertEqual(decoded.relationshipXP, 150)
+        XCTAssertTrue(decoded.categoryXP.isEmpty)
+    }
+
+    // MARK: - Goals
+
+    /// Progress used to be a switch on hardcoded IDs ending in `default: 0`, so a goal added
+    /// without editing that switch sat at zero forever. Each goal now carries its own metric.
+    func testGoalsMeasureTheirOwnMetric() {
+        let stats = GamificationStats(
+            streakDays: 7,
+            relationshipXP: 0,
+            level: 1,
+            growthScore: 0,
+            nextLevelXP: 500,
+            acceptedCount: 12,
+            negotiatedCount: 4,
+            weekendAcceptedCount: 2,
+            categoryXP: ["dating": 260]
+        )
+        let goal = { (metric: GoalMetric, category: RequestCategory?) in
+            Achievement(
+                id: "g",
+                title: "t",
+                description: "d",
+                iconName: "i",
+                requiredValue: 1,
+                metric: metric,
+                category: category
+            )
+        }
+
+        XCTAssertEqual(goal(.streakDays, nil).progress(in: stats), 7)
+        XCTAssertEqual(goal(.accepted, nil).progress(in: stats), 12)
+        XCTAssertEqual(goal(.negotiated, nil).progress(in: stats), 4)
+        XCTAssertEqual(goal(.weekendAccepted, nil).progress(in: stats), 2)
+        XCTAssertEqual(goal(.categoryXP, .dating).progress(in: stats), 260)
+        XCTAssertEqual(goal(.categoryXP, .travel).progress(in: stats), 0)
+        XCTAssertEqual(goal(.categoryXP, nil).progress(in: stats), 0, "unscoped category goal")
+    }
+
+    /// Achievements stored before goals carried a metric must keep measuring what they did.
+    func testLegacyStoredAchievementsKeepTheirOriginalMetric() throws {
+        let legacy = """
+        [{"id":"ach_2","title":"Weekend Warrior","description":"d","iconName":"airplane",
+          "requiredValue":5},
+         {"id":"ach_3","title":"Streak Starter","description":"d","iconName":"flame.fill",
+          "requiredValue":3}]
+        """
+
+        let decoded = try JSONDecoder().decode([Achievement].self, from: Data(legacy.utf8))
+
+        XCTAssertEqual(decoded[0].metric, .weekendAccepted)
+        XCTAssertEqual(decoded[1].metric, .streakDays)
+    }
+
+    /// Goals added after someone started using the app must still reach them.
+    func testNewGoalsAppearForUsersWhoAlreadyHaveStoredProgress() async {
+        var existing = await service.achievements(for: userID)
+        existing = [existing[0]]
+        existing[0].unlockedAt = Date()
+        await service.save(achievements: existing, for: userID)
+
+        let merged = await service.achievements(for: userID)
+
+        XCTAssertTrue(merged.contains { $0.id == "goal_dating" }, "goals added later must appear")
+        XCTAssertTrue(
+            merged.first { $0.id == existing[0].id }?.isUnlocked == true,
+            "already-earned progress must survive the merge"
+        )
+    }
+
     // MARK: - Restoring from the mirror
     //
     // This is what a reinstall or a new phone looks like: the mirror holds the user's progress

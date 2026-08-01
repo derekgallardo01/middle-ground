@@ -42,6 +42,14 @@ struct GamificationStats: Codable, Equatable, Sendable {
     var weekendAcceptedCount: Int
     var lastResponseDate: Date?
 
+    /// XP earned per request category, keyed by `RequestCategory.rawValue`.
+    ///
+    /// Progression was entirely global: one XP total, one level, one streak. That says nothing
+    /// about *what* someone does together, so fishing, workouts and date nights all fed a single
+    /// undifferentiated number. Keying by category lets each build its own level without an enum
+    /// case per pastime — "fishing" is a title inside a category, not a category of its own.
+    var categoryXP: [String: Int]
+
     init(
         streakDays: Int,
         relationshipXP: Int,
@@ -51,7 +59,8 @@ struct GamificationStats: Codable, Equatable, Sendable {
         acceptedCount: Int = 0,
         negotiatedCount: Int = 0,
         weekendAcceptedCount: Int = 0,
-        lastResponseDate: Date? = nil
+        lastResponseDate: Date? = nil,
+        categoryXP: [String: Int] = [:]
     ) {
         self.streakDays = streakDays
         self.relationshipXP = relationshipXP
@@ -62,6 +71,23 @@ struct GamificationStats: Codable, Equatable, Sendable {
         self.negotiatedCount = negotiatedCount
         self.weekendAcceptedCount = weekendAcceptedCount
         self.lastResponseDate = lastResponseDate
+        self.categoryXP = categoryXP
+    }
+
+    /// Level for one category, using the same curve as the overall level rather than a second
+    /// formula that would drift away from it.
+    func level(for category: RequestCategory) -> Int {
+        GamificationRules.level(forXP: categoryXP[category.rawValue] ?? 0)
+    }
+
+    /// Categories with any progress, strongest first — the only ones worth showing.
+    var rankedCategories: [(category: RequestCategory, xp: Int)] {
+        RequestCategory.allCases
+            .compactMap { category in
+                let xp = categoryXP[category.rawValue] ?? 0
+                return xp > 0 ? (category, xp) : nil
+            }
+            .sorted { $0.1 > $1.1 }
     }
 
     /// Tolerates blobs written before the counter fields existed.
@@ -76,6 +102,7 @@ struct GamificationStats: Codable, Equatable, Sendable {
         negotiatedCount = try container.decodeIfPresent(Int.self, forKey: .negotiatedCount) ?? 0
         weekendAcceptedCount = try container.decodeIfPresent(Int.self, forKey: .weekendAcceptedCount) ?? 0
         lastResponseDate = try container.decodeIfPresent(Date.self, forKey: .lastResponseDate)
+        categoryXP = try container.decodeIfPresent([String: Int].self, forKey: .categoryXP) ?? [:]
     }
 }
 
@@ -125,12 +152,28 @@ actor GamificationService: GamificationServiceProtocol {
         return defaultStats
     }
 
+    /// The current goal list, with whatever this user has already unlocked preserved.
+    ///
+    /// Returning the stored array as-is would have frozen everyone's goals at whatever existed
+    /// when they first opened the app: anyone with progress already saved would never see a goal
+    /// added later. Definitions come from `defaultAchievements` so titles, targets and metrics
+    /// stay canonical and editable; only `unlockedAt` is carried over from what was stored.
     func achievements(for userID: String) async -> [Achievement] {
-        if let data = store.data(forKey: achievementsKey(for: userID)),
-           let achievements = try? JSONDecoder().decode([Achievement].self, from: data) {
-            return achievements
+        guard let data = store.data(forKey: achievementsKey(for: userID)),
+              let stored = try? JSONDecoder().decode([Achievement].self, from: data) else {
+            return defaultAchievements
         }
-        return defaultAchievements
+        var unlockedByID: [String: Date] = [:]
+        for achievement in stored {
+            if let unlockedAt = achievement.unlockedAt {
+                unlockedByID[achievement.id] = unlockedAt
+            }
+        }
+        return defaultAchievements.map { definition in
+            var goal = definition
+            goal.unlockedAt = unlockedByID[definition.id]
+            return goal
+        }
     }
 
     func activities(for userID: String) async -> [Activity] {
@@ -227,6 +270,13 @@ actor GamificationService: GamificationServiceProtocol {
         stats.level = GamificationRules.level(forXP: stats.relationshipXP)
         stats.nextLevelXP = GamificationRules.nextLevelXP(forXP: stats.relationshipXP)
 
+        // The same XP also accrues to the request's own category, so what a pair actually does
+        // together is visible rather than flattened into one number. `.unknown` is skipped: a
+        // category this build cannot name is not one it should be levelling up.
+        if request.category != .unknown {
+            stats.categoryXP[request.category.rawValue, default: 0] += xpAwarded
+        }
+
         switch response {
         case .accept:
             stats.acceptedCount += 1
@@ -292,13 +342,10 @@ actor GamificationService: GamificationServiceProtocol {
         var newlyUnlocked: [Achievement] = []
 
         for index in achievements.indices where !achievements[index].isUnlocked {
-            let progress: Int
-            switch achievements[index].id {
-            case "ach_1", "ach_4": progress = stats.negotiatedCount
-            case "ach_2": progress = stats.weekendAcceptedCount
-            case "ach_3": progress = stats.streakDays
-            default: progress = 0
-            }
+            // Each goal knows what it measures. This was a switch on hardcoded IDs ending in
+            // `default: progress = 0`, so any goal added without editing it here sat at zero
+            // forever — unreachable, and silently so.
+            let progress = achievements[index].progress(in: stats)
 
             if progress >= achievements[index].requiredValue {
                 achievements[index].unlockedAt = Date()
@@ -375,42 +422,4 @@ actor GamificationService: GamificationServiceProtocol {
     private var defaultStats: GamificationStats {
         GamificationStats(streakDays: 0, relationshipXP: 0, level: 1, growthScore: 0, nextLevelXP: 500)
     }
-
-    private var defaultAchievements: [Achievement] {
-        [
-            Achievement(
-                id: "ach_1",
-                title: "Great Communicator",
-                description: "Resolved 10 requests through compromise",
-                iconName: "trophy.fill",
-                requiredValue: 10,
-                unlockedAt: nil
-            ),
-            Achievement(
-                id: "ach_2",
-                title: "Weekend Warrior",
-                description: "Planned 5 weekend activities together",
-                iconName: "airplane",
-                requiredValue: 5,
-                unlockedAt: nil
-            ),
-            Achievement(
-                id: "ach_3",
-                title: "Streak Starter",
-                description: "Complete a request 3 days in a row",
-                iconName: "flame.fill",
-                requiredValue: 3,
-                unlockedAt: nil
-            ),
-            Achievement(
-                id: "ach_4",
-                title: "Master Compromiser",
-                description: "Resolve 50 requests through negotiation",
-                iconName: "handshake.fill",
-                requiredValue: 50,
-                unlockedAt: nil
-            )
-        ]
-    }
-
 }

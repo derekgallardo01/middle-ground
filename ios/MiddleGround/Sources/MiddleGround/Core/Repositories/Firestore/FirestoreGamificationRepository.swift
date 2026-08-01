@@ -46,6 +46,8 @@ private struct GamificationStatsDTO: Codable {
     var negotiatedCount: Int
     var weekendAcceptedCount: Int
     var lastResponseDate: Timestamp?
+    /// Optional so mirrors written before per-category progression still decode.
+    var categoryXP: [String: Int]?
 
     init(from stats: GamificationStats) {
         self.streakDays = stats.streakDays
@@ -57,6 +59,7 @@ private struct GamificationStatsDTO: Codable {
         self.negotiatedCount = stats.negotiatedCount
         self.weekendAcceptedCount = stats.weekendAcceptedCount
         self.lastResponseDate = stats.lastResponseDate.map { Timestamp(date: $0) }
+        self.categoryXP = stats.categoryXP
     }
 
     func toModel() -> GamificationStats {
@@ -69,7 +72,10 @@ private struct GamificationStatsDTO: Codable {
             acceptedCount: acceptedCount,
             negotiatedCount: negotiatedCount,
             weekendAcceptedCount: weekendAcceptedCount,
-            lastResponseDate: lastResponseDate?.dateValue()
+            lastResponseDate: lastResponseDate?.dateValue(),
+            // Mirrored, so per-category progression survives a reinstall along with the rest of
+            // the stats. Achievements and the activity feed are still local-only.
+            categoryXP: categoryXP ?? [:]
         )
     }
 }

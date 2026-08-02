@@ -114,6 +114,35 @@ Apple cross-checks the privacy manifest in the binary against the nutrition labe
 "Data Not Collected" would contradict both the manifest and the published policy, and is caught
 at review.
 
+## The 1.0.1 submission — do these together
+
+Decided deliberately: **1.0 ships as it is**, then everything since follows as 1.0.1. A first
+submission attracts the most scrutiny, and 1.0's binary is the smaller surface — adding location, a
+new permission prompt and a data-collection declaration to it would widen that surface at the worst
+moment. 1.0 also keeps its place in the queue, which changing the build would forfeit.
+
+What 1.0 does **not** have, and 1.0.1 will: groups of more than two · calling off an agreed plan ·
+notification preferences · location sharing · curated venues · the badge-count fix · the empty-state
+flash fixes · the rebuilt plan screen · the speed and motion passes.
+
+When 1.0 is approved, in one pass:
+
+1. **Bump the version.** `MARKETING_VERSION` in `App/project.yml:25` is the literal `"1.0.0"` and has
+   never changed. Deliberately not bumped in advance: if 1.0 is rejected and needs a replacement
+   build, that build must still say 1.0.0.
+2. **App Privacy → add Coarse Location.** Linked, not tracking, App Functionality. Precise Location
+   stays off. See the section above — this is the web form only; the API has no endpoint for it.
+3. **Refresh the review-note invite codes.** They are single-use, and the three in the notes below
+   were consumed by the 1.0 review. Re-run the seed script and paste the new ones.
+4. **Mention the new permission prompts** in the review notes. A reviewer will now see a location
+   prompt and a calendar prompt that 1.0 never showed, and unexplained prompts invite questions.
+5. **Archive from a committed tree**, upload, attach, submit.
+
+⚠️ Before any of that: install the latest TestFlight build on a real device and put a three-person
+plan through it, including a decline. Groups of three and late cancellation both changed what
+declining does — which is core to the two-person flow already live in 1.0 — and no human has used
+either on hardware.
+
 ## Answers that must match the privacy manifest
 
 App Store Connect's data-collection questionnaire has to agree with `App/PrivacyInfo.xcprivacy`

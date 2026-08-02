@@ -154,7 +154,8 @@ moment. 1.0 also keeps its place in the queue, which changing the build would fo
 
 What 1.0 does **not** have, and 1.0.1 will: groups of more than two · calling off an agreed plan ·
 notification preferences · location sharing · curated venues · the badge-count fix · the empty-state
-flash fixes · the rebuilt plan screen · the speed and motion passes.
+flash fixes · the rebuilt plan screen · the speed and motion passes · the follow-through record
+(`plan_outcomes`).
 
 When 1.0 is approved, in one pass:
 
@@ -167,7 +168,14 @@ When 1.0 is approved, in one pass:
    were consumed by the 1.0 review. Re-run the seed script and paste the new ones.
 4. **Mention the new permission prompts** in the review notes. A reviewer will now see a location
    prompt and a calendar prompt that 1.0 never showed, and unexplained prompts invite questions.
-5. **Archive from a committed tree**, upload, attach, submit.
+5. **Deploy `firestore.rules` first — before the build goes anywhere.** 1.0.1 is the first build
+   that writes `plan_outcomes`, and production is still running rules that have no match block for
+   it. Unmatched paths are denied, so every follow-through row would be silently refused: the app
+   keeps working (the write is swallowed by design) and the record quietly stays empty, which is
+   the one failure that looks exactly like success. Deploying was deliberately *not* done while 1.0
+   sat in review — it gains nothing until a client writes those rows, and a rules change during
+   review risks the submission for no benefit.
+6. **Archive from a committed tree**, upload, attach, submit.
 
 ✅ **Device testing done** (2 August 2026). Groups of three and late cancellation were exercised on
 real hardware and behave correctly, including the two-person flow they changed. That was the

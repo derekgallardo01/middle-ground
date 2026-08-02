@@ -266,14 +266,43 @@ Constraints that come with the decision:
 - App Review guideline 1.2 (user-generated content) applies once users rate each other: reporting,
   blocking and a response window are required. Reporting already exists (`reports` collection).
 
-## Identity & trust — L
+## Identity & trust — 🚧 blocked on two definitions
 
 In-person identity verification · gate guardian *(undefined)* · authorised representative
-*(undefined)* · start at 0.
+*(undefined)* · start at 0 *(defined: reputation earned from zero)*.
 
-Identity verification means handling government ID, which brings data-protection obligations well
-beyond anything the app does today, plus an App Privacy disclosure and near-certain review
-scrutiny. Do not start casually. The two undefined terms need a definition first.
+**Deliberately not started.** Two of the three items still have no agreed meaning, and the third is
+a regulated undertaking rather than a feature.
+
+**Identity verification** means handling government ID: a data-protection posture well beyond
+anything this app does today, a new App Privacy disclosure, near-certain review scrutiny, and an
+ongoing obligation to store and destroy identity documents correctly. That is a company decision,
+not a sprint.
+
+**Gate Guardian** and **Authorized Representative** each change the account model in a different
+direction — one is about controlling who may approach you, the other about someone acting on your
+behalf — and the second would require `firestore.rules` to let a third party write to a request
+they are not a participant of. That is the single widest change anyone could make to this app's
+security model, and it should not be built from a guess at what the words mean.
+
+**What exists already, and may be enough:** App Review guideline 1.2 asks for a way to report
+content, a way to block an abusive user, and a published response window. Reporting is built,
+leaving a group severs contact entirely, and the policy commits to 24 hours. The gap is that
+leaving is all-or-nothing — there is no way to block one person while staying in a group with
+others, which only starts to matter once groups hold more than two people.
+
+---
+
+## What comes next: getting 1.0 approved
+
+Feature work stops here. Everything built since the 1.0 submission — groups of three, late
+cancellation, notifications, location sharing, venues, the speed and motion passes — is already
+queued for the version after it.
+
+The only thing blocking the next submission is the **App Privacy questionnaire in App Store
+Connect**, which needs Coarse Location added: linked to the user, not used for tracking, purpose
+App Functionality. The privacy manifest already declares it; the questionnaire is a separate
+declaration and a mismatch is a rejection. Details in `docs/APP_REVIEW_NOTES.md`.
 
 ## Venues & partners — the free half is built, the rest is still commercial
 

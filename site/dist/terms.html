@@ -13,11 +13,15 @@
 <!-- Open Graph. Apple Messages reads these, and it reads them absolutely: a relative
      og:image yields a bare grey card with no explanation of why. -->
 <meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="Middle Ground">
 <meta property="og:title" content="Terms of Service — Middle Ground">
 <meta property="og:description" content="The terms you agree to when you use Middle Ground.">
 <meta property="og:url" content="https://seekmiddleground.com/terms">
 <meta property="og:image" content="https://seekmiddleground.com/og-image-v1.png">
+<!-- secure_url as well as url: some parsers (older Facebook-derived ones, which is most of
+     them) look for it specifically and fall back to no image when it is absent. -->
+<meta property="og:image:secure_url" content="https://seekmiddleground.com/og-image-v1.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="2400">
 <meta property="og:image:height" content="1256">

@@ -65,8 +65,8 @@ PAGES = [
     Page(
         "index",
         "Middle Ground",
-        "Middle Ground is an iOS app for shared decisions — it turns the back-and-forth of "
-        "making plans together into something that actually lands.",
+        "The app for plans you make with other people. Dinner, the weekend, "
+        "who\u2019s actually free on Thursday.",
         CONTENT / "index.md",
         nav="product",
     ),
@@ -143,11 +143,15 @@ TEMPLATE = """<!doctype html>
 <!-- Open Graph. Apple Messages reads these, and it reads them absolutely: a relative
      og:image yields a bare grey card with no explanation of why. -->
 <meta property="og:type" content="website">
+<meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="{site_name}">
 <meta property="og:title" content="{og_title}">
 <meta property="og:description" content="{description}">
 <meta property="og:url" content="{url}">
 <meta property="og:image" content="{og_image}">
+<!-- secure_url as well as url: some parsers (older Facebook-derived ones, which is most of
+     them) look for it specifically and fall back to no image when it is absent. -->
+<meta property="og:image:secure_url" content="{og_image}">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="{og_width}">
 <meta property="og:image:height" content="{og_height}">

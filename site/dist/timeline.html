@@ -253,6 +253,16 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
   width:2px; background:var(--warm-200); border-radius:2px;
 }
 .timeline li { position:relative; padding:0 0 26px 34px; margin:0; }
+/* A milestone with a thumbnail becomes a two-column row. Deliberately small: the timeline
+   earns its keep by being scannable, and full-size phone screenshots would turn it into a
+   second changelog. */
+.timeline li.has-shot { display:flex; gap:16px; align-items:flex-start; }
+.timeline li.has-shot > div { flex:1; min-width:0; }
+.timeline .shot.tiny { width:96px; flex:none; border-radius:12px; }
+.timeline .shot.tiny figcaption { display:none; }
+.timeline .shot.tiny a { display:block; }
+.timeline .shot.tiny:hover { border-color:var(--indigo); }
+@media (max-width:520px) { .timeline .shot.tiny { width:74px; } }
 .timeline li::before {
   content:""; position:absolute; left:0; top:6px;
   width:16px; height:16px; border-radius:50%;
@@ -303,11 +313,11 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
 <p>Where the app has got to, and what's coming. The <a href="/changelog">changelog</a> has the detail.</p>
 <h2>So far</h2>
 <ul class="timeline">
-<li class="done"><span class="when">18 July 2026</span><span class="what">First version people could use</span><p>Make a plan, agree a time, done.</p></li>
-<li class="done"><span class="when">26 July 2026</span><span class="what">Private testing opens</span><p>Real people, real plans — which is where the assumptions started meeting reality.</p></li>
-<li class="done"><span class="when">30 July 2026</span><span class="what">Groups and quick plans</span><p>More than one group per person, each with its own invite code, plus one-tap plans for the things people ask constantly.</p></li>
-<li class="done"><span class="when">31 July 2026</span><span class="what">Submitted to the App Store</span><p>Along with the feature everything else depends on: the app asking, afterwards, whether a plan actually happened.</p></li>
-<li class="done"><span class="when">1 August 2026</span><span class="what">Following through</span><p>Points staked on a plan happening. Notifications you control. Location that disappears when the plan is over.</p></li>
+<li class="done has-shot"><div><span class="when">18 July 2026</span><span class="what">First version people could use</span><p>Make a plan, agree a time, done.</p></div><figure class="shot tiny"><a href="/shots/02-negotiating.webp"><img src="/shots/02-negotiating.webp" alt="A plan being agreed" loading="lazy" width="540" height="1174"></a></figure></li>
+<li class="done has-shot"><div><span class="when">26 July 2026</span><span class="what">Private testing opens</span><p>Real people, real plans — which is where the assumptions started meeting reality.</p></div><figure class="shot tiny"><a href="/shots/01-feed.webp"><img src="/shots/01-feed.webp" alt="The list of plans waiting on you" loading="lazy" width="540" height="1174"></a></figure></li>
+<li class="done has-shot"><div><span class="when">30 July 2026</span><span class="what">Groups and quick plans</span><p>More than one group per person, each with its own invite code, plus one-tap plans for the things people ask constantly.</p></div><figure class="shot tiny"><a href="/shots/08-profile.webp"><img src="/shots/08-profile.webp" alt="Groups, each with an invite code" loading="lazy" width="540" height="1174"></a></figure></li>
+<li class="done has-shot"><div><span class="when">31 July 2026</span><span class="what">Submitted to the App Store</span><p>Along with the feature everything else depends on: the app asking, afterwards, whether a plan actually happened.</p></div><figure class="shot tiny"><a href="/shots/06-calendar.webp"><img src="/shots/06-calendar.webp" alt="A month of plans" loading="lazy" width="540" height="1174"></a></figure></li>
+<li class="done has-shot"><div><span class="when">1 August 2026</span><span class="what">Following through</span><p>Points staked on a plan happening. Notifications you control. Location that disappears when the plan is over.</p></div><figure class="shot tiny"><a href="/shots/03-stake.webp"><img src="/shots/03-stake.webp" alt="Points staked on a plan" loading="lazy" width="540" height="1174"></a></figure></li>
 <li class="now"><span class="when">Now</span><span class="what">Waiting on Apple</span><p>Version 1.0 is in review. We're still shipping to testers in the meantime.</p></li>
 </ul>
 <h2>What's next</h2>

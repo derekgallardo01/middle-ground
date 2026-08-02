@@ -253,6 +253,16 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
   width:2px; background:var(--warm-200); border-radius:2px;
 }
 .timeline li { position:relative; padding:0 0 26px 34px; margin:0; }
+/* A milestone with a thumbnail becomes a two-column row. Deliberately small: the timeline
+   earns its keep by being scannable, and full-size phone screenshots would turn it into a
+   second changelog. */
+.timeline li.has-shot { display:flex; gap:16px; align-items:flex-start; }
+.timeline li.has-shot > div { flex:1; min-width:0; }
+.timeline .shot.tiny { width:96px; flex:none; border-radius:12px; }
+.timeline .shot.tiny figcaption { display:none; }
+.timeline .shot.tiny a { display:block; }
+.timeline .shot.tiny:hover { border-color:var(--indigo); }
+@media (max-width:520px) { .timeline .shot.tiny { width:74px; } }
 .timeline li::before {
   content:""; position:absolute; left:0; top:6px;
   width:16px; height:16px; border-radius:50%;

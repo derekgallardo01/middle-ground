@@ -138,10 +138,9 @@ When 1.0 is approved, in one pass:
    prompt and a calendar prompt that 1.0 never showed, and unexplained prompts invite questions.
 5. **Archive from a committed tree**, upload, attach, submit.
 
-⚠️ Before any of that: install the latest TestFlight build on a real device and put a three-person
-plan through it, including a decline. Groups of three and late cancellation both changed what
-declining does — which is core to the two-person flow already live in 1.0 — and no human has used
-either on hardware.
+✅ **Device testing done** (2 August 2026). Groups of three and late cancellation were exercised on
+real hardware and behave correctly, including the two-person flow they changed. That was the
+precondition on everything above.
 
 ## Answers that must match the privacy manifest
 

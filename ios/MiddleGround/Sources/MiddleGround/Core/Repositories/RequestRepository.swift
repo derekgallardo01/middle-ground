@@ -22,7 +22,8 @@ actor MockRequestRepository: RequestRepository {
     // `previewAwaitingMe` is first on purpose: it is the only fixture the preview user can
     // actually respond to, so without it mock mode never renders the response row at all.
     private var requests: [Request] = [
-        .previewAwaitingMe, .previewNegotiating, .preview, .previewAccepted
+        .previewAwaitingMe, .previewNegotiating, .previewHappeningNow, .previewStaked,
+        .previewGroupPlan, .preview, .previewAccepted
     ]
 
     func fetchRequests(for userID: String) async throws -> [Request] {

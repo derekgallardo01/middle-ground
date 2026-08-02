@@ -159,4 +159,14 @@ extension Relationship {
         growthScore: 85,
         inviteCode: "MG24KT"
     )
+
+    /// Three people, with a seat still free — the state a pair cannot demonstrate.
+    static let previewGroup = Relationship(
+        id: "rel_2",
+        participantIDs: [User.preview.id, User.preview2.id, User.preview3.id],
+        type: .friends,
+        growthScore: 40,
+        name: "Sunday hikers",
+        inviteCode: "MG7QP2"
+    )
 }

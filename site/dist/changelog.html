@@ -212,6 +212,39 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
   color:var(--teal); border:1px solid currentColor; padding:3px 7px; border-radius:5px;
 }
 
+/* --------------------------------------------------------------- screenshots */
+
+/* Screenshots sit beside the words rather than above them, so a release entry still scans as
+   a list. On a phone they stack, because a 200px-wide image next to text is neither. */
+.shot {
+  flex:none; width:190px; margin:0;
+  border-radius:18px; overflow:hidden;
+  border:1px solid var(--warm-200);
+  background:var(--surface);
+  box-shadow:0 8px 28px -14px var(--shadow-lg);
+}
+.shot img { display:block; width:100%; height:auto; }
+.shot figcaption {
+  font-size:11.5px; color:var(--warm-400); text-align:center;
+  padding:7px 8px 9px; border-top:1px solid var(--warm-200);
+}
+.with-shot { display:flex; gap:22px; align-items:flex-start; }
+.with-shot > :first-child { flex:1; min-width:0; }
+
+.shot-row {
+  display:flex; gap:16px; overflow-x:auto; padding:4px 0 10px;
+  scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
+}
+.shot-row .shot { scroll-snap-align:start; }
+
+@media (max-width:640px) {
+  /* column-reverse, not block: the figure is last in the markup so that a reader without CSS
+     gets the words first, but on a phone the image has to lead — stacked normally it sat below
+     a dozen bullets and nobody scrolled far enough to see it. */
+  .with-shot { flex-direction:column-reverse; gap:0; }
+  .with-shot .shot { width:100%; max-width:230px; align-self:center; margin:0 0 18px; }
+}
+
 /* ----------------------------------------------------------------- timeline */
 
 .timeline { list-style:none; padding:0; margin:24px 0 8px; position:relative; }
@@ -268,8 +301,10 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
 <main id="main" class="wrap">
 <h1>What's new</h1>
 <p>Everything we've shipped, newest first. Currently on version 1.0, in App Store review.</p>
+<p>Screenshots show the app as it looks today.</p>
 <div class="release current">
 <div class="release-head"><span class="release-version">1 August 2026</span> <span class="tag">Latest</span></div>
+<div class="with-shot">
 <ul>
 <li><strong>You choose what you're notified about.</strong> Five kinds of alert, each with its own switch. Nothing is turned on behind your back.</li>
 <li><strong>The app asks if a plan happened.</strong> A few hours afterwards, so you don't have to remember to tell it.</li>
@@ -284,9 +319,12 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
 <li>Fixed the number on the app icon, which was missing plans waiting on you.</li>
 <li>Fixed screens flashing empty before loading, and rebuilt the plan screen, which was cramped.</li>
 </ul>
+<figure class="shot"><img src="/shots/09-notifications.webp" alt="The notification settings, with a switch for each kind of alert" loading="lazy" width="540" height="1174"><figcaption>Choosing what you hear about</figcaption></figure>
+</div>
 </div>
 <div class="release">
 <div class="release-head"><span class="release-version">31 July 2026</span></div>
+<div class="with-shot">
 <ul>
 <li><strong>Submitted version 1.0 to the App Store.</strong></li>
 <li><strong>"Did it happen?"</strong> The app now asks after a plan. Everything about who's reliable is built on that one answer.</li>
@@ -295,21 +333,29 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
 <li><strong>Your progress survives a new phone</strong> — badges and history, not just the numbers.</li>
 <li><strong>Separate progress for different activities.</strong> Getting good at cooking isn't getting good at travel.</li>
 </ul>
+<figure class="shot"><img src="/shots/04-location.webp" alt="A plan asking whether it happened, with a button to share your location" loading="lazy" width="540" height="1174"><figcaption>Confirming a plan, and sharing where you are</figcaption></figure>
+</div>
 </div>
 <div class="release">
 <div class="release-head"><span class="release-version">30 July 2026</span></div>
+<div class="with-shot">
 <ul>
 <li><strong>Name your groups, each with its own invite code.</strong> With more than one group, the app could show the code for the wrong one.</li>
 <li><strong>Two new kinds of plan:</strong> dates, and low-key nights in.</li>
 <li><strong>One-tap plans</strong> for the things people ask constantly — what are we watching, what are we eating.</li>
 <li>Saved plans are easy to find again, and a plan can carry a place that opens in Maps.</li>
 </ul>
+<figure class="shot"><img src="/shots/08-profile.webp" alt="The profile screen listing two groups with their invite codes" loading="lazy" width="540" height="1174"><figcaption>Your groups, each with its own code</figcaption></figure>
+</div>
 </div>
 <div class="release">
 <div class="release-head"><span class="release-version">18 – 26 July 2026</span></div>
+<div class="with-shot">
 <ul>
 <li>The first versions people could use: making a plan, agreeing a time, accounts, and connecting with someone.</li>
 </ul>
+<figure class="shot"><img src="/shots/02-negotiating.webp" alt="A plan mid-negotiation, with buttons to accept, suggest or decline" loading="lazy" width="540" height="1174"><figcaption>Agreeing on a time</figcaption></figure>
+</div>
 </div>
 </main>
 

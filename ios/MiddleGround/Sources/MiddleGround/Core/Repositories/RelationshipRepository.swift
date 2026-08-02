@@ -37,7 +37,7 @@ protocol RelationshipRepository: Sendable {
 }
 
 actor MockRelationshipRepository: RelationshipRepository {
-    private var relationships: [Relationship] = [.preview]
+    private var relationships: [Relationship] = [.preview, .previewGroup]
     /// Mirrors the deletion of an `invites/{code}` document, so `invite(forCode:)` stops
     /// resolving a retired code exactly as Firestore would.
     private var revokedCodes: Set<String> = []

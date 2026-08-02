@@ -20,6 +20,14 @@ Group chats are great for talking. They're terrible for deciding.
 
 ## What the app does
 
+<div class="shot-row">
+<figure class="shot"><img src="/shots/01-feed.webp" alt="The home screen listing plans waiting on you" loading="lazy" width="540" height="1174"><figcaption>What's waiting on you</figcaption></figure>
+<figure class="shot"><img src="/shots/02-negotiating.webp" alt="A plan mid-negotiation with accept, suggest and decline buttons" loading="lazy" width="540" height="1174"><figcaption>Agreeing a time</figcaption></figure>
+<figure class="shot"><img src="/shots/04-location.webp" alt="A plan asking whether it happened, and offering to share your location" loading="lazy" width="540" height="1174"><figcaption>Did it happen?</figcaption></figure>
+<figure class="shot"><img src="/shots/03-stake.webp" alt="A plan with twenty-five points staked on it" loading="lazy" width="540" height="1174"><figcaption>Points on the line</figcaption></figure>
+<figure class="shot"><img src="/shots/07-progress.webp" alt="A progress screen showing level, streak and score" loading="lazy" width="540" height="1174"><figcaption>Building a habit</figcaption></figure>
+</div>
+
 <div class="cards">
 <div class="card">
 <span class="ico">📨</span>

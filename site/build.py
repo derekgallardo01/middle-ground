@@ -381,6 +381,39 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
   color:var(--teal); border:1px solid currentColor; padding:3px 7px; border-radius:5px;
 }
 
+/* --------------------------------------------------------------- screenshots */
+
+/* Screenshots sit beside the words rather than above them, so a release entry still scans as
+   a list. On a phone they stack, because a 200px-wide image next to text is neither. */
+.shot {
+  flex:none; width:190px; margin:0;
+  border-radius:18px; overflow:hidden;
+  border:1px solid var(--warm-200);
+  background:var(--surface);
+  box-shadow:0 8px 28px -14px var(--shadow-lg);
+}
+.shot img { display:block; width:100%; height:auto; }
+.shot figcaption {
+  font-size:11.5px; color:var(--warm-400); text-align:center;
+  padding:7px 8px 9px; border-top:1px solid var(--warm-200);
+}
+.with-shot { display:flex; gap:22px; align-items:flex-start; }
+.with-shot > :first-child { flex:1; min-width:0; }
+
+.shot-row {
+  display:flex; gap:16px; overflow-x:auto; padding:4px 0 10px;
+  scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
+}
+.shot-row .shot { scroll-snap-align:start; }
+
+@media (max-width:640px) {
+  /* column-reverse, not block: the figure is last in the markup so that a reader without CSS
+     gets the words first, but on a phone the image has to lead — stacked normally it sat below
+     a dozen bullets and nobody scrolled far enough to see it. */
+  .with-shot { flex-direction:column-reverse; gap:0; }
+  .with-shot .shot { width:100%; max-width:230px; align-self:center; margin:0 0 18px; }
+}
+
 /* ----------------------------------------------------------------- timeline */
 
 .timeline { list-style:none; padding:0; margin:24px 0 8px; position:relative; }
@@ -600,19 +633,24 @@ def write_manifest() -> None:
 
 def main() -> None:
     DIST.mkdir(parents=True, exist_ok=True)
-    for stale in DIST.glob("*"):
-        if stale.is_file():
-            stale.unlink()
+    if DIST.exists():
+        shutil.rmtree(DIST)
+    DIST.mkdir(parents=True, exist_ok=True)
 
     for page in PAGES:
         (DIST / page.filename).write_text(build_page(page), encoding="utf-8")
         print(f"  wrote {page.filename}")
 
     if ASSETS.exists():
-        for asset in sorted(ASSETS.iterdir()):
-            if asset.is_file():
-                shutil.copy2(asset, DIST / asset.name)
-                print(f"  copied {asset.name}")
+        # Recursive, so `assets/shots/` survives the copy. A flat iterdir silently dropped the
+        # screenshots and the pages rendered with broken images.
+        for asset in sorted(ASSETS.rglob("*")):
+            if not asset.is_file():
+                continue
+            target = DIST / asset.relative_to(ASSETS)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(asset, target)
+            print(f"  copied {asset.relative_to(ASSETS)}")
 
     write_sitemap()
     write_manifest()

@@ -316,7 +316,8 @@ struct ProfileView: View {
                 // system level these switches control nothing, and a row of switches that
                 // change nothing is worse than no row at all — the user turns one off, nothing
                 // was arriving anyway, and they learn the screen is decorative.
-                if viewModel.notificationsEnabled {
+                if viewModel.notificationsEnabled
+                    || AppConfiguration.forcesNotificationSettingsVisible {
                     ForEach(NotificationKind.allCases) { kind in
                         Divider().padding(.leading)
                         notificationToggle(for: kind)

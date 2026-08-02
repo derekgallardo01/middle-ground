@@ -17,4 +17,6 @@ struct User: Identifiable, Hashable, Codable {
 extension User {
     static let preview = User(id: "user_1", name: "Alex")
     static let preview2 = User(id: "user_2", name: "Sam")
+    /// A third person, so a group can be shown as something other than a pair.
+    static let preview3 = User(id: "user_3", name: "Priya")
 }

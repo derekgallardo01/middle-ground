@@ -27,6 +27,18 @@ enum AppConfiguration {
         return args[index + 1]
     }
 
+    /// Shows the per-type notification switches without the OS permission being granted.
+    ///
+    /// Those switches are deliberately hidden until iOS has granted push permission — with
+    /// notifications off at the system level they control nothing, and a row of switches that
+    /// change nothing is worse than no row. A simulator under UI test never grants that
+    /// permission, so the feature is unphotographable without this.
+    ///
+    /// Narrow on purpose: it only affects whether the switches are *visible*, never what they
+    /// do, and it is inert unless the argument is passed at launch.
+    static var forcesNotificationSettingsVisible: Bool =
+        ProcessInfo.processInfo.arguments.contains("-MGShowNotificationSettings")
+
     /// Whether Firebase may be configured and used.
     ///
     /// Everything that touches Firebase must check this first; in mock mode there is no

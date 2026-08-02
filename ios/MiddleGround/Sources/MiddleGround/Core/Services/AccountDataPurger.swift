@@ -91,7 +91,7 @@ actor AccountDataPurger {
     // MARK: - Per-user documents
 
     private func deleteSingletons(userID: String) async {
-        for collection in ["users", "gamification", "user_tokens"] {
+        for collection in ["users", "gamification", "user_tokens", "notification_settings"] {
             try? await db.collection(collection).document(userID).delete()
         }
     }

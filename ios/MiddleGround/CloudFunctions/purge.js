@@ -19,6 +19,7 @@ async function purgeUserData(uid) {
     db().collection('users').doc(uid).delete(),
     db().collection('user_tokens').doc(uid).delete(),
     db().collection('gamification').doc(uid).delete(),
+    db().collection('notification_settings').doc(uid).delete(),
     purgeInvites(uid),
     purgeRelationships(uid),
     purgeRequests(uid),

@@ -37,7 +37,7 @@ Codes currently live for the 1.0 review: `GCE6NN`, `4H4EY6`, `995ZXA`.
 2. **Check the legal pages resolve** (they are linked from inside the app):
    ```sh
    for p in privacy terms support; do
-     curl -sS -o /dev/null -w "%{http_code} $p\n" "https://middle-ground-8fd13.web.app/$p"
+     curl -sS -o /dev/null -w "%{http_code} $p\n" "https://seekmiddleground.com/$p"
    done
    ```
 
@@ -114,9 +114,9 @@ Codes currently live for the 1.0 review: `GCE6NN`, `4H4EY6`, `995ZXA`.
 > screen open in a modified build returns permission errors and no data. Operator access to
 > account data is disclosed in our Privacy Policy and written to an append-only audit log.
 >
-> **Privacy Policy:** https://middle-ground-8fd13.web.app/privacy
-> **Terms:** https://middle-ground-8fd13.web.app/terms
-> **Support:** https://middle-ground-8fd13.web.app/support
+> **Privacy Policy:** https://seekmiddleground.com/privacy
+> **Terms:** https://seekmiddleground.com/terms
+> **Support:** https://seekmiddleground.com/support
 
 ---
 

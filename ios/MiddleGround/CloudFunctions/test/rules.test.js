@@ -1314,6 +1314,14 @@ describe('notification settings', () => {
   test('an anonymous client is refused', async () => {
     await assertFails(getDoc(doc(asAnon(), 'notification_settings/alice')));
   });
+
+  // Account deletion depends on this: AccountDataPurger deletes this document from the client
+  // before the auth record goes. If the rule ever tightens to read/write only, the delete fails
+  // silently and a document keyed by the user's ID outlives the account that owned it.
+  test('you can delete your own, which is what account deletion relies on', async () => {
+    await assertFails(deleteDoc(doc(asBob(), 'notification_settings/alice')));
+    await assertSucceeds(deleteDoc(doc(asAlice(), 'notification_settings/alice')));
+  });
 });
 
 describe('unmatched paths', () => {

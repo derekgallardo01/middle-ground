@@ -326,6 +326,8 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
 <li><strong>The app is faster.</strong> Several screens were quietly loading the same thing up to six times over; now they load it once. Opening the app no longer waits on the network to decide whether you're signed in.</li>
 <li><strong>Everything moves the same way.</strong> Animations were inconsistent across screens and some ignored the iPhone's "Reduce Motion" setting entirely. One system now, and it respects that setting everywhere.</li>
 <li>Replies in a conversation now appear as they arrive, instead of just being there.</li>
+<li>Fixed a Cancel button that was offered on plans it couldn't actually cancel — tapping it just returned an error. Found on a real phone, not in the simulator.</li>
+<li>Deleting your account now also removes your notification preferences, which were being left behind.</li>
 </ul>
 <figure class="shot"><img src="/shots/05-group.webp" alt="A plan shared with a group, showing who has replied" loading="lazy" width="540" height="1174"><figcaption>A plan with a group</figcaption></figure>
 </div>

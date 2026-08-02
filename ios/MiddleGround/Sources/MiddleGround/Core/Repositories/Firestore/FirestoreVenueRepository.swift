@@ -6,8 +6,11 @@ actor FirestoreVenueRepository: VenueRepository {
     private var db: Firestore { Firestore.firestore() }
     private static let collection = "venues"
 
+    /// Enough for a suggestion strip; this is read every time the compose sheet opens.
+    private static let limit = 100
+
     func venues() async throws -> [Venue] {
-        let snapshot = try await db.collection(Self.collection).getDocuments()
+        let snapshot = try await db.collection(Self.collection).limit(to: Self.limit).getDocuments()
         return snapshot.documents
             .compactMap { try? $0.data(as: VenueDTO.self).toModel(id: $0.documentID) }
             .sorted { ($0.rank, $0.name) < ($1.rank, $1.name) }

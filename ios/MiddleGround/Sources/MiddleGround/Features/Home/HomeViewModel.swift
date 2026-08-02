@@ -39,14 +39,27 @@ final class HomeViewModel {
     var showCelebration = false
     var celebrationTitle = ""
 
-    init() {
-        Task {
-            await loadCurrentUser()
-            await loadRelationshipState()
-            await loadRequests()
-        }
-    }
+    // No loading in `init`, deliberately.
+    //
+    // This used to start three sequential fetches here, and `HomeView.task` then ran
+    // `loadRequests()` again before subscribing — so one appearance issued the same unbounded
+    // request query three times. Measured over a scripted walkthrough it fired six times.
+    //
+    // SwiftUI also re-evaluates `@State private var viewModel = HomeViewModel()` whenever the
+    // view struct is rebuilt; the extra instance is discarded, but any `Task` its initialiser
+    // already started runs to completion regardless. Work in a view model's `init` is work you
+    // cannot see and cannot cancel.
 
+    /// The viewer's ID, straight from the in-memory session — no await, no network.
+    ///
+    /// Everything on this screen needs the ID; only the greeting needs the *name*. Fetching the
+    /// user document to learn an ID the app already holds cost a full round trip on every
+    /// appearance, and made the ID arrive late enough that the response row was missing on the
+    /// first frame. `RequestDetailViewModel` has done it this way for a while.
+    private var userID: String? { authService.currentUserID ?? currentUser?.id }
+
+    /// Resolves the display name for the greeting. Deliberately not awaited by anything —
+    /// "Hello, there" becoming "Hello, Alex" a moment later costs nothing.
     func loadCurrentUser() async {
         currentUser = await authService.currentUser()
     }
@@ -56,8 +69,8 @@ final class HomeViewModel {
     /// Failures leave the previous values alone rather than defaulting to "unpaired" — a
     /// transient error should not tell a paired user to go and find a partner.
     func loadRelationshipState() async {
-        guard let currentUser else { return }
-        guard let relationships = try? await relationshipService.relationships(for: currentUser.id) else {
+        guard let userID else { return }
+        guard let relationships = try? await relationshipService.relationships(for: userID) else {
             // Still resolved, just unsuccessfully — otherwise a user whose relationship fetch
             // fails sits on the skeleton forever.
             hasLoadedRelationship = true
@@ -74,14 +87,16 @@ final class HomeViewModel {
     }
 
     func loadRequests() async {
-        guard let currentUser else {
+        guard let userID else {
             errorMessage = "Not signed in."
             return
         }
         isLoading = true
         errorMessage = nil
         do {
-            requests = try await requestService.fetchRequests(for: currentUser.id)
+            requests = try await LoadTimer.measure("home.requests") {
+                try await requestService.fetchRequests(for: userID)
+            }
         } catch {
             errorMessage = "Couldn't load requests. Pull to try again."
         }
@@ -91,9 +106,17 @@ final class HomeViewModel {
 
     /// Streams live updates. Runs for the lifetime of the view via `.task`.
     func observeRequests() async {
-        if currentUser == nil { await loadCurrentUser() }
-        guard let currentUser else { return }
-        for await updated in requestService.observeRequests(for: currentUser.id) {
+        guard let userID else { return }
+        // Timed on first delivery only. The listener then stays open for the life of the screen,
+        // so timing the whole stream would measure how long the screen was open — and comparing
+        // that to the old one-shot fetch would be meaningless.
+        var isFirstDelivery = true
+        let started = ContinuousClock.now
+        for await updated in requestService.observeRequests(for: userID) {
+            if isFirstDelivery {
+                isFirstDelivery = false
+                LoadTimer.record("home.requests", since: started)
+            }
             requests = updated
             isLoading = false
             hasLoadedRequests = true
@@ -102,8 +125,8 @@ final class HomeViewModel {
 
     /// Whether the signed-in user may respond to this request (recipient, still pending).
     func canRespond(to request: Request) -> Bool {
-        guard let currentUser else { return false }
-        return request.canRespond(as: currentUser.id)
+        guard let userID else { return false }
+        return request.canRespond(as: userID)
     }
 
     /// Narrows the feed. Saved requests were reachable only by scrolling past everything else.
@@ -126,8 +149,8 @@ final class HomeViewModel {
         switch filter {
         case .all: return requests
         case .yourTurn:
-            guard let currentUser else { return [] }
-            return requests.filter { $0.canRespond(as: currentUser.id) }
+            guard let userID else { return [] }
+            return requests.filter { $0.canRespond(as: userID) }
         case .saved: return requests.filter { $0.status == .saved }
         }
     }
@@ -147,8 +170,8 @@ final class HomeViewModel {
     /// thing most in need of your attention was the one thing the header would not count. A
     /// three-turn negotiation sitting on your turn read as "Nothing waiting on you".
     var awaitingYouCount: Int {
-        guard let currentUser else { return 0 }
-        return requests.filter { $0.canRespond(as: currentUser.id) }.count
+        guard let userID else { return 0 }
+        return requests.filter { $0.canRespond(as: userID) }.count
     }
 
     /// Requests with a response in flight, so their card can show progress and refuse a
@@ -161,7 +184,9 @@ final class HomeViewModel {
     }
 
     func respond(to request: Request, with response: ResponseType) {
-        guard let currentUser else { return }
+        // `userID`, not `currentUser`: the display name arrives on its own schedule now, and
+        // gating the primary action on it would mean an Accept tapped early did nothing at all.
+        guard let userID else { return }
         // Guards against the double-tap window: there was previously no in-flight state at
         // all here, so a slow network let the same response fire repeatedly.
         guard !respondingTo.contains(request.id) else { return }
@@ -170,7 +195,7 @@ final class HomeViewModel {
         Task {
             defer { respondingTo.remove(request.id) }
             do {
-                let updated = try await requestService.respond(to: request, with: response, by: currentUser.id)
+                let updated = try await requestService.respond(to: request, with: response, by: userID)
                 if let index = requests.firstIndex(where: { $0.id == updated.id }) {
                     requests[index] = updated
                 }
@@ -178,7 +203,7 @@ final class HomeViewModel {
                 // Award XP / streak / achievements. Home no longer displays the totals — they
                 // live on Activities — but the celebration still reports what this response
                 // earned, from the outcome rather than from stored state.
-                let outcome = await gamificationService.recordResponse(response, to: request, for: currentUser.id)
+                let outcome = await gamificationService.recordResponse(response, to: request, for: userID)
                 celebrate(response: response, outcome: outcome)
             } catch {
                 errorMessage = "Failed to send response."

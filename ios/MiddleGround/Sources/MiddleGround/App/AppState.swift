@@ -39,9 +39,23 @@ final class AppState {
 
     func checkAuthState() async {
         isCheckingAuth = true
-        currentUser = await authService.currentUser()
-        isOnboarded = currentUser != nil
+
+        // The splash clears on the *synchronous* answer to "is anyone signed in?", which comes
+        // straight off the in-memory session. It used to wait for `currentUser()` — a Firestore
+        // read of the user document — so on a cold or slow network that round trip was the
+        // entire perceived launch time, spent learning something the app already knew.
+        //
+        // The document still loads, just behind the first frame: the display name it carries is
+        // not needed to decide which screen to show.
+        isOnboarded = authService.currentUserID != nil
         isCheckingAuth = false
+
+        await LoadTimer.measure("startup.user") {
+            currentUser = await authService.currentUser()
+        }
+        // Corrects the optimistic answer in the one case it can be wrong: a session that still
+        // exists on the device but whose account has since been deleted server-side.
+        isOnboarded = currentUser != nil
         MGLog.setCrashReportingUser(currentUser?.id)
         if currentUser != nil {
             isAdmin = await authService.isAdmin()

@@ -16,6 +16,8 @@ enum MGLog {
     static let storage = Logger(subsystem: subsystem, category: "storage")
     static let notifications = Logger(subsystem: subsystem, category: "notifications")
     static let auth = Logger(subsystem: subsystem, category: "auth")
+    /// Screen-load timings. DEBUG-only in practice — see `LoadTimer`.
+    static let performance = Logger(subsystem: subsystem, category: "performance")
 
     /// Attributes subsequent crash reports to an account, and clears the attribution on
     /// sign-out. Only the Firebase UID — no name, no email.

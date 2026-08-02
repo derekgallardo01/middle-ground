@@ -38,8 +38,14 @@ struct ProfileView: View {
             // this is the screen where you would look for it.
             .task { await viewModel.refresh() }
             .refreshable { await viewModel.refresh() }
-            .onChange(of: scenePhase) { _, phase in
-                guard phase == .active else { return }
+            // Only on a genuine return from the background. `scenePhase` also flips to
+            // `.active` during the first appearance, so an unguarded hook re-ran the whole
+            // refresh immediately after `.task` had just done it.
+            .onChange(of: scenePhase) { previous, phase in
+                // `.background` only. During launch SwiftUI transitions `.inactive` → `.active`,
+                // so accepting `.inactive` here would re-run the refresh that `.task` had just
+                // started — which is the duplicate this guard exists to remove.
+                guard phase == .active, previous == .background else { return }
                 Task { await viewModel.refresh() }
             }
             // Every failure on this screen used to be silent: the view model set

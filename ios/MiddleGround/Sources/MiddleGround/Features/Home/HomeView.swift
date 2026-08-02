@@ -68,9 +68,16 @@ struct HomeView: View {
             }
         }
         .task {
-            // Fast first paint from cache, then stay subscribed to live updates.
-            await viewModel.loadRequests()
-            await viewModel.observeRequests()
+            // The single entry point for this screen's data.
+            //
+            // `loadRelationshipState` and `observeRequests` are concurrent because neither needs
+            // the other, and `observeRequests` yields the current requests before it yields any
+            // update — so the separate `loadRequests()` that used to run first was fetching data
+            // the listener was about to deliver anyway.
+            async let name: Void = viewModel.loadCurrentUser()
+            async let relationship: Void = viewModel.loadRelationshipState()
+            async let requests: Void = viewModel.observeRequests()
+            _ = await (name, relationship, requests)
         }
         .onReceive(NotificationCenter.default.publisher(for: .didReceiveRequestNotification)) { notification in
             guard let requestID = notification.userInfo?["request_id"] as? String else { return }

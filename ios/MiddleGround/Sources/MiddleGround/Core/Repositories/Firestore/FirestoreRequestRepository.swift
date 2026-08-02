@@ -5,6 +5,18 @@ actor FirestoreRequestRepository: RequestRepository {
     private let db = Firestore.firestore()
     private static let collection = "requests"
 
+    /// How many requests a screen ever asks for.
+    ///
+    /// This query backs Home, Calendar, the reliability score and Profile's member scores, and
+    /// it had no bound at all — every read returned a user's entire history, and got linearly
+    /// slower and more expensive for as long as they used the app. Ordered newest-first, so the
+    /// cut falls on the oldest plans, which is where it belongs: the feed shows recent activity
+    /// and the reliability score is about recent behaviour.
+    ///
+    /// ⚠️ The score is computed from whatever this returns, so raising or lowering this changes
+    /// what "how reliably plans happen" measures. It is not a free knob.
+    private static let recentLimit = 200
+
     func fetchRequests(for userID: String) async throws -> [Request] {
         let snapshot = try await db
             .collection(Self.collection)
@@ -17,6 +29,7 @@ actor FirestoreRequestRepository: RequestRepository {
             // needs one composite index instead of two.
             .whereField("allParticipantIDs", arrayContains: userID)
             .order(by: "updatedAt", descending: true)
+            .limit(to: Self.recentLimit)
             .getDocuments()
 
         return snapshot.documents.compactMap { try? $0.data(as: RequestDTO.self).toModel() }
@@ -73,6 +86,10 @@ actor FirestoreRequestRepository: RequestRepository {
                 .collection(Self.collection)
                 .whereField("allParticipantIDs", arrayContains: userID)
                 .order(by: "updatedAt", descending: true)
+                // Same bound as the one-shot fetch, and it matters more here: an unbounded
+                // listener re-delivers the whole history on every change, for as long as the
+                // screen is open.
+                .limit(to: Self.recentLimit)
                 .addSnapshotListener { snapshot, _ in
                     guard let snapshot else {
                         continuation.finish()

@@ -214,14 +214,20 @@ actor GamificationService: GamificationServiceProtocol {
         restoreAttempted.insert(userID)
         guard let mirror, store.data(forKey: statsKey(for: userID)) == nil else { return }
 
-        if let remote = try? await mirror.stats(for: userID),
-           let data = try? JSONEncoder().encode(remote) {
+        // Both of these read the *same* document, `gamification/{userID}`, and awaiting them in
+        // sequence paid for that round trip twice — on the one screen whose whole job is to be
+        // there when you open the tab.
+        async let remoteStats = try? mirror.stats(for: userID)
+        async let remoteHistory = try? mirror.history(for: userID)
+        let (stats, history) = await (remoteStats, remoteHistory)
+
+        if let stats, let data = try? JSONEncoder().encode(stats) {
             store.set(data, forKey: statsKey(for: userID))
         }
 
         // Written directly rather than through `save(achievements:)`, which would mirror
         // straight back to the server the values just read from it.
-        guard let history = try? await mirror.history(for: userID) else { return }
+        guard let history else { return }
         if !history.achievements.isEmpty,
            let data = try? JSONEncoder().encode(history.achievements) {
             store.set(data, forKey: achievementsKey(for: userID))

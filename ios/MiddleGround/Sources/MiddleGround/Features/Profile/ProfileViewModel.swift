@@ -140,9 +140,10 @@ final class ProfileViewModel {
         return "Level \(stats.level) · \(stats.relationshipXP.formatted()) XP"
     }
 
-    init() {
-        Task { await refresh() }
-    }
+    // No loading in `init`. Between this, `.task` and the `scenePhase` hook, `refresh()` ran
+    // three times on a single appearance — measured at six times across one walkthrough — and
+    // each run is four sequential network calls plus an invite-repair loop plus a second
+    // relationship fetch. `.task` is now the only entry point on appear.
 
     /// Reloads everything this screen shows.
     ///
@@ -150,10 +151,16 @@ final class ProfileViewModel {
     /// because the state that matters most here (has someone joined my group?) changes
     /// remotely, without this device doing anything.
     func refresh() async {
-        await loadUser()
-        await loadStats()
-        await loadRelationships()
-        await checkNotificationStatus()
+        await LoadTimer.measure("profile.refresh") {
+            // The user has to land first — the other three each need an ID. After that they are
+            // mutually independent, and running them in sequence meant paying for three round
+            // trips to do the work of one.
+            await loadUser()
+            async let stats: Void = loadStats()
+            async let relationships: Void = loadRelationships()
+            async let notifications: Void = checkNotificationStatus()
+            _ = await (stats, relationships, notifications)
+        }
     }
 
     func loadRelationships() async {

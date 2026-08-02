@@ -169,12 +169,16 @@ When 1.0 is approved, in one pass:
 4. **Mention the new permission prompts** in the review notes. A reviewer will now see a location
    prompt and a calendar prompt that 1.0 never showed, and unexplained prompts invite questions.
 5. **Deploy `firestore.rules` first — before the build goes anywhere.** 1.0.1 is the first build
-   that writes `plan_outcomes`, and production is still running rules that have no match block for
-   it. Unmatched paths are denied, so every follow-through row would be silently refused: the app
-   keeps working (the write is swallowed by design) and the record quietly stays empty, which is
-   the one failure that looks exactly like success. Deploying was deliberately *not* done while 1.0
-   sat in review — it gains nothing until a client writes those rows, and a rules change during
-   review risks the submission for no benefit.
+   that writes `plan_outcomes` **and `booking_intents`**, and production is still running rules
+   with no match block for either. Unmatched paths are denied, so every row would be silently
+   refused: the app keeps working (both writes are swallowed by design) and the records quietly
+   stay empty, which is the one failure that looks exactly like success. Deploying was deliberately
+   *not* done while 1.0 sat in review — it gains nothing until a client writes those rows, and a
+   rules change during review risks the submission for no benefit.
+
+   Verify after deploying, rather than assuming: agree a plan with a place on a real device, tap
+   **Find a table**, then confirm a `booking_intents` document exists. An empty collection after a
+   week of use means this step was missed.
 6. **Archive from a committed tree**, upload, attach, submit.
 
 ✅ **Device testing done** (2 August 2026). Groups of three and late cancellation were exercised on

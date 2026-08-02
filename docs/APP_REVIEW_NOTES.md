@@ -77,6 +77,21 @@ Everything else here is context for us, not for Apple.
 > app deliberately does not declare the `remote-notification` background mode — all pushes are
 > alert-style.
 >
+> **Two permission prompts, both optional, and neither blocks anything.** The app is fully usable
+> if you decline both.
+>
+> - **Calendar** — used only to warn that a proposed time clashes with something already in your
+>   calendar. Read-only. Nothing is written, and no event data leaves the device.
+> - **Location** — appears only on a plan you have already accepted, and only within the hours
+>   around its time. Tapping **Share my location** sends a single point to the other people on
+>   that plan; there is no tracking, nothing runs in the background, and the point is deleted when
+>   the plan is over. Authorisation requested is **When In Use**.
+>
+> **Groups can hold more than two people.** The codes above pair you with one demo partner, which
+> is the shortest path to seeing the app. A plan sent to a group of three behaves slightly
+> differently on purpose: one person declining does not cancel it for everyone else, and one
+> person accepting does not stop the others from accepting too.
+>
 > **There is an Admin tab in the binary.** It is gated on a server-issued Firebase custom claim,
 > not a client flag, and every query behind it is independently refused by our Firestore security
 > rules for accounts without that claim. A reviewer's account will not have it, and forcing the

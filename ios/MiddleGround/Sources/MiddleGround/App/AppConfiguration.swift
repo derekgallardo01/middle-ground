@@ -51,14 +51,19 @@ enum AppConfiguration {
     // and these links are also surfaced in-app from Profile → About.
     //
     // These pointed at middleground.app, where every path — including nonsense ones — served
-    // the same "Coming Soon" placeholder, so all three links were effectively dead. The pages
-    // in `docs/legal/` are now published to Firebase Hosting, which needs no billing and no
-    // DNS (see the `hosting` block in firebase.json).
+    // the same "Coming Soon" placeholder, so all three links were effectively dead. They then
+    // moved to Firebase Hosting, and now to seekmiddleground.com, which serves the same pages
+    // from `docs/legal/` and is what App Store Connect's Privacy Policy, Support and Marketing
+    // URLs point at. In-app links and store metadata naming different hosts is the kind of
+    // inconsistency a reviewer notices and nobody benefits from.
+    //
+    // Firebase Hosting still serves these pages and is deliberately left running: builds already
+    // in the wild link to it, and it costs nothing to keep answering them.
     //
     // To move to middleground.app later: add it as a custom domain in the Firebase console,
     // then change this one constant. Nothing else refers to the host.
 
-    private static let webRoot = URL(string: "https://middle-ground-8fd13.web.app")!
+    private static let webRoot = URL(string: "https://seekmiddleground.com")!
 
     static let privacyPolicyURL = webRoot.appending(path: "privacy")
     static let termsURL = webRoot.appending(path: "terms")

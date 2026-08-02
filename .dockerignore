@@ -1,0 +1,6 @@
+# Deny by default. Without this every deploy uploads the Xcode project, the asset catalogs,
+# the SwiftPM checkouts and the Cloud Functions as build context — hundreds of megabytes to
+# build an image that contains four hundred kilobytes of HTML.
+*
+!site/Caddyfile
+!site/dist

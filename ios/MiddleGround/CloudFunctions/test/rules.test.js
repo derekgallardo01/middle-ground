@@ -1385,6 +1385,45 @@ describe('plan outcomes', () => {
   });
 });
 
+// Kept for the same reason as plan_outcomes, so held to the same standard.
+describe('booking intents', () => {
+  const asAdmin = () => testEnv.authenticatedContext('root', { admin: true }).firestore();
+  const valid = {
+    provider: 'curated',
+    groupSize: 2,
+    category: 'dating',
+    hoursBeforePlan: 30,
+    at: new Date(),
+  };
+
+  test('a signed-in user can record one', async () => {
+    await assertSucceeds(setDoc(doc(asAlice(), 'booking_intents/b1'), valid));
+  });
+
+  test('an anonymous client cannot', async () => {
+    await assertFails(setDoc(doc(asAnon(), 'booking_intents/b1'), valid));
+  });
+
+  test('a row carrying an identifier is refused', async () => {
+    await assertFails(
+      setDoc(doc(asAlice(), 'booking_intents/b2'), { ...valid, userID: ALICE }),
+    );
+    await assertFails(
+      setDoc(doc(asAlice(), 'booking_intents/b3'), { ...valid, requestID: 'r1' }),
+    );
+  });
+
+  test('append-only, and operator-read only', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'booking_intents/b4'), valid);
+    });
+    await assertFails(updateDoc(doc(asAlice(), 'booking_intents/b4'), { provider: 'x' }));
+    await assertFails(deleteDoc(doc(asAlice(), 'booking_intents/b4'), {}));
+    await assertFails(getDoc(doc(asAlice(), 'booking_intents/b4')));
+    await assertSucceeds(getDoc(doc(asAdmin(), 'booking_intents/b4')));
+  });
+});
+
 describe('unmatched paths', () => {
   test('a collection with no rule is denied', async () => {
     await assertFails(getDoc(doc(asAlice(), 'secrets/s1')));

@@ -71,6 +71,49 @@ struct PlanOutcome: Codable, Sendable, Equatable {
     }
 }
 
+/// That someone went looking for a table on a plan they had already agreed to.
+///
+/// The other half of the booking argument, and the half a partner cannot see for themselves: a
+/// tap here is a group with a date, a time and a party size deciding they want a reservation. It
+/// is recorded under the same rule as `PlanOutcome` — no user, no request, nothing to trace — and
+/// for the same reason: it cannot be reconstructed later, and keeping it any other way would
+/// contradict what the Privacy Policy promises about deletion.
+struct BookingIntent: Codable, Sendable, Equatable {
+    /// Which provider produced the link. Distinguishes a curated OpenTable web link from a real
+    /// partner integration once one exists.
+    let provider: String
+    let groupSize: Int
+    let category: RequestCategory
+    let hoursBeforePlan: Int?
+    let at: Date
+
+    init(
+        provider: String,
+        groupSize: Int,
+        category: RequestCategory,
+        hoursBeforePlan: Int?,
+        at: Date = Date()
+    ) {
+        self.provider = provider
+        self.groupSize = groupSize
+        self.category = category
+        self.hoursBeforePlan = hoursBeforePlan
+        self.at = at
+    }
+
+    static func from(_ request: Request, provider: String, now: Date = Date()) -> BookingIntent {
+        BookingIntent(
+            provider: provider,
+            groupSize: request.allParticipantIDs.count,
+            category: request.category,
+            hoursBeforePlan: request.proposedTime.map {
+                Int(($0.timeIntervalSince(now) / 3600).rounded(.down))
+            },
+            at: now
+        )
+    }
+}
+
 /// The five states worth counting, plus the one the app refuses to decide.
 ///
 /// `agreed` is the denominator. Without it every other number is a count with nothing to divide

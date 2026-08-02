@@ -12,6 +12,9 @@ final class RequestDetailViewModel {
     private let analytics = Container.shared.analyticsService()
     private let sharedLocationRepository = Container.shared.sharedLocationRepository()
     private let locationService = Container.shared.locationService()
+    // Not private: the booking extension lives in its own file, and `private` is file-scoped.
+    let reservations = Container.shared.reservationProvider()
+    let planOutcomes = Container.shared.planOutcomeRepository()
 
     var request: Request
     var currentUser: User?
@@ -51,6 +54,7 @@ final class RequestDetailViewModel {
                 by: currentUser.id
             )
             showReschedulePicker = false
+            await loadBookingLink()   // the link carries the time, so a new time changes it
             await gamificationService.recordResponse(.reschedule, to: previous, for: currentUser.id)
             Haptics.shared.notification(.success)
         } catch {
@@ -242,6 +246,7 @@ final class RequestDetailViewModel {
         currentUser = await authService.currentUser()
         await loadPartnerName()
         await loadSharedLocations()
+        await loadBookingLink()
     }
 
     // MARK: - Location, for the hours around this plan
@@ -268,6 +273,9 @@ final class RequestDetailViewModel {
     var partnerSharedLocations: [SharedLocation] {
         sharedLocations.filter { $0.userID != currentUser?.id }
     }
+
+    /// Assigned only by `loadBookingLink()`, in RequestDetailViewModel+Booking.swift.
+    var bookingURL: URL?
 
     func loadSharedLocations() async {
         // Nothing to load outside the window, and no reason to spend a read finding that out.
@@ -386,6 +394,9 @@ final class RequestDetailViewModel {
             if let newTime { outgoing.proposedTime = newTime }
             request = try await requestService.respond(to: outgoing, with: response, text: text, by: currentUser.id)
             counterText = ""
+            // Accepting is what makes the booking link appear; without this it arrives a screen
+            // later, for no reason the person can see.
+            await loadBookingLink()
             let outcome = await gamificationService.recordResponse(response, to: previous, for: currentUser.id)
 
             // The same action used to feel completely different depending on where you did

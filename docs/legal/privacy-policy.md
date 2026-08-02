@@ -43,6 +43,7 @@ actually does — every item below corresponds to real behaviour in the app.
 | **Reports you file** — which request you reported, who sent it, the reason, and your optional note | `reports/{id}` | So we can act on harassment and abuse. Readable only by staff |
 | **Crash diagnostics** — stack trace, device model, OS version, and the app version at the time of a crash | Firebase Crashlytics | So we can find and fix crashes. Contains no request content and no message text |
 | **What became of a plan** — that a plan was agreed, happened, was called off, or did not happen, with the party size and the kind of plan | `plan_outcomes` | So we can tell how often plans people agree to actually happen. **These records contain no name, no account identifier, and no link to the plan or the people on it** — they cannot be traced back to you, which is why they are kept rather than deleted with your account |
+| **That someone looked for a table** — that a booking link was opened, with the party size and the kind of plan | `booking_intents` | So we can tell how often people want to book somewhere. Recorded only when you tap the link, never when it is merely shown. **Contains no name, no account identifier and no link to the plan**, on the same basis as the row above |
 
 We do **not** collect: contacts, photos, health data, advertising identifiers, or device
 fingerprints. We do not collect location in the background, and we never read or upload your
@@ -163,9 +164,10 @@ Open **Profile → Delete Account**. After you confirm:
 - Any location you shared expires on its own schedule — hours after the plan it belonged to —
   and is deleted by the server whether or not you delete your account.
 
-The one category of record that is **not** erased is the anonymous count of what became of a plan,
-described in the table above. It carries nothing that identifies you or the plan, so there is
-nothing in it to erase and no way to find "yours" — it is a tally, not a history.
+The only records **not** erased are the two anonymous tallies described in the table above — what
+became of a plan, and that someone opened a booking link. Neither carries anything that identifies
+you or the plan, so there is nothing in them to erase and no way to find "yours". They are counts,
+not history.
 
 The erasure happens while you are still signed in, as part of the deletion itself — not on a
 delay and not in a queue. An automated server-side job runs the same cleanup afterwards to catch

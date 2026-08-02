@@ -13,6 +13,9 @@ protocol PlanOutcomeRepository: Sendable {
     /// able to fail the user action that triggered it.
     func record(_ outcome: PlanOutcome) async
 
+    /// Records that someone went looking for a table. Same contract: never throws.
+    func recordBookingIntent(_ intent: BookingIntent) async
+
     // MARK: - Admin reads
 
     func recentOutcomes(limit: Int) async throws -> [PlanOutcome]
@@ -22,9 +25,14 @@ protocol PlanOutcomeRepository: Sendable {
 
 actor MockPlanOutcomeRepository: PlanOutcomeRepository {
     private(set) var outcomes: [PlanOutcome] = []
+    private(set) var bookingIntents: [BookingIntent] = []
 
     func record(_ outcome: PlanOutcome) async {
         outcomes.append(outcome)
+    }
+
+    func recordBookingIntent(_ intent: BookingIntent) async {
+        bookingIntents.append(intent)
     }
 
     func recentOutcomes(limit: Int) async throws -> [PlanOutcome] {

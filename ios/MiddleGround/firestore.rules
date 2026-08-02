@@ -523,6 +523,29 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ------------------------------------------------------ booking intents
+    // That someone went looking for a table on a plan they had already agreed to.
+    //
+    // Same contract as `plan_outcomes`, and kept for the same reason: it is evidence a booking
+    // partner cannot gather for themselves, and it cannot be reconstructed after the fact. The
+    // `hasOnly` list is again the enforcement rather than a convention — nothing identifying may
+    // be written, so there is nothing to erase when an account goes.
+    match /booking_intents/{intentId} {
+      function isAnonymous() {
+        return request.resource.data.keys().hasOnly(
+                 ['provider', 'groupSize', 'category', 'hoursBeforePlan', 'at'])
+          && request.resource.data.provider is string
+          && request.resource.data.groupSize is int
+          && request.resource.data.groupSize >= 2
+          && request.resource.data.category is string
+          && request.resource.data.at is timestamp;
+      }
+
+      allow get, list: if isAdmin();
+      allow create: if signedIn() && isAnonymous();
+      allow update, delete: if false;
+    }
+
     // ---------------------------------------------------------- gamification
     // Mirror of XP / streak / achievements, so progress survives a device change.
     match /gamification/{userId} {

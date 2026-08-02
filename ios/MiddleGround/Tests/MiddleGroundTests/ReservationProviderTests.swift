@@ -69,6 +69,33 @@ final class ReservationProviderTests: XCTestCase {
         )
     }
 
+    /// The booking record is the second half of the partnership argument, and like the first it
+    /// only stays keepable while it cannot identify anyone.
+    func testTheBookingIntentCarriesNothingIdentifying() throws {
+        let request = Request(
+            creatorID: "user_1",
+            recipientIDs: ["user_2", "user_3"],
+            category: .friends,
+            title: "Dinner?",
+            proposedTime: Date(),
+            location: "Lucia's",
+            status: .accepted
+        )
+        let intent = BookingIntent.from(request, provider: "curated")
+        XCTAssertEqual(intent.groupSize, 3)
+        XCTAssertEqual(intent.provider, "curated")
+
+        let json = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(intent)) as? [String: Any]
+        )
+        XCTAssertTrue(
+            Set(json.keys).isSubset(of: ["provider", "groupSize", "category", "hoursBeforePlan", "at"])
+        )
+        for key in ["userID", "requestID", "creatorID", "location", "title"] {
+            XCTAssertNil(json[key], "\(key) must never reach booking_intents")
+        }
+    }
+
     func testATimelessPlanStillProducesALink() throws {
         let venue = ReservableVenue(
             name: "The Anchor", city: "Brooklyn", providerID: "curated", providerVenueID: "v3"

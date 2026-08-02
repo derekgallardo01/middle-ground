@@ -67,6 +67,17 @@ struct RequestDetailView: View {
                         )
                     }
 
+                    if let bookingURL = viewModel.bookingURL,
+                       let placeName = viewModel.bookingPlaceName {
+                        BookingRow(
+                            placeName: placeName,
+                            partySize: viewModel.request.allParticipantIDs.count,
+                            url: bookingURL
+                        ) {
+                            Task { await viewModel.recordBookingIntent() }
+                        }
+                    }
+
                     if viewModel.canShareLocation {
                         LocationRow(
                             mine: viewModel.mySharedLocation,

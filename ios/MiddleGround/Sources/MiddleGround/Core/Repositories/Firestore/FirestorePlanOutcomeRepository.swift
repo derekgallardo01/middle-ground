@@ -6,6 +6,7 @@ actor FirestorePlanOutcomeRepository: PlanOutcomeRepository {
     /// Computed, not stored: constructing this type must not require FirebaseApp.configure().
     private var db: Firestore { Firestore.firestore() }
     private static let collection = "plan_outcomes"
+    private static let intentCollection = "booking_intents"
 
     func record(_ outcome: PlanOutcome) async {
         // Swallows failures, like the event repository. A missing row skews a rate slightly; a
@@ -20,6 +21,17 @@ actor FirestorePlanOutcomeRepository: PlanOutcomeRepository {
         }
     }
 
+    func recordBookingIntent(_ intent: BookingIntent) async {
+        guard Auth.auth().currentUser != nil else { return }
+        do {
+            try db.collection(Self.intentCollection)
+                .document(UUID().uuidString)
+                .setData(from: BookingIntentDTO(from: intent))
+        } catch {
+            MGLog.storage.error("Booking intent not recorded: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
     func recentOutcomes(limit: Int) async throws -> [PlanOutcome] {
         let snapshot = try await db.collection(Self.collection)
             .order(by: "at", descending: true)
@@ -30,6 +42,22 @@ actor FirestorePlanOutcomeRepository: PlanOutcomeRepository {
 }
 
 // MARK: - DTO
+
+private struct BookingIntentDTO: Codable {
+    var provider: String
+    var groupSize: Int
+    var category: String
+    var hoursBeforePlan: Int?
+    var at: Timestamp
+
+    init(from intent: BookingIntent) {
+        self.provider = intent.provider
+        self.groupSize = intent.groupSize
+        self.category = intent.category.rawValue
+        self.hoursBeforePlan = intent.hoursBeforePlan
+        self.at = Timestamp(date: intent.at)
+    }
+}
 
 private struct PlanOutcomeDTO: Codable {
     var outcome: String

@@ -51,9 +51,9 @@ Everything else here is context for us, not for Apple.
 > 2. Go to the **Profile** tab.
 > 3. Under **Connect**, enter one of these invite codes and tap **Join with a code**:
 >
->    - `6XRXSC`
->    - `TSF64V`
->    - `5F2YDB`
+>    - `GCE6NN`  (pairs you with "Alex")
+>    - `4H4EY6`  (pairs you with "Sam")
+>    - `995ZXA`  (pairs you with "Jordan")
 >
 >    (Each code works once. If one is rejected, please try the next.)
 >

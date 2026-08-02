@@ -13,10 +13,16 @@
  * notes; the reviewer signs in with Apple as themselves, enters a code, and lands in a working
  * conversation.
  *
- * Why MORE THAN ONE code: `isRedeemingInvite` in firestore.rules requires
- * `participantIDs.size() == 1`, so a code is single-use by construction. The moment the first
- * reviewer redeems it the group has two members and every later redemption is denied — which
- * would silently break a rejection/resubmit cycle, or two reviewers on the same build.
+ * Why MORE THAN ONE code: `isRedeemingInvite` in firestore.rules admits a joiner only while
+ * `participantIDs.size() < seats`, and a group seeded here has no `seats` field, so the rule's
+ * `get('seats', 2)` default applies and it holds exactly two people. A code is therefore
+ * single-use: the moment the first reviewer redeems it the group is full and every later
+ * redemption is denied — which would silently break a rejection/resubmit cycle, or two
+ * reviewers on the same build.
+ *
+ * That rule used to be `size() == 1`, which capped *every* group in the app at two. Groups now
+ * carry a seat count; these deliberately do not, because single-use is the property the review
+ * notes depend on.
  *
  * Reuses the Firebase CLI's OAuth session, like grant-admin.mjs, so no service-account key is
  * needed. Requires `firebase login`.

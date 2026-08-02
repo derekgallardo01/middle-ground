@@ -237,7 +237,7 @@ function demoRequests(ownerID, ownerName) {
   ];
 }
 
-async function seedOne(call, db, index) {
+async function seedOne(call, db, index, fixedCode) {
   const label = `demo${index}`;
   const email = `${label}@${DEMO_DOMAIN}`;
   const name = ['Alex', 'Sam', 'Jordan', 'Riley', 'Casey', 'Quinn'][index % 6];
@@ -261,7 +261,7 @@ async function seedOne(call, db, index) {
     if (!localId) throw new Error(`${email} exists but could not be looked up`);
   }
 
-  const code = randomCode();
+  const code = fixedCode ?? randomCode();
   const relationshipID = uuid();
   const createdAt = new Date();
 
@@ -355,9 +355,23 @@ async function main() {
     process.exit(1);
   }
 
+  // `--codes` recreates groups with *specific* invite codes.
+  //
+  // Exists because the codes live in the App Store Connect review notes, and those cannot
+  // always be edited once a version is waiting for review. Cleaning the demo data mid-review
+  // therefore breaks the reviewer's only way into the app, and the fix has to restore the same
+  // codes rather than mint new ones. That happened; hence this flag.
+  const codesIndex = args.indexOf('--codes');
+  const fixedCodes = codesIndex >= 0 ? String(args[codesIndex + 1] ?? '').split(',').filter(Boolean) : [];
+  if (codesIndex >= 0 && fixedCodes.length === 0) {
+    console.error('--codes needs a comma-separated list, e.g. --codes GCE6NN,4H4EY6,995ZXA');
+    process.exit(1);
+  }
+  const total = fixedCodes.length || count;
+
   const seeded = [];
-  for (let i = 0; i < count; i += 1) {
-    seeded.push(await seedOne(call, db, i));
+  for (let i = 0; i < total; i += 1) {
+    seeded.push(await seedOne(call, db, i, fixedCodes[i]));
   }
 
   console.log(`\nSeeded ${seeded.length} demo group(s).\n`);

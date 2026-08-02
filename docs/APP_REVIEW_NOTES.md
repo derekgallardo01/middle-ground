@@ -133,6 +133,24 @@ the user, none used for tracking:
 
 Answer **No** to "Do you or your third-party partners use data for tracking?"
 
+### ⏳ Timing: answer this WITH the next submission, not before it
+
+Verified rather than assumed: location landed in commit `2d59e2e` on 1 August 17:59, and version
+1.0 is attached to build `202607311812`, built 31 July 18:12. **The binary awaiting review contains
+no location code and no location entry in its manifest.**
+
+So adding Coarse Location to App Privacy *now* would tell the App Store listing that the app
+collects location while the app people can actually download does not. Over-declaring is not the
+dangerous direction — under-declaring is — but it makes the listing untrue and hands a reviewer a
+mismatch to query.
+
+Do it in the same pass as submitting a build from `202608012232` onward, which is the first build
+whose manifest declares it.
+
+Note also: **this cannot be automated.** The App Store Connect API has no data-usage endpoints —
+`/v1/apps/{id}/appDataUsages`, `/v1/appDataUsages`, `/v1/appDataUsageCategories` and the publish
+state all return 404. App Privacy is the web form only.
+
 ### ⚠️ Location is new and must be answered before the next submission
 
 Plan-scoped location sharing is in the build. The App Privacy answers in App Store Connect are

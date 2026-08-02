@@ -268,60 +268,61 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
 <main id="main" class="wrap">
 <div class="hero">
 <span class="eyebrow">Version 1.0 · in App Store review</span>
-<h1>Plans die in <span class="tagline">the back-and-forth</span>.</h1>
-<p>Middle Ground is an iOS app for the decisions two or more people have to make together — dinner, the weekend, who is actually free on Thursday. It turns an open-ended conversation into something with a shape, and an answer.</p>
+<h1>Making plans <span class="tagline">shouldn't be this hard</span>.</h1>
+<p>Middle Ground is an iPhone app for the plans you make with other people. Dinner. The weekend. Who's actually free on Thursday.</p>
 <div class="actions">
-<a class="btn btn-primary" href="/changelog">See what's shipping →</a>
+<a class="btn btn-primary" href="/changelog">What's new →</a>
 <a class="btn btn-secondary" href="/timeline">Timeline</a>
 </div>
 </div>
 <hr>
 <h2>The problem</h2>
-<p>Nobody struggles to <em>have</em> the idea. They struggle to land it.</p>
-<p>"Dinner Friday?" becomes eleven messages, two maybes and no reservation. The plan does not fail because anyone objected — it fails because nothing ever converted the conversation into a decision, and the thread scrolled away.</p>
-<p>Group chat is built for talking. It is not built for deciding.</p>
-<h2>What Middle Ground does</h2>
+<p>Having the idea is easy. Making it happen is not.</p>
+<p>"Dinner Friday?" turns into eleven messages, two maybes, and no booking. Nobody said no. The plan just never became a decision, and then it scrolled away.</p>
+<p>Group chats are great for talking. They're terrible for deciding.</p>
+<h2>What the app does</h2>
 <div class="cards">
 <div class="card">
 <span class="ico">📨</span>
-<h3>A request, not a message</h3>
-<p>Someone proposes something specific. It has a time, a place and a state — so it can be accepted, countered or declined rather than ignored.</p>
+<h3>Ask properly</h3>
+<p>Send a real invitation with a time and a place. It gets a yes or a no. It doesn't get ignored.</p>
 </div>
 <div class="card">
 <span class="ico">🤝</span>
-<h3>Countering that moves the plan</h3>
-<p>"Sunday instead?" carries a new time. Accepting it actually reschedules the plan, rather than leaving everyone to work out what was agreed.</p>
+<h3>Suggest another time</h3>
+<p>Can't do Friday? Offer Sunday. If they say yes, the plan moves to Sunday. No re-reading the thread.</p>
 </div>
 <div class="card">
 <span class="ico">✅</span>
-<h3>Did it happen?</h3>
-<p>Afterwards, the app asks. That single answer is what makes reliability measurable instead of a feeling people carry silently.</p>
+<h3>Ask if it happened</h3>
+<p>Afterwards, the app checks in. Over time you get an honest picture of who actually shows up.</p>
 </div>
 <div class="card">
 <span class="ico">📆</span>
-<h3>It knows your calendar</h3>
-<p>A proposed time is checked against what is already in your calendar, on device. Nothing about your events leaves the phone.</p>
+<h3>Spot the clashes</h3>
+<p>It quietly checks your calendar and warns you if you're already busy. Your calendar never leaves your phone.</p>
 </div>
 <div class="card">
 <span class="ico">🎯</span>
-<h3>Something riding on it</h3>
-<p>Both people can stake points on a plan actually happening. Never one at the other's expense — the record says whether it happened, not whose fault it was.</p>
+<h3>Make it count</h3>
+<p>Both of you can put points on a plan happening. Show up and you both win them back.</p>
 </div>
 <div class="card">
 <span class="ico">📍</span>
-<h3>Location, scoped to one plan</h3>
-<p>Share where you are for the hours around a plan you both agreed to. One point per tap, not a trail, and it is deleted afterwards.</p>
+<h3>"I'm five minutes away"</h3>
+<p>Share where you are around the time of a plan. One tap, no tracking, and it's gone afterwards.</p>
 </div>
 </div>
-<h2>How it is built</h2>
-<p>The interesting decisions in this product are the ones about restraint.</p>
-<p><strong>A reliability score exists, and couples are excluded from it.</strong> A number your partner can quote back at you stops being feedback and becomes an argument. Groups — where a no-show costs someone else their evening or their booking — keep it. That split is enforced in code, not in a guideline.</p>
-<p><strong>Location is something you hand over, not something the app knows.</strong> Sharing is possible only while an accepted plan is inside its window, it sends a single point rather than starting a feed, and it is deleted when the window closes. The window is enforced on the server against the server's own clock, because a rule that lives only in the app is a rule a tampered app does not have.</p>
-<p><strong>Every privacy boundary is a tested one.</strong> The security rules that decide who can read what are covered by an automated suite that runs on every change — because those rules encode the entire privacy model, and they are the kind of thing that is easy to get subtly wrong and impossible to verify by reading.</p>
-<h2>Where it is</h2>
-<p>In private beta on TestFlight, with version 1.0 submitted to the App Store. Development is active and continuous — the <a href="/changelog">changelog</a> is the honest record of it, and the <a href="/timeline">timeline</a> covers what is being built next.</p>
+<h2>What we won't do</h2>
+<p>The hard decisions in an app about relationships are the ones about what to leave out.</p>
+<p><strong>Couples never get scored.</strong> The app tracks who shows up, but partners can't see each other's number. A score your partner can throw back at you isn't feedback, it's ammunition.</p>
+<p><strong>Location disappears.</strong> You can only share it around the time of a plan you both agreed to, and it's deleted afterwards. There's no tracking, and nothing runs in the background.</p>
+<p><strong>Nothing gets sold.</strong> No ads, no data sold on, no selling your plans to anyone. The app is about private things between people who trust each other, and that only works one way.</p>
+<h2>Where things stand</h2>
+<p>In private testing now, with version 1.0 submitted to Apple.</p>
+<p>We ship constantly. The <a href="/changelog">changelog</a> is the full record, and the <a href="/timeline">timeline</a> shows what's coming.</p>
 <div class="actions">
-<a class="btn btn-primary" href="/changelog">Read the changelog</a>
+<a class="btn btn-primary" href="/changelog">See what's new</a>
 <a class="btn btn-secondary" href="mailto:support@middleground.app">Get in touch</a>
 </div>
 </main>

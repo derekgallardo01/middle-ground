@@ -35,6 +35,9 @@ struct OnboardingView: View {
 
                 Spacer()
 
+                // The step change animates here, not in the view model. Moving between steps is
+                // a change of content, so it takes `reveal` rather than the `tap` the little
+                // step indicator uses.
                 Group {
                     switch viewModel.currentStep {
                     case .welcome:
@@ -50,6 +53,7 @@ struct OnboardingView: View {
                     }
                 }
                 .frame(maxHeight: .infinity)
+                .mgAnimation(MGMotion.reveal, value: viewModel.currentStep)
 
                 Spacer()
             }
@@ -70,7 +74,7 @@ struct OnboardingView: View {
                 Capsule()
                     .fill(step == viewModel.currentStep ? MGColors.indigo : MGColors.warm200)
                     .frame(width: step == viewModel.currentStep ? 24 : 8, height: 8)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.currentStep)
+                    .mgAnimation(MGMotion.tap, value: viewModel.currentStep)
             }
         }
     }

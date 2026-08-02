@@ -183,9 +183,10 @@ final class OnboardingViewModel {
     func advance() {
         guard let currentIndex = Step.allCases.firstIndex(of: currentStep),
               currentIndex < Step.allCases.count - 1 else { return }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            currentStep = Step.allCases[currentIndex + 1]
-        }
+        // No `withAnimation` here. A view model cannot reach `@Environment`, so motion started
+        // from one can never honour Reduce Motion — the view animates this instead, by watching
+        // `currentStep`.
+        currentStep = Step.allCases[currentIndex + 1]
     }
 
     /// Whether there is a step to go back to.
@@ -204,8 +205,6 @@ final class OnboardingViewModel {
     func retreat() {
         guard canGoBack,
               let index = Step.allCases.firstIndex(of: currentStep) else { return }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            currentStep = Step.allCases[index - 1]
-        }
+        currentStep = Step.allCases[index - 1]
     }
 }

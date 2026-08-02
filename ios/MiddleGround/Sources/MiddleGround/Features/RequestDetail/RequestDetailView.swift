@@ -30,19 +30,19 @@ struct RequestDetailView: View {
                     // an actual change of turn, not the arrival of the viewer's own identity.
                     if viewModel.request.status == .cancelled {
                         cancelledRow
-                            .transition(.opacity)
+                            .mgTransition(.opacity)
                     } else if viewModel.needsAttendanceConfirmation {
                         attendanceRow
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            .mgTransition(.opacity.combined(with: .move(edge: .bottom)))
                     } else if viewModel.canRespond {
                         quickResponseRow
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                            .mgTransition(.opacity.combined(with: .move(edge: .bottom)))
                     } else if viewModel.isAwaitingResponse {
                         waitingRow
-                            .transition(.opacity)
+                            .mgTransition(.opacity)
                     } else if let outcome = viewModel.attendanceSummary {
                         attendanceSummaryRow(outcome)
-                            .transition(.opacity)
+                            .mgTransition(.opacity)
                     }
 
                     if viewModel.canInviteToPlan || viewModel.planInviteCode != nil {
@@ -84,8 +84,8 @@ struct RequestDetailView: View {
                 }
                 .padding()
                 .mgReadableWidth()
-                .mgAnimation(MGMotion.standard, value: viewModel.canRespond, reduceMotion: reduceMotion)
-                .mgAnimation(MGMotion.standard, value: viewModel.request.status, reduceMotion: reduceMotion)
+                .mgAnimation(MGMotion.reveal, value: viewModel.canRespond)
+                .mgAnimation(MGMotion.reveal, value: viewModel.request.status)
             }
 
             if viewModel.showCelebration {

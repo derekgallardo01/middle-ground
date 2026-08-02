@@ -35,8 +35,14 @@ struct NegotiationView: View {
                 VStack(alignment: .leading, spacing: MGSpacing.xl) {
                     ForEach(viewModel.request.negotiationChain) { message in
                         NegotiationBubble(message: message, currentUserID: viewModel.currentUserID)
+                            // The chat surface had no motion at all: a reply simply existed,
+                            // with nothing to show it had just arrived. Rising slightly as it
+                            // fades in is what makes it read as *new* rather than as something
+                            // that was always there.
+                            .mgTransition(.opacity.combined(with: .move(edge: .bottom)))
                     }
                 }
+                .mgAnimation(MGMotion.reveal, value: viewModel.request.negotiationChain.count)
             }
 
             // Gated on whose turn it is, not merely on the request being open. Gating on

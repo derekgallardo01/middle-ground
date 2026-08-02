@@ -102,7 +102,7 @@ struct HomeView: View {
         if reduceMotion {
             selectedRequest = request
         } else {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            withAnimation(MGMotion.reveal) {
                 selectedRequest = request
             }
         }
@@ -193,7 +193,7 @@ struct HomeView: View {
         if reduceMotion {
             selectedRequest = request
         } else {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            withAnimation(MGMotion.reveal) {
                 selectedRequest = request
             }
         }
@@ -301,10 +301,13 @@ struct HomeView: View {
                     .buttonStyle(PlainButtonStyle())
                     .accessibilityLabel("Request: \(request.title), status \(request.status.displayName)")
                     .accessibilityHint("Double tap to open details")
+                    // Opacity only. This runs per row, per frame, while scrolling, and
+                    // `RequestCard` is the heaviest view in the app — a badge, three response
+                    // buttons and a shadow. Scaling forces a re-rasterisation of all of that on
+                    // every frame a row is partly off-screen; fading does not. The visual
+                    // difference is slight and the cost is not.
                     .scrollTransition { content, phase in
-                        content
-                            .opacity(phase.isIdentity ? 1 : 0.6)
-                            .scaleEffect(phase.isIdentity ? 1 : 0.95)
+                        content.opacity(phase.isIdentity ? 1 : 0.7)
                     }
                 }
             }

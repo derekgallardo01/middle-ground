@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CalendarView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var viewModel = CalendarViewModel()
 
     var body: some View {
@@ -94,7 +95,7 @@ struct CalendarView: View {
                         isCurrentMonth: Calendar.current.isDate(date, equalTo: viewModel.currentMonth, toGranularity: .month)
                     )
                     .onTapGesture {
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                        withAnimation(reduceMotion ? nil : MGMotion.tap) {
                             viewModel.selectedDate = date
                         }
                         Haptics.shared.impact(.light)

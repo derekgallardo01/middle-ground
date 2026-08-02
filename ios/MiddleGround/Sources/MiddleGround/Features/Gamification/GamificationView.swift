@@ -137,10 +137,7 @@ struct GamificationView: View {
                             width: geo.size.width * viewModel.progressToNextLevel,
                             height: 12
                         )
-                        .animation(
-                            reduceMotion ? nil : MGMotion.expressive,
-                            value: viewModel.progressToNextLevel
-                        )
+                        .mgAnimation(MGMotion.celebrate, value: viewModel.progressToNextLevel)
                 }
             }
             .frame(height: 12)

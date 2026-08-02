@@ -60,11 +60,18 @@ struct RequestCard: View {
                         onRespond?(.decline)
                     }
                 }
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                // Was a bare `.transition` with no animation in scope to drive it, so the
+                // response buttons appeared and vanished instantly — the modifier was doing
+                // nothing at all. `mgTransition` collapses under Reduce Motion; the
+                // `mgAnimation` below is what actually runs it.
+                .mgTransition(.opacity.combined(with: .move(edge: .bottom)))
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("Response options")
             }
         }
+        // Drives the response row's transition above. `onRespond != nil` is the value that
+        // decides whether those buttons exist, so it is the value the animation has to watch.
+        .mgAnimation(MGMotion.reveal, value: onRespond != nil)
         .padding(16)
         .background(MGColors.surface)
         .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))

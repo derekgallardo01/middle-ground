@@ -49,7 +49,7 @@ struct SpontaneousRequestView: View {
                         ForEach(quickIdeas, id: \.self) { idea in
                             Button {
                                 if !reduceMotion {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(MGMotion.tap) {
                                         viewModel.title = idea
                                     }
                                 } else {

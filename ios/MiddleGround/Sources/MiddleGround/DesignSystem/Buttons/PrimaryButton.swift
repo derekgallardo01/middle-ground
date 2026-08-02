@@ -47,7 +47,7 @@ struct ScaleButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(reduceMotion ? 1.0 : (configuration.isPressed ? 0.97 : 1.0))
             .opacity(reduceMotion ? 1.0 : (configuration.isPressed ? 0.9 : 1.0))
-            .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+            .mgAnimation(MGMotion.tap, value: configuration.isPressed)
     }
 }
 

@@ -1,13 +1,14 @@
 import SwiftUI
 
 struct RequestTypePicker: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var selected: RequestCategory
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 90))], spacing: 12) {
             ForEach(RequestCategory.allCases) { category in
                 Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                    withAnimation(reduceMotion ? nil : MGMotion.tap) {
                         selected = category
                     }
                     Haptics.shared.impact(.light)

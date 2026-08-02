@@ -46,7 +46,7 @@ struct CelebrationView: View {
                 if reduceMotion {
                     showContent = true
                 } else {
-                    withAnimation(MGMotion.expressive) { showContent = true }
+                    withAnimation(MGMotion.celebrate) { showContent = true }
                 }
             }
 
@@ -56,6 +56,10 @@ struct CelebrationView: View {
                     .frame(width: particle.size, height: particle.size)
                     .position(particle.position)
                     .opacity(particle.opacity)
+                    // Not an MGMotion token: confetti is a physical simulation, not interface
+                    // motion, and wants a linear-out fall rather than a spring. Unguarded is
+                    // safe here because `spawnParticles` returns early under Reduce Motion, so
+                    // there is nothing to animate.
                     .animation(.easeOut(duration: 1.2), value: particle.position)
                     .animation(.easeOut(duration: 1.2), value: particle.opacity)
             }

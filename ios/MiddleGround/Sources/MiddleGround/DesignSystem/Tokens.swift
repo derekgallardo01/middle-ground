@@ -56,10 +56,29 @@ enum MGShadow {
     }
 }
 
+/// The app's motion vocabulary.
+///
+/// Three names, chosen for *when* they apply rather than what they are made of. Physical names
+/// ("quick", "standard") do not tell you which to reach for, which is how five hand-written
+/// spring literals ended up scattered through the views — two of them `standard` retyped by
+/// hand, and the rest matching nothing at all.
+///
+/// Reach for these through `mgAnimation(_:value:)`, never `.animation()` directly: the modifier
+/// is what honours Reduce Motion, and doing it by hand is how eight call sites stopped honouring
+/// it at all.
 enum MGMotion {
-    static let quick = Animation.spring(response: 0.3, dampingFraction: 0.7)
-    static let standard = Animation.spring(response: 0.35, dampingFraction: 0.85)
-    static let expressive = Animation.spring(response: 0.5, dampingFraction: 0.6)
+    /// Immediate feedback under a finger — a button pressing, a chip selecting. Short enough to
+    /// feel like a response rather than a transition.
+    static let tap = Animation.spring(response: 0.28, dampingFraction: 0.72)
+
+    /// Content arriving, changing or moving. The default, and the right answer for almost
+    /// everything: rows appearing, a status changing, a sheet's content settling.
+    static let reveal = Animation.spring(response: 0.35, dampingFraction: 0.85)
+
+    /// The one expressive moment — a plan agreed, a milestone reached. Deliberately looser and
+    /// slower than everything else, so it reads as a celebration rather than a UI transition.
+    /// If this is used often, it is being used wrongly.
+    static let celebrate = Animation.spring(response: 0.5, dampingFraction: 0.6)
 }
 
 extension View {
@@ -101,11 +120,24 @@ extension View {
             .modifier(OptionalShadow(style: shadow))
     }
 
-    /// Applies an animation only when Reduce Motion is off.
+    /// Applies an animation, and honours Reduce Motion without being asked to.
     ///
-    /// Mirrors the pattern already used across the app so animation choices stay in one place.
-    func mgAnimation<V: Equatable>(_ animation: Animation, value: V, reduceMotion: Bool) -> some View {
-        self.animation(reduceMotion ? nil : animation, value: value)
+    /// This used to take `reduceMotion` as a parameter, which meant every caller had to remember
+    /// to read the environment and pass it in — and the result was that it was used in exactly
+    /// two places in the whole app, while nine call sites hand-inlined the same ternary and eight
+    /// more ignored the setting entirely. Reading the environment inside the modifier makes the
+    /// accessible thing the easy thing, and the inaccessible thing impossible to write by
+    /// accident.
+    func mgAnimation<V: Equatable>(_ animation: Animation, value: V) -> some View {
+        modifier(MGAnimated(animation: animation, value: value))
+    }
+
+    /// A transition that collapses to nothing when Reduce Motion is on.
+    ///
+    /// `.transition` has no environment of its own, so an unguarded one still slides and fades
+    /// for someone who asked the system not to.
+    func mgTransition(_ transition: AnyTransition) -> some View {
+        modifier(MGTransitioned(transition: transition))
     }
 }
 
@@ -120,5 +152,28 @@ private struct OptionalShadow: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// Backs `mgAnimation(_:value:)`. A `ViewModifier` rather than a function on `View` because only
+/// a modifier can read `@Environment` on the caller's behalf.
+private struct MGAnimated<V: Equatable>: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let animation: Animation
+    let value: V
+
+    func body(content: Content) -> some View {
+        content.animation(reduceMotion ? nil : animation, value: value)
+    }
+}
+
+/// Backs `mgTransition(_:)`. Falls back to `.identity` — content still appears and disappears,
+/// it just stops moving to do it.
+private struct MGTransitioned: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let transition: AnyTransition
+
+    func body(content: Content) -> some View {
+        content.transition(reduceMotion ? .identity : transition)
     }
 }

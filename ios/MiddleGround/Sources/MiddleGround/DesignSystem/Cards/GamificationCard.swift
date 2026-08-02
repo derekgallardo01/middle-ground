@@ -60,7 +60,7 @@ struct GrowthRing: View {
                 .trim(from: 0, to: progress)
                 .stroke(MGColors.indigo, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(.spring(response: 0.6, dampingFraction: 0.7), value: progress)
+                .mgAnimation(MGMotion.celebrate, value: progress)
         }
         .frame(width: size, height: size)
     }

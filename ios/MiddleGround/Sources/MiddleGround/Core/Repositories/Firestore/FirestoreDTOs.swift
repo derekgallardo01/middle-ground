@@ -147,6 +147,12 @@ struct RelationshipDTO: Codable, Identifiable {
     /// Optional so documents written before groups could be named still decode.
     var name: String?
     var inviteCode: String
+    /// How many people this group may hold.
+    ///
+    /// Optional for the same reason, and it carries more weight than `name` does: absence means
+    /// two, matching what every group written before this field could actually hold. Decoding it
+    /// as unlimited would silently widen every existing couple.
+    var seats: Int?
 
     init(from relationship: Relationship) {
         self.id = relationship.id
@@ -156,6 +162,7 @@ struct RelationshipDTO: Codable, Identifiable {
         self.growthScore = relationship.growthScore
         self.name = relationship.name
         self.inviteCode = relationship.inviteCode
+        self.seats = relationship.seatCount
     }
 
     func toModel() -> Relationship? {
@@ -170,7 +177,8 @@ struct RelationshipDTO: Codable, Identifiable {
             createdAt: createdAt.dateValue(),
             growthScore: growthScore,
             name: name,
-            inviteCode: inviteCode
+            inviteCode: inviteCode,
+            seats: seats ?? 2
         )
     }
 }

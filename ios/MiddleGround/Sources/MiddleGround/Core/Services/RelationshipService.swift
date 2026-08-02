@@ -87,9 +87,12 @@ actor RelationshipService {
     /// This is the only way out of a group short of deleting your account, so it is also what
     /// backs the "block an abusive user" requirement in App Review guideline 1.2.
     ///
-    /// If the leaver owns the invite code, it is revoked: leaving drops the group back to a
-    /// single member, which is precisely the state `isRedeemingInvite` accepts, so a live code
-    /// would let anyone holding it walk into the group of the person who stayed.
+    /// If the leaver owns the invite code, it is revoked. That used to be because leaving
+    /// dropped a group back to one member — the only state a join was permitted in. Groups now
+    /// hold up to their seat count, so a code is live whenever there is room at all, which makes
+    /// revoking it *more* important rather than less: the person who left should not keep a
+    /// working key to a group they are no longer in, and the people who stayed should not
+    /// inherit an invite they never issued.
     func leave(relationshipID: String, userID: String) async throws {
         let mine = try await repository.fetchRelationships(for: userID)
         let relationship = mine.first { $0.id == relationshipID }

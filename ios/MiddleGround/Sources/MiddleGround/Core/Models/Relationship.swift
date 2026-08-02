@@ -21,6 +21,21 @@ enum RelationshipType: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// How many people this kind of group can hold.
+    ///
+    /// A couple is two by definition — not a default, a constraint, and the reason the reliability
+    /// score and the leaderboard both exclude couples is that a ranking between two partners is a
+    /// weapon rather than a signal. Letting a "couple" hold three would quietly reopen that.
+    ///
+    /// Everything else holds eight. The number is arbitrary but the ceiling is not: an unbounded
+    /// group is a mailing list, and every request fans out to everyone in it.
+    var seatLimit: Int {
+        switch self {
+        case .couple: return 2
+        default: return 8
+        }
+    }
+
     var iconName: String {
         switch self {
         case .couple: return "heart.fill"
@@ -47,8 +62,16 @@ struct Relationship: Identifiable, Hashable, Codable {
     /// Existing documents have no name and must keep decoding.
     var name: String?
 
-    /// Short human-shareable code a second person enters to join this relationship.
+    /// Short human-shareable code someone enters to join this relationship.
     var inviteCode: String
+
+    /// How many people this group may hold in total.
+    ///
+    /// Stored rather than derived from `type` so the ceiling a group was created under cannot be
+    /// changed by editing its type later, and so the rules can enforce it without a second read.
+    /// Optional because every group that predates this has no such field: `seats` treats absence
+    /// as two, which is exactly the behaviour those groups already had.
+    var seats: Int?
 
     init(
         id: String,
@@ -57,7 +80,8 @@ struct Relationship: Identifiable, Hashable, Codable {
         createdAt: Date = Date(),
         growthScore: Int = 0,
         name: String? = nil,
-        inviteCode: String = Relationship.generateInviteCode()
+        inviteCode: String = Relationship.generateInviteCode(),
+        seats: Int? = nil
     ) {
         self.id = id
         self.participantIDs = participantIDs
@@ -66,6 +90,7 @@ struct Relationship: Identifiable, Hashable, Codable {
         self.growthScore = growthScore
         self.name = name
         self.inviteCode = inviteCode
+        self.seats = seats ?? type.seatLimit
     }
 
     /// What to call this group when the partner's name is not the right label — a named group, or
@@ -79,7 +104,23 @@ struct Relationship: Identifiable, Hashable, Codable {
     /// True once a second person has joined — until then no requests can be sent.
     var isPaired: Bool { participantIDs.count > 1 }
 
+    /// The ceiling, treating a missing value as two.
+    ///
+    /// Absence means two on purpose. Every group written before seats existed could hold exactly
+    /// two people, and reading absence as "unlimited" would silently widen every one of them.
+    var seatCount: Int { seats ?? 2 }
+
+    var hasRoom: Bool { participantIDs.count < seatCount }
+
+    /// Everyone except the person asking.
+    func otherIDs(excluding userID: String) -> [String] {
+        participantIDs.filter { $0 != userID }
+    }
+
     /// The other participant, from the perspective of `userID`.
+    ///
+    /// Only meaningful for a two-person group; with three it returns an arbitrary one of them.
+    /// Callers that need everybody want `otherIDs(excluding:)`.
     func partnerID(excluding userID: String) -> String? {
         participantIDs.first { $0 != userID }
     }

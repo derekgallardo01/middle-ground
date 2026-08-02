@@ -244,10 +244,12 @@ struct ProfileView: View {
                     ForEach(viewModel.relationships) { relationship in
                         GroupRow(
                             relationship: relationship,
-                            // Suppressed when the prominent card above is already showing this
-                            // exact code, which is the single-unpaired-group case.
-                            showsInviteCode: !relationship.isPaired
-                                && viewModel.unpairedRelationships.count > 1,
+                            // Any group with a free seat can still be invited into — not just
+                            // an empty one, now that groups hold more than two. Suppressed only
+                            // when the prominent card above is already showing this exact code.
+                            showsInviteCode: relationship.hasRoom
+                                && !(viewModel.unpairedRelationships.count == 1
+                                     && viewModel.unpairedRelationships.first?.id == relationship.id),
                             isLeaveDisabled: viewModel.isLeavingGroup,
                             partnerReliability: viewModel.memberReliability[relationship.id],
                             onRename: { viewModel.beginRenaming(relationship) },

@@ -209,12 +209,54 @@ struct Request: Identifiable, Hashable, Codable {
     ///
     /// Saving is skipped deliberately: it is a bookmark ("not right now"), not an answer, so it
     /// must not hand the turn to the other person or demand anything of them.
-    var awaitingResponseFrom: [String] {
-        guard isOpen else { return [] }
-        guard let lastAnswer = negotiationChain.last(where: { $0.responseType != .save }) else {
-            return recipientIDs
+    /// Responses that change *what is being proposed*, as opposed to answering it.
+    ///
+    /// A counter, a negotiation or a reschedule puts a different plan on the table, so everyone
+    /// else owes a fresh answer to it — including people who had already replied to the previous
+    /// version. Accepting and declining answer the current proposal; saving does neither.
+    private static let proposalTypes: Set<ResponseType> = [.counter, .negotiate, .reschedule]
+
+    /// More than two people, so "the other person" is not a thing.
+    var isGroupPlan: Bool { allParticipantIDs.count > 2 }
+
+    /// Whether anyone can still answer.
+    ///
+    /// Not the same as `isOpen`, and the difference is the whole of group plans. With two people
+    /// an acceptance decides it and there is nothing left to say. With three, one friend saying
+    /// yes must not lock the others out of saying yes too — the plan is on, and the people who
+    /// have not answered still owe one.
+    var acceptsResponses: Bool {
+        switch status {
+        case .completed, .cancelled, .declined:
+            return false
+        case .accepted:
+            return isGroupPlan
+        case .pending, .negotiated, .rescheduled, .countered, .saved:
+            return true
         }
-        return allParticipantIDs.filter { $0 != lastAnswer.senderID }
+    }
+
+    var awaitingResponseFrom: [String] {
+        guard acceptsResponses else { return [] }
+
+        // Whoever put the current proposal on the table, and everything said since.
+        //
+        // "Everyone except the last sender" was right for two people and wrong for three: after
+        // B answered a three-person plan, it handed the turn back to the creator — who had
+        // proposed it and owed nothing — while C, who had not replied at all, was not counted as
+        // owing anything either. The turn belongs to whoever has not yet answered *this* version
+        // of the plan.
+        let proposalIndex = negotiationChain.lastIndex { Self.proposalTypes.contains($0.responseType) }
+        let proposer = proposalIndex.map { negotiationChain[$0].senderID } ?? creatorID
+        let since = proposalIndex.map { $0 + 1 } ?? 0
+
+        let answered = Set(
+            negotiationChain[since...]
+                .filter { $0.responseType != .save }
+                .map(\.senderID)
+        )
+
+        return allParticipantIDs.filter { $0 != proposer && !answered.contains($0) }
     }
 
     /// Whether `userID` may accept / decline / negotiate / counter / reschedule / save.
@@ -287,8 +329,45 @@ struct Request: Identifiable, Hashable, Codable {
             throw RequestError.notAllowedToRespond
         }
         negotiationChain.append(message)
-        status = message.responseType.statusMapping
+        status = resolvedStatus(after: message)
         updatedAt = Date()
+    }
+
+    /// What the request's status becomes once `message` is on the chain.
+    ///
+    /// For two people this is the plain mapping and always was. For a group it is not: mapping a
+    /// single decline straight to `declined` would let one person call off an evening three others
+    /// had agreed to, which is not a decline — it is a cancellation, and only the creator may do
+    /// that. So in a group a decline means "not me", and the plan is only declined once there is
+    /// nobody left who might still come.
+    private func resolvedStatus(after message: NegotiationMessage) -> RequestStatus {
+        let mapped = message.responseType.statusMapping
+        guard isGroupPlan, message.responseType == .decline else { return mapped }
+        if hasAcceptance { return .accepted }
+        return awaitingResponseFrom.isEmpty ? .declined : .pending
+    }
+
+    /// Whether anyone has said yes to the plan as it currently stands.
+    ///
+    /// Scoped to the current proposal: an acceptance of a time that has since been countered is
+    /// not an acceptance of the new one.
+    var hasAcceptance: Bool {
+        let proposalIndex = negotiationChain.lastIndex { Self.proposalTypes.contains($0.responseType) }
+        let since = proposalIndex.map { $0 + 1 } ?? 0
+        return negotiationChain[since...].contains { $0.responseType == .accept }
+    }
+
+    /// Who has said they are coming — the creator included, since proposing is committing.
+    var attendeeIDs: [String] {
+        let proposalIndex = negotiationChain.lastIndex { Self.proposalTypes.contains($0.responseType) }
+        let proposer = proposalIndex.map { negotiationChain[$0].senderID } ?? creatorID
+        let since = proposalIndex.map { $0 + 1 } ?? 0
+        let accepted = negotiationChain[since...]
+            .filter { $0.responseType == .accept }
+            .map(\.senderID)
+        return ([proposer] + accepted).reduce(into: [String]()) { result, id in
+            if !result.contains(id) { result.append(id) }
+        }
     }
 }
 

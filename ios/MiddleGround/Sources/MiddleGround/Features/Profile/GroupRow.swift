@@ -25,6 +25,16 @@ struct GroupRow: View {
     let onRename: () -> Void
     let onLeave: () -> Void
 
+    /// "Paired" was true when every group held exactly two people. It is not any more, and a
+    /// three-person group reading "Paired" tells its members nothing about whether anybody else
+    /// can still be added.
+    private var membership: String {
+        let count = relationship.participantIDs.count
+        if count <= 1 { return "Waiting for someone to join" }
+        let people = "\(count) \(count == 1 ? "person" : "people")"
+        return relationship.hasRoom ? "\(people) · room for more" : people
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: MGSpacing.md) {
             HStack(spacing: MGSpacing.md) {
@@ -37,7 +47,7 @@ struct GroupRow: View {
                     // told apart.
                     Text(relationship.label)
                         .mgFont(.body)
-                    Text(relationship.isPaired ? "Paired" : "Waiting for someone to join")
+                    Text(membership)
                         .mgFont(.caption)
                         .foregroundStyle(MGColors.warm600)
                 }

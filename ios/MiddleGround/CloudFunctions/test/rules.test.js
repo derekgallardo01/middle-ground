@@ -638,6 +638,130 @@ describe('relationships and invite redemption', () => {
   });
 });
 
+// Every group in this app used to hold exactly two people: the join rule required
+// `participantIDs.size() == 1`, so a second person could join and a third never could.
+// Seats replace that, and the whole risk of the change is in the defaults.
+describe('group seats', () => {
+  const group = (overrides = {}) =>
+    relationship({ type: 'friends', participantIDs: [ALICE, BOB], ...overrides });
+
+  beforeEach(() => seed((db) => setDoc(doc(db, 'invites/MG24KT'), {
+    relationshipID: 'g1', ownerID: ALICE,
+  })));
+
+  // The backwards-compatibility case, and the one that matters most on deploy day. Absence of
+  // `seats` must keep meaning two, or every couple written before this silently gains six seats.
+  test('a group with no stored seat count still holds only two', async () => {
+    await seed((db) => setDoc(doc(db, 'relationships/g1'), group()));
+
+    await assertFails(
+      updateDoc(doc(asMallory(), 'relationships/g1'), { participantIDs: [ALICE, BOB, MALLORY] }),
+    );
+  });
+
+  test('a third person can join a group with room', async () => {
+    await seed((db) => setDoc(doc(db, 'relationships/g1'), group({ seats: 8 })));
+
+    await assertSucceeds(
+      updateDoc(doc(asMallory(), 'relationships/g1'), { participantIDs: [ALICE, BOB, MALLORY] }),
+    );
+  });
+
+  test('nobody can join a group that is full', async () => {
+    await seed((db) => setDoc(doc(db, 'relationships/g1'), group({ seats: 2 })));
+
+    await assertFails(
+      updateDoc(doc(asMallory(), 'relationships/g1'), { participantIDs: [ALICE, BOB, MALLORY] }),
+    );
+  });
+
+  // Without this a member turns their couple into an eight-person group, and the couple
+  // exclusion that keeps reliability scores and leaderboards out of relationships stops applying
+  // to them. The ceiling has to be set once and then be unwritable.
+  test('a member cannot raise their own ceiling', async () => {
+    await seed((db) => setDoc(doc(db, 'relationships/g1'), group({ seats: 2 })));
+
+    await assertFails(updateDoc(doc(asAlice(), 'relationships/g1'), { seats: 8 }));
+  });
+
+  test('a member cannot raise the ceiling while joining either', async () => {
+    await seed((db) => setDoc(doc(db, 'relationships/g1'), group({ seats: 2 })));
+
+    await assertFails(
+      updateDoc(doc(asMallory(), 'relationships/g1'), {
+        participantIDs: [ALICE, BOB, MALLORY],
+        seats: 8,
+      }),
+    );
+  });
+
+  test('a couple cannot be created with room for a third', async () => {
+    await assertFails(
+      setDoc(doc(asBob(), 'relationships/g2'), relationship({
+        type: 'couple', participantIDs: [BOB], seats: 3,
+      })),
+    );
+    await assertSucceeds(
+      setDoc(doc(asBob(), 'relationships/g3'), relationship({
+        type: 'couple', participantIDs: [BOB], seats: 2,
+      })),
+    );
+  });
+
+  test('no group can be created beyond the ceiling', async () => {
+    await assertFails(
+      setDoc(doc(asBob(), 'relationships/g4'), relationship({
+        type: 'friends', participantIDs: [BOB], seats: 99,
+      })),
+    );
+  });
+});
+
+// With two people an acceptance settles the plan. With three, one friend saying yes must not
+// lock the others out of saying yes too.
+describe('group plans stay answerable', () => {
+  const CARA = 'cara';
+  const groupPlan = (overrides = {}) => request({
+    recipientIDs: [BOB, CARA],
+    allParticipantIDs: [ALICE, BOB, CARA],
+    ...overrides,
+  });
+
+  test('a third person can still answer an accepted group plan', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/gp1'), groupPlan({
+      status: 'accepted',
+      negotiationChain: [{ id: 'm1', senderID: BOB, responseType: 'accept', timestamp: new Date() }],
+    })));
+
+    const asCara = () => testEnv.authenticatedContext(CARA).firestore();
+    await assertSucceeds(
+      updateDoc(doc(asCara(), 'requests/gp1'), { status: 'accepted', updatedAt: new Date() }),
+    );
+  });
+
+  // The exception is scoped to `accepted`. A plan that was called off or already finished is
+  // finished for everyone, and widening it to those would reopen settled decisions.
+  test('a cancelled group plan is closed to everyone', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/gp2'), groupPlan({ status: 'cancelled' })));
+
+    const asCara = () => testEnv.authenticatedContext(CARA).firestore();
+    await assertFails(
+      updateDoc(doc(asCara(), 'requests/gp2'), { status: 'accepted', updatedAt: new Date() }),
+    );
+  });
+
+  test('a two-person accepted plan stays closed', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/gp3'), request({
+      status: 'accepted',
+      negotiationChain: [{ id: 'm1', senderID: BOB, responseType: 'accept', timestamp: new Date() }],
+    })));
+
+    await assertFails(
+      updateDoc(doc(asAlice(), 'requests/gp3'), { status: 'declined', updatedAt: new Date() }),
+    );
+  });
+});
+
 describe('leaving a group', () => {
   // The only escape from an abusive partner short of deleting your whole account, so the
   // rule has to permit exactly one shape: removing yourself and nothing else.

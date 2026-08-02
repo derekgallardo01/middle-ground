@@ -53,15 +53,26 @@ service cloud.firestore {
       return signedIn() && uid() in data.participantIDs;
     }
 
-    // A non-member may add *only themselves* to a relationship that is not yet paired,
-    // and only when they hold a valid invite code for it. Everything else stays fixed.
+    // A non-member may add *only themselves* to a relationship with a free seat, and only when
+    // they hold a valid invite code for it. Everything else stays fixed.
+    //
+    // This used to require `size() == 1`, which capped every group in the app at two people
+    // forever — "multiple groups" worked, a group of three did not exist. The ceiling is now the
+    // group's own `seats`, and `get('seats', 2)` is what makes that safe to deploy: every group
+    // written before this field existed could hold exactly two, and absence keeps meaning two
+    // rather than silently widening all of them.
+    //
+    // `seats` is pinned immutable below, so a member cannot raise their own ceiling — otherwise
+    // a couple could be turned into an eight-person group, and the couple exclusion that keeps
+    // reliability scores and leaderboards out of relationships would quietly stop applying.
     function isRedeemingInvite(relationshipId) {
       return signedIn()
         && !(uid() in resource.data.participantIDs)
-        && resource.data.participantIDs.size() == 1
+        && resource.data.participantIDs.size() < resource.data.get('seats', 2)
         && request.resource.data.participantIDs == resource.data.participantIDs.concat([uid()])
         && immutable('inviteCode')
         && immutable('type')
+        && immutable('seats')
         && immutable('createdAt')
         && exists(/databases/$(database)/documents/invites/$(resource.data.inviteCode))
         && get(/databases/$(database)/documents/invites/$(resource.data.inviteCode)).data.relationshipID == relationshipId;
@@ -75,6 +86,7 @@ service cloud.firestore {
         && request.resource.data.participantIDs == resource.data.participantIDs.removeAll([uid()])
         && immutable('inviteCode')
         && immutable('type')
+        && immutable('seats')
         && immutable('createdAt');
     }
 
@@ -85,13 +97,21 @@ service cloud.firestore {
         && resource.data.participantIDs[0] == uid()
         && request.resource.data.participantIDs == resource.data.participantIDs
         && immutable('type')
+        && immutable('seats')
         && immutable('createdAt');
     }
 
     match /relationships/{relationshipId} {
       allow get, list: if isParticipant(resource.data) || isAdmin();
+      // The ceiling is set once, at creation, and checked here rather than trusted. A client
+      // that asks for a couple with eight seats is asking to have the couple exclusion — which
+      // keeps reliability scores and leaderboards out of relationships — not apply to it.
       allow create: if signedIn()
-                    && request.resource.data.participantIDs == [uid()];
+                    && request.resource.data.participantIDs == [uid()]
+                    && request.resource.data.get('seats', 2) >= 2
+                    && request.resource.data.get('seats', 2) <= 8
+                    && (request.resource.data.type != 'couple'
+                        || request.resource.data.get('seats', 2) == 2);
       // Narrowed from a blanket `isParticipant` update. That let either member rewrite
       // `inviteCode`, `type` and `createdAt` freely, and — worse — evict the *other* person
       // from the group. Every legitimate write is one of these four shapes.
@@ -102,6 +122,7 @@ service cloud.firestore {
                         && request.resource.data.participantIDs == resource.data.participantIDs
                         && immutable('inviteCode')
                         && immutable('type')
+                        && immutable('seats')
                         && immutable('createdAt'));
       allow delete: if false;
     }
@@ -139,6 +160,20 @@ service cloud.firestore {
       return resource.data.negotiationChain.size() == 0
         ? uid() in resource.data.recipientIDs
         : (lastMessage().senderID != uid() || lastMessage().responseType == 'save');
+    }
+
+    // Three or more people, so "the other person" is not a thing.
+    function isGroupPlan() {
+      return resource.data.allParticipantIDs.size() > 2;
+    }
+
+    // A group plan someone has already accepted still owes answers.
+    //
+    // With two people an acceptance decides it and `isSettled()` correctly closes the door. With
+    // three, one friend saying yes would otherwise lock the others out of saying yes too — the
+    // plan is on, and everybody else still has an answer to give.
+    function isStillOpenToTheGroup() {
+      return isGroupPlan() && resource.data.status == 'accepted';
     }
 
     // The statuses an ordinary response may produce.
@@ -336,7 +371,7 @@ service cloud.firestore {
                     && (
                       (uid() in resource.data.allParticipantIDs
                         && (
-                          (!isSettled()
+                          ((!isSettled() || isStillOpenToTheGroup())
                             && isMyTurn()
                             && isResponseStatus()
                             && immutable('creatorID')

@@ -178,10 +178,20 @@ describe('cancelling a request', () => {
     );
   });
 
-  test('an already settled request cannot be cancelled', async () => {
+  // Reversed deliberately, and its Swift counterpart with it. This asserted that an accepted
+  // plan could not be cancelled — which meant the only cancellable plan was one nobody had
+  // agreed to. A finished plan still cannot be cancelled; see 'calling off an agreed plan'.
+  test('an agreed plan can still be called off', async () => {
     await seed((db) => setDoc(doc(db, 'requests/r_done'), request({ status: 'accepted' })));
+    await assertSucceeds(
+      updateDoc(doc(asAlice(), 'requests/r_done'), { status: 'cancelled', updatedAt: new Date() }),
+    );
+  });
+
+  test('a completed plan cannot be cancelled', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_fin'), request({ status: 'completed' })));
     await assertFails(
-      updateDoc(doc(asAlice(), 'requests/r_done'), { status: 'cancelled' }),
+      updateDoc(doc(asAlice(), 'requests/r_fin'), { status: 'cancelled', updatedAt: new Date() }),
     );
   });
 

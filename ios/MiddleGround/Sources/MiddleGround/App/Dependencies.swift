@@ -143,6 +143,12 @@ extension Container {
         }
     }
 
+    /// The one line a booking partnership changes. Everything above this reads the protocol, so
+    /// swapping the implementation is the whole integration — see `ReservationProvider`.
+    var reservationProvider: Factory<ReservationProvider> {
+        Factory(self) { CuratedVenueReservationProvider(venues: self.venueRepository()) }
+    }
+
     var sharedLocationRepository: Factory<SharedLocationRepository> {
         Factory(self) {
             #if DEBUG

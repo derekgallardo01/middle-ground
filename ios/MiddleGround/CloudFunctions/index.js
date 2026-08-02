@@ -129,10 +129,19 @@ exports.notifyPlanCancelled = onDocumentUpdated('requests/{requestId}', async (e
   const others = (after.allParticipantIDs || []).filter((id) => id !== after.creatorID);
   if (others.length === 0) return null;
 
+  // Short notice is the part people actually mind, and it is the part a bare "cancelled"
+  // hides. Mirrors `Request.wasCancelledLate` and the same 24-hour window the reliability
+  // score uses, so the notification cannot say something the score disagrees with.
+  const dueIn = after.proposedTime ? toMillis(after.proposedTime) - Date.now() : null;
+  const atShortNotice = dueIn !== null && dueIn < 24 * HOUR;
+  const reason = CANCELLATION_REASONS[after.cancellationReason] || 'No reason given.';
+
   return notifyUsers(others, {
     notification: {
-      title: `${cancellerName} cancelled "${after.title}"`,
-      body: CANCELLATION_REASONS[after.cancellationReason] || 'No reason given.',
+      title: atShortNotice
+        ? `${cancellerName} called off "${after.title}"`
+        : `${cancellerName} cancelled "${after.title}"`,
+      body: atShortNotice ? `${reason} — at short notice.` : reason,
     },
     data: {
       request_id: event.params.requestId,

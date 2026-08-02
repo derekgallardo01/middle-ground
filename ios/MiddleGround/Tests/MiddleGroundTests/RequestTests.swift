@@ -207,8 +207,27 @@ final class RequestTests: XCTestCase {
         XCTAssertFalse(request.canCancel(as: outsider))
     }
 
-    func testAnAnsweredRequestCannotBeCancelled() {
-        XCTAssertFalse(makeRequest(status: .accepted).canCancel(as: creator))
+    /// Reversed deliberately. This used to assert that an accepted plan could *not* be
+    /// cancelled, which contradicted the rest of the design: `CancellationReason` offers
+    /// "Running too late" and "Not feeling well" — reasons that only make sense for a plan
+    /// somebody already agreed to — and the reliability score counts cancellations made close
+    /// to the time. Both were unreachable while this held.
+    func testAnAgreedPlanCanBeCalledOff() {
+        XCTAssertTrue(makeRequest(status: .accepted).canCancel(as: creator))
+    }
+
+    /// The new stopping point. Once anyone has said whether it happened the plan is a record,
+    /// and cancelling over the top of it would erase a no-show somebody reported.
+    func testAPlanSomeoneHasAnsweredAboutCannotBeCancelled() {
+        var confirmed = makeRequest(status: .accepted)
+        confirmed.confirmations[recipient] = .didNotHappen
+        XCTAssertFalse(confirmed.canCancel(as: creator))
+    }
+
+    func testAFinishedPlanCannotBeCancelled() {
+        for status in [RequestStatus.completed, .cancelled, .declined] {
+            XCTAssertFalse(makeRequest(status: status).canCancel(as: creator))
+        }
     }
 
     // MARK: - Participants
@@ -247,15 +266,21 @@ final class RequestTests: XCTestCase {
         XCTAssertFalse(request.canCancel(as: request.creatorID), "it cannot be cancelled twice")
     }
 
-    func testCancellingIsOnlyForTheCreatorAndOnlyWhileOpen() {
+    func testCancellingIsOnlyForTheCreator() {
         let request = Request.previewAwaitingMe
 
         XCTAssertTrue(request.canCancel(as: request.creatorID))
         XCTAssertFalse(request.canCancel(as: request.recipientIDs[0]))
 
-        var settled = request
-        settled.status = .accepted
-        XCTAssertFalse(settled.canCancel(as: settled.creatorID))
+        // Agreeing to a plan no longer makes it uncancellable — that is the whole point of being
+        // able to call something off. Finishing it does.
+        var agreed = request
+        agreed.status = .accepted
+        XCTAssertTrue(agreed.canCancel(as: agreed.creatorID))
+
+        var finished = request
+        finished.status = .completed
+        XCTAssertFalse(finished.canCancel(as: finished.creatorID))
     }
 
     func testEveryCancellationReasonHasAName() {

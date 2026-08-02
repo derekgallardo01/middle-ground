@@ -143,19 +143,6 @@ final class RequestDetailViewModel {
 
     // MARK: - Points on the plan
 
-    /// What the stake row should show, if anything.
-    enum StakeState: Equatable {
-        /// Nothing staked yet, and this plan is still open.
-        case available
-        /// You proposed it; they have not agreed.
-        case awaitingThem(points: Int)
-        /// They proposed it and you can agree.
-        case awaitingYou(points: Int)
-        /// Agreed, riding on whether the plan happens.
-        case live(points: Int)
-        case settled(StakeSettlement, points: Int)
-    }
-
     var stakeState: StakeState? {
         guard let currentUserID, request.isParticipant(currentUserID) else { return nil }
 
@@ -338,6 +325,13 @@ final class RequestDetailViewModel {
         else { return }
         partnerName = (try? await userRepository.user(id: otherID))?.name
     }
+
+    /// Whether calling this off now would be recorded as last-minute.
+    ///
+    /// Surfaced before the decision, not after it. The reliability score has always counted late
+    /// cancellations and never said so at the moment it mattered — you found out later, as a
+    /// number on a card, that something you did weeks ago had been held against you.
+    var isCancellingLate: Bool { request.isCancellingLate() }
 
     /// Withdraws the request. Creator-only, enforced again in the service and the rules.
     /// Cancelling keeps the request and records why, rather than deleting it.

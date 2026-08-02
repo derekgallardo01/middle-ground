@@ -762,6 +762,53 @@ describe('group plans stay answerable', () => {
   });
 });
 
+// Calling off a plan people had agreed to. `!isSettled()` used to guard this, and `accepted`
+// counts as settled — so the only cancellable plan was one nobody had said yes to, which is the
+// one cancellation nobody minds.
+describe('calling off an agreed plan', () => {
+  const cancel = (extra = {}) => ({ status: 'cancelled', updatedAt: new Date(), ...extra });
+
+  test('the creator can call off a plan that was accepted', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/c1'), request({ status: 'accepted' })));
+
+    await assertSucceeds(updateDoc(doc(asAlice(), 'requests/c1'), cancel()));
+  });
+
+  test('a recipient still cannot call off someone else plan', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/c2'), request({ status: 'accepted' })));
+
+    await assertFails(updateDoc(doc(asBob(), 'requests/c2'), cancel()));
+  });
+
+  // Once somebody has said whether it happened, the plan is a record. Allowing a cancellation
+  // over the top of it is how a creator would erase their own no-show.
+  test('a plan someone has answered about cannot be cancelled', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/c3'), request({
+      status: 'accepted',
+      confirmations: { bob: 'didNotHappen' },
+    })));
+
+    await assertFails(updateDoc(doc(asAlice(), 'requests/c3'), cancel()));
+  });
+
+  test('what is finished stays finished', async () => {
+    for (const status of ['completed', 'cancelled', 'declined']) {
+      await seed((db) => setDoc(doc(db, `requests/c_${status}`), request({ status })));
+      await assertFails(updateDoc(doc(asAlice(), `requests/c_${status}`), cancel()));
+    }
+  });
+
+  // Cancelling must not become a way to rewrite the plan on the way out.
+  test('cancelling still cannot change the plan', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/c4'), request({ status: 'accepted' })));
+
+    await assertFails(
+      updateDoc(doc(asAlice(), 'requests/c4'), cancel({ proposedTime: new Date() })),
+    );
+    await assertFails(updateDoc(doc(asAlice(), 'requests/c4'), cancel({ title: 'Something else' })));
+  });
+});
+
 describe('leaving a group', () => {
   // The only escape from an abusive partner short of deleting your whole account, so the
   // rule has to permit exactly one shape: removing yourself and nothing else.

@@ -271,9 +271,36 @@ struct Request: Identifiable, Hashable, Codable {
         isOpen && isParticipant(userID) && !canRespond(as: userID)
     }
 
-    /// Only the creator may withdraw a request, and only while it is unsettled.
+    /// Only the creator may call a plan off, and only while there is still a plan to call off.
+    ///
+    /// This used to require `isOpen`, which excluded `accepted` — so a plan could be cancelled
+    /// only *before* anyone agreed to it, and became uncancellable the moment someone said yes.
+    /// That is exactly backwards. Abandoning a plan nobody has agreed to costs no one anything;
+    /// the plan people have arranged their evening around is precisely the one that has to be
+    /// callable off. It also left the reliability score measuring something unreachable: a late
+    /// cancellation could only ever have been a plan nobody had accepted.
+    ///
+    /// Confirmations are the stopping point. Once anyone has answered whether it happened, the
+    /// plan is a record rather than a plan, and cancelling it would erase attendance somebody
+    /// already reported.
     func canCancel(as userID: String) -> Bool {
-        isOpen && isCreator(userID)
+        guard isCreator(userID) else { return false }
+        switch status {
+        case .completed, .cancelled, .declined:
+            return false
+        case .accepted, .pending, .negotiated, .rescheduled, .countered, .saved:
+            return confirmations.isEmpty
+        }
+    }
+
+    /// Whether calling this off *right now* would count as last-minute.
+    ///
+    /// The prospective twin of `wasCancelledLate`, which answers the same question after the
+    /// fact from `updatedAt`. Both use the same window, so what the app warns you about and what
+    /// the score later records cannot disagree.
+    func isCancellingLate(at now: Date = Date()) -> Bool {
+        guard let time = proposedTime else { return false }
+        return time.timeIntervalSince(now) < ReliabilityScore.lateCancellationWindow
     }
 
     var isPending: Bool {

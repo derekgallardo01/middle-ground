@@ -1,5 +1,23 @@
 import SwiftUI
 
+// Declared here rather than inside RequestDetailViewModel, which crossed the 500-line limit.
+// This is the better home anyway: the enum exists to describe what this row renders, and a
+// reader looking at one wants the other.
+extension RequestDetailViewModel {
+    /// What the stake row should show, if anything.
+    enum StakeState: Equatable {
+        /// Nothing staked yet, and this plan is still open.
+        case available
+        /// You proposed it; they have not agreed.
+        case awaitingThem(points: Int)
+        /// They proposed it and you can agree.
+        case awaitingYou(points: Int)
+        /// Agreed, riding on whether the plan happens.
+        case live(points: Int)
+        case settled(StakeSettlement, points: Int)
+    }
+}
+
 /// Points riding on whether a plan actually happens.
 ///
 /// Both people put in the same amount, and it resolves from the attendance confirmations — so

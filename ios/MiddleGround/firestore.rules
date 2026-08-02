@@ -292,9 +292,19 @@ service cloud.firestore {
     // Narrow on purpose: only the creator, only from an open state, only into `cancelled`, and
     // only `status`, `cancellationReason` and `updatedAt` may move. It cannot be used to edit
     // the plan or to answer on anyone's behalf.
+    // Calling a plan off. Mirrors `Request.canCancel(as:)`.
+    //
+    // `!isSettled()` was wrong here, and wrong in the direction that matters: `accepted` counts
+    // as settled, so a plan became uncancellable the moment somebody agreed to it. Abandoning a
+    // plan nobody accepted costs no one anything; the agreed one is the one that has to be
+    // callable off, and it is the only kind whose cancellation the reliability score cares about.
+    //
+    // Confirmations are the stop: once anyone has said whether it happened, the plan is a record,
+    // and cancelling would erase attendance somebody already reported.
     function isCancelling() {
       return resource.data.creatorID == uid()
-        && !isSettled()
+        && !(resource.data.status in ['completed', 'cancelled', 'declined'])
+        && resource.data.get('confirmations', {}).size() == 0
         && request.resource.data.status == 'cancelled'
         && immutable('creatorID')
         && immutable('recipientIDs')

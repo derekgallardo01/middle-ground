@@ -277,7 +277,10 @@ struct RequestDetailView: View {
         // An alert rather than a confirmationDialog: on iOS 26 the dialog presents as a popover
         // whose actions are not exposed as accessibility buttons. Each reason is its own button
         // for the same reason — a picker inside an alert is not reachable.
-        .alert("Why are you cancelling?", isPresented: $showCancelConfirmation) {
+        .alert(
+            viewModel.isCancellingLate ? "Cancelling at short notice" : "Why are you cancelling?",
+            isPresented: $showCancelConfirmation
+        ) {
             ForEach(CancellationReason.allCases) { reason in
                 Button(reason.displayName) {
                     Task { await viewModel.cancelRequest(reason: reason) }
@@ -285,10 +288,18 @@ struct RequestDetailView: View {
             }
             Button("Keep it", role: .cancel) {}
         } message: {
-            Text("""
-            Your partner sees that you cancelled and why. The plan stays in your history \
-            rather than disappearing.
-            """)
+            // Said plainly and once, rather than as a warning with a tone. The point is that
+            // nobody should later discover a rule they were never told about — not to talk
+            // anyone out of cancelling, which is sometimes exactly the right thing to do.
+            Text(viewModel.isCancellingLate
+                 ? """
+                 This plan is less than a day away, so it counts as a late cancellation. \
+                 They'll see that you cancelled and why.
+                 """
+                 : """
+                 Your partner sees that you cancelled and why. The plan stays in your history \
+                 rather than disappearing.
+                 """)
         }
     }
 

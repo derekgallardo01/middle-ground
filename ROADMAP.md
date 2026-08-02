@@ -306,23 +306,53 @@ whole point — but never the reference or anything from the document itself, wh
 half and the private half cannot live in the same readable record. Same reasoning that put
 notification settings in their own collection rather than on `users/{uid}`.
 
-⚠️ **Stage 2 is an operational business, not a feature.** "A staff member meets them" means people
-on the ground, in a place, being paid, with a process for what happens when they are wrong. It does
-not scale past one city without an operation behind it, and it is the **second** standing
-obligation on this roadmap — the appeals queue for Rejection Denials is the first. Two of those is
-a company rather than a backlog item, and the honest sequence is to confirm you want to run them
-before either is built.
+**Stage 2 is an operation, and it is tractable because the app is local to Miami.** A representative
+meeting people works at one city's scale; it is the thing that breaks first if the app spreads. That
+is a decision with a written trigger now rather than an unexamined assumption — see "Where this
+runs" below.
+
+It is still the second standing obligation on this roadmap, after the appeals queue for Rejection
+Denials. Worth knowing that both exist before committing to either.
 
 **Before it can start:** an App Privacy disclosure for identity data, a provider chosen and under
 contract, a written retention and deletion policy, and a decision about what happens to someone
 whose verification is revoked mid-plan.
 
-### Authorized Representative — still undefined
+### Authorized Representative — ✅ defined: the person who does stage 2
 
-Someone acting on another person's behalf. Still no agreed meaning, and it is the more dangerous of
-the two: letting a third party accept or decline for someone requires `firestore.rules` to permit
-writes to a request they are not a participant of, which is the single widest change anyone could
-make to this app's security model. It should not be built from a guess.
+Not a user delegating authority — **someone authorised to verify on the company's behalf.** They
+meet a person, confirm they are who the document said, and mark them verified.
+
+This correction matters, because the earlier reading was the dangerous one. "Someone acting on
+another's behalf" would have meant letting a third party accept or decline plans for a user, which
+requires `firestore.rules` to permit writes to a request they are not a participant of — the widest
+change available in this codebase. None of that applies. A representative never touches anyone's
+plans.
+
+What it actually needs is a role: a claim like the existing `admin` one, scoped to a single
+action — raising a user's verification level to `inPerson`, and nothing else. Every such action is
+audit-logged the same way admin reads of user data already are, because "a human vouched for this
+person" is exactly the claim that needs to be traceable to *which* human.
+
+⚠️ The role is the easy part. Deciding who gets it, what training they have, and what happens when
+one of them is wrong or dishonest is the real work — and it is operational, not technical.
+
+---
+
+## Where this runs: Miami
+
+The app operates in **one city**, and that assumption is already load-bearing in several places
+that would otherwise look arbitrary:
+
+- Every scheduled Cloud Function runs on `America/New_York` — the attendance prompt, the weekly
+  nudge, the operator digest. Correct for Miami, and quietly wrong the day it is not.
+- The curated venue list carries a `city` on every entry but filters by none, which is right for
+  one city and misleading for two.
+- **In-person verification is only viable at this scale.** A representative meeting people is a
+  real operation, and it is tractable precisely because it is local.
+
+Recorded so that "we will cross that road when we get there" is a decision with a written trigger
+rather than an assumption nobody revisits. The trigger is the second city.
 
 **What exists already, and may be enough:** App Review guideline 1.2 asks for a way to report
 content, a way to block an abusive user, and a published response window. Reporting is built,
@@ -358,10 +388,9 @@ That is what answers the standing objection. "A curated list goes stale" was rig
 release. Curated in Firestore it costs an edit. Each venue carries a city, the categories it suits,
 and a rank so the good ones can lead without being renamed.
 
-⚠️ **It spans one city at a time in practice.** Every venue stores its `city` and shows it, but
-nothing filters by where the user is — with one operator curating for a handful of users that is
-correct and honest. The moment the list covers two cities, filtering has to come before it grows
-further, or half the suggestions are useless to any given person.
+✅ **One city is the operating assumption, not a limitation.** The app runs in Miami; every venue
+stores its `city` and shows it, and nothing filters by location because nothing needs to. Filtering
+is the first thing to build if a second city ever appears — see "Where this runs" below.
 
 **Still blocked on commercial agreements:** OpenTable reservations, restaurant sponsors, gyms.
 OpenTable's partner API is not open self-service. Sequence unchanged: confirm access first, then

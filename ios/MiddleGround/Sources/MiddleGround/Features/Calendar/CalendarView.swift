@@ -1,13 +1,15 @@
 import SwiftUI
 
 struct CalendarView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var viewModel = CalendarViewModel()
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    if viewModel.isLoading {
+                    // Gated on having loaded, not on `isLoading` — see CalendarViewModel.
+                    if !viewModel.hasLoaded {
                         LoadingSkeleton(type: .calendar)
                     } else if let errorMessage = viewModel.errorMessage {
                         ErrorState(message: errorMessage) {
@@ -20,6 +22,7 @@ struct CalendarView: View {
                     }
                 }
                 .padding(.horizontal, 16)
+                .mgReadableWidth()
                 .padding(.vertical, 12)
             }
             .background(MGColors.sand.ignoresSafeArea())
@@ -34,7 +37,7 @@ struct CalendarView: View {
             await viewModel.loadEvents()
         }
     }
-    
+
     private var monthHeader: some View {
         HStack {
             Button {
@@ -47,14 +50,17 @@ struct CalendarView: View {
                     .clipShape(Circle())
             }
             .buttonStyle(ScaleButtonStyle())
-            
+            // Announced as "chevron left, button" without this — and these are the only way
+            // to change month.
+            .accessibilityLabel("Previous month")
+
             Spacer()
-            
+
             Text(viewModel.currentMonth, formatter: monthFormatter)
-                .font(MGFonts.h2)
-            
+                .mgFont(.h2)
+
             Spacer()
-            
+
             Button {
                 viewModel.changeMonth(by: 1)
             } label: {
@@ -65,20 +71,21 @@ struct CalendarView: View {
                     .clipShape(Circle())
             }
             .buttonStyle(ScaleButtonStyle())
+            .accessibilityLabel("Next month")
         }
     }
-    
+
     private var calendarGrid: some View {
         VStack(spacing: 8) {
             HStack {
                 ForEach(Calendar.current.shortWeekdaySymbols, id: \.self) { day in
                     Text(day)
-                        .font(MGFonts.caption)
+                        .mgFont(.caption)
                         .foregroundStyle(MGColors.warm600)
                         .frame(maxWidth: .infinity)
                 }
             }
-            
+
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 8) {
                 ForEach(daysInMonth, id: \.self) { date in
                     DayCell(
@@ -88,7 +95,7 @@ struct CalendarView: View {
                         isCurrentMonth: Calendar.current.isDate(date, equalTo: viewModel.currentMonth, toGranularity: .month)
                     )
                     .onTapGesture {
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                        withAnimation(reduceMotion ? nil : MGMotion.tap) {
                             viewModel.selectedDate = date
                         }
                         Haptics.shared.impact(.light)
@@ -98,25 +105,19 @@ struct CalendarView: View {
         }
         .padding(16)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: MGColors.slate.opacity(0.05), radius: 12, x: 0, y: 4)
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
+        .mgShadow(MGShadow.md)
     }
-    
+
     private var upcomingEvents: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Upcoming")
-                .font(MGFonts.h2)
-            
-            let upcoming = viewModel.events
-                .compactMap { request -> (Request, Date)? in
-                    guard let date = request.proposedTime else { return nil }
-                    return (request, date)
-                }
-                .filter { $0.1 >= Date().startOfDay }
-                .sorted { $0.1 < $1.1 }
-                .prefix(5)
-                .map { $0.0 }
-            
+            Text(viewModel.hasSelectionWithEvents
+                 ? viewModel.selectedDate.formatted(date: .abbreviated, time: .omitted)
+                 : "Upcoming")
+                .mgFont(.h2)
+
+            let upcoming = viewModel.listedEvents
+
             if upcoming.isEmpty {
                 ContentUnavailableView {
                     Label("No upcoming plans", systemImage: "calendar.badge.clock")
@@ -124,17 +125,17 @@ struct CalendarView: View {
                     Text("Accepted requests with dates will show here.")
                 }
                 .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
             } else {
                 ForEach(upcoming) { request in
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(request.title)
-                                .font(MGFonts.body)
+                                .mgFont(.body)
                                 .fontWeight(.semibold)
                             if let time = request.proposedTime {
                                 Text(time, style: .date)
-                                    .font(MGFonts.caption)
+                                    .mgFont(.caption)
                                     .foregroundStyle(MGColors.warm600)
                             }
                         }
@@ -143,32 +144,32 @@ struct CalendarView: View {
                     }
                     .padding(14)
                     .background(MGColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
                 }
             }
         }
     }
-    
+
     private var daysInMonth: [Date] {
         let calendar = Calendar.current
         guard let monthInterval = calendar.dateInterval(of: .month, for: viewModel.currentMonth) else { return [] }
-        
+
         var dates: [Date] = []
         var date = monthInterval.start
-        
+
         // Add leading days from previous month
         let weekdayOffset = calendar.component(.weekday, from: date) - 1
         date = calendar.date(byAdding: .day, value: -weekdayOffset, to: date) ?? date
-        
+
         // Build 6 weeks of days
         for _ in 0..<42 {
             dates.append(date)
             date = calendar.date(byAdding: .day, value: 1, to: date) ?? date
         }
-        
+
         return dates
     }
-    
+
     private var monthFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM yyyy"
@@ -177,22 +178,25 @@ struct CalendarView: View {
 }
 
 struct DayCell: View {
+    @ScaledMetric(relativeTo: .caption) private var selectionSize: CGFloat = 36
+    @ScaledMetric(relativeTo: .caption) private var rowHeight: CGFloat = 44
+
     let date: Date
     let isSelected: Bool
     let hasEvents: Bool
     let isCurrentMonth: Bool
-    
+
     var body: some View {
         ZStack {
             Circle()
                 .fill(isSelected ? MGColors.indigo : Color.clear)
-                .frame(width: 36, height: 36)
-            
+                .frame(width: selectionSize, height: selectionSize)
+
             Text("\(Calendar.current.component(.day, from: date))")
-                .font(MGFonts.caption)
+                .mgFont(.caption)
                 .fontWeight(.semibold)
-                .foregroundStyle(isSelected ? .white : (isCurrentMonth ? MGColors.slate : MGColors.warm400))
-            
+                .foregroundStyle(isSelected ? MGColors.onAccent : (isCurrentMonth ? MGColors.slate : MGColors.warm600))
+
             if hasEvents && !isSelected {
                 Circle()
                     .fill(MGColors.coral)
@@ -200,7 +204,7 @@ struct DayCell: View {
                     .offset(y: 10)
             }
         }
-        .frame(height: 44)
+        .frame(height: rowHeight)
     }
 }
 

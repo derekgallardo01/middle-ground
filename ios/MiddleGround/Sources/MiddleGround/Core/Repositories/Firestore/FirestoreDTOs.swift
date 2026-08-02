@@ -14,11 +14,18 @@ struct RequestDTO: Codable, Identifiable {
     var location: String?
     var status: String
     var negotiationChain: [NegotiationMessageDTO]
-    var savedForLater: Bool
+    /// Optional so requests written before attendance was recorded still decode.
+    var confirmations: [String: String]?
+    /// Optional: only set when a plan was called off.
+    var cancellationReason: String?
+    /// Optional: only set once someone proposes points on the plan.
+    var stake: Stake?
+    var planInviteCode: String?
+    var planInviteSeats: Int?
     var allParticipantIDs: [String]
     var createdAt: Timestamp
     var updatedAt: Timestamp
-    
+
     init(from request: Request) {
         self.id = request.id
         self.creatorID = request.creatorID
@@ -30,31 +37,46 @@ struct RequestDTO: Codable, Identifiable {
         self.location = request.location
         self.status = request.status.rawValue
         self.negotiationChain = request.negotiationChain.map { NegotiationMessageDTO(from: $0) }
-        self.savedForLater = request.savedForLater
+        self.confirmations = request.confirmations.mapValues(\.rawValue)
+        self.cancellationReason = request.cancellationReason?.rawValue
+        self.stake = request.stake
+        self.planInviteCode = request.planInviteCode
+        self.planInviteSeats = request.planInviteSeats
         self.allParticipantIDs = request.allParticipantIDs
         self.createdAt = Timestamp(date: request.createdAt)
         self.updatedAt = Timestamp(date: request.updatedAt)
     }
-    
+
     func toModel() -> Request? {
-        guard let id,
-              let categoryEnum = RequestCategory(rawValue: category),
-              let statusEnum = RequestStatus(rawValue: status) else {
+        // An unrecognised category no longer discards the request.
+        //
+        // This guard used to include `RequestCategory(rawValue:)`, so a category added in a later
+        // release made every request using it silently vanish for anyone on an older build — the
+        // repository `compactMap`s, so there was no error to notice. Status still fails closed:
+        // a request whose state cannot be read cannot be safely acted on, whereas one whose
+        // category cannot be read is merely unlabelled.
+        guard let id, let statusEnum = RequestStatus(rawValue: status) else {
             return nil
         }
-        
+
         return Request(
             id: id,
             creatorID: creatorID,
             recipientIDs: recipientIDs,
-            category: categoryEnum,
+            category: RequestCategory(storedValue: category),
             title: title,
             details: details,
             proposedTime: proposedTime?.dateValue(),
             location: location,
             status: statusEnum,
             negotiationChain: negotiationChain.compactMap { $0.toModel() },
-            savedForLater: savedForLater,
+            // An unrecognised outcome is dropped rather than failing the whole request, for the
+            // same reason an unknown category no longer does.
+            confirmations: (confirmations ?? [:]).compactMapValues(ConfirmationOutcome.init(rawValue:)),
+            cancellationReason: cancellationReason.flatMap(CancellationReason.init(rawValue:)),
+            stake: stake,
+            planInviteCode: planInviteCode,
+            planInviteSeats: planInviteSeats,
             createdAt: createdAt.dateValue(),
             updatedAt: updatedAt.dateValue()
         )
@@ -67,7 +89,7 @@ struct NegotiationMessageDTO: Codable, Identifiable {
     var responseType: String
     var text: String?
     var timestamp: Timestamp
-    
+
     init(from message: NegotiationMessage) {
         self.id = message.id
         self.senderID = message.senderID
@@ -75,7 +97,7 @@ struct NegotiationMessageDTO: Codable, Identifiable {
         self.text = message.text
         self.timestamp = Timestamp(date: message.timestamp)
     }
-    
+
     func toModel() -> NegotiationMessage? {
         guard let responseEnum = ResponseType(rawValue: responseType) else { return nil }
         return NegotiationMessage(
@@ -95,14 +117,14 @@ struct UserDTO: Codable, Identifiable {
     var name: String
     var avatarURL: String?
     var createdAt: Timestamp
-    
+
     init(from user: User) {
         self.id = user.id
         self.name = user.name
         self.avatarURL = user.avatarURL?.absoluteString
         self.createdAt = Timestamp(date: user.createdAt)
     }
-    
+
     func toModel() -> User? {
         guard let id else { return nil }
         return User(
@@ -122,15 +144,27 @@ struct RelationshipDTO: Codable, Identifiable {
     var type: String
     var createdAt: Timestamp
     var growthScore: Int
-    
+    /// Optional so documents written before groups could be named still decode.
+    var name: String?
+    var inviteCode: String
+    /// How many people this group may hold.
+    ///
+    /// Optional for the same reason, and it carries more weight than `name` does: absence means
+    /// two, matching what every group written before this field could actually hold. Decoding it
+    /// as unlimited would silently widen every existing couple.
+    var seats: Int?
+
     init(from relationship: Relationship) {
         self.id = relationship.id
         self.participantIDs = relationship.participantIDs
         self.type = relationship.type.rawValue
         self.createdAt = Timestamp(date: relationship.createdAt)
         self.growthScore = relationship.growthScore
+        self.name = relationship.name
+        self.inviteCode = relationship.inviteCode
+        self.seats = relationship.seatCount
     }
-    
+
     func toModel() -> Relationship? {
         guard let id,
               let typeEnum = RelationshipType(rawValue: type) else {
@@ -141,7 +175,10 @@ struct RelationshipDTO: Codable, Identifiable {
             participantIDs: participantIDs,
             type: typeEnum,
             createdAt: createdAt.dateValue(),
-            growthScore: growthScore
+            growthScore: growthScore,
+            name: name,
+            inviteCode: inviteCode,
+            seats: seats ?? 2
         )
     }
 }

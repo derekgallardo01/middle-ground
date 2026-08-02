@@ -3,22 +3,22 @@ import SwiftUI
 struct ErrorState: View {
     let message: String
     var onRetry: (() -> Void)?
-    
+
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 44))
                 .foregroundStyle(MGColors.sunshine)
-            
+
             Text("Something went wrong")
-                .font(MGFonts.h2)
+                .mgFont(.h2)
                 .foregroundStyle(MGColors.slate)
-            
+
             Text(message)
-                .font(MGFonts.body)
+                .mgFont(.body)
                 .foregroundStyle(MGColors.warm600)
                 .multilineTextAlignment(.center)
-            
+
             if let onRetry {
                 PrimaryButton(title: "Try Again", systemImage: "arrow.clockwise") {
                     onRetry()
@@ -29,7 +29,7 @@ struct ErrorState: View {
         .padding(24)
         .frame(maxWidth: .infinity)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Error: \(message). \(onRetry != nil ? "Tap to try again." : "")")
     }

@@ -2,12 +2,20 @@ import SwiftUI
 
 struct AchievementsView: View {
     let achievements: [Achievement]
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Achievements")
-                .font(MGFonts.h2)
-            
+                .mgFont(.h2)
+
+            if achievements.isEmpty {
+                Text("Achievements unlock as you and your partner keep deciding together.")
+                    .mgFont(.bodySmall)
+                    .foregroundStyle(MGColors.warm600)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            }
+
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 12) {
                 ForEach(achievements) { achievement in
                     AchievementCell(achievement: achievement)
@@ -19,22 +27,25 @@ struct AchievementsView: View {
 
 struct AchievementCell: View {
     let achievement: Achievement
-    
+
+    @ScaledMetric(relativeTo: .caption) private var badgeSize: CGFloat = 64
+    @ScaledMetric(relativeTo: .caption) private var iconSize: CGFloat = 24
+
     var body: some View {
         VStack(spacing: 8) {
             ZStack {
                 Circle()
                     .fill(achievement.isUnlocked ? MGColors.sunshine.opacity(0.2) : MGColors.warm100)
-                    .frame(width: 64, height: 64)
-                
+                    .frame(width: badgeSize, height: badgeSize)
+
                 Image(systemName: achievement.iconName)
-                    .font(.system(size: 24, weight: .semibold))
+                    .font(.system(size: iconSize, weight: .semibold))
                     .foregroundStyle(achievement.isUnlocked ? MGColors.sunshine : MGColors.warm400)
             }
-            
+
             Text(achievement.title)
-                .font(MGFonts.caption)
-                .foregroundStyle(achievement.isUnlocked ? MGColors.slate : MGColors.warm400)
+                .mgFont(.caption)
+                .foregroundStyle(achievement.isUnlocked ? MGColors.slate : MGColors.warm600)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
         }

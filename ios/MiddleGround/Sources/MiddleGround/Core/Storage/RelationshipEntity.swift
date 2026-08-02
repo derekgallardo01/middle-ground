@@ -8,24 +8,27 @@ final class RelationshipEntity {
     var typeRaw: String
     var createdAt: Date
     var growthScore: Int
+    var inviteCode: String
     var needsSync: Bool
-    
+
     init(from relationship: Relationship) {
         self.id = relationship.id
         self.participantIDs = relationship.participantIDs
         self.typeRaw = relationship.type.rawValue
         self.createdAt = relationship.createdAt
         self.growthScore = relationship.growthScore
+        self.inviteCode = relationship.inviteCode
         self.needsSync = false
     }
-    
+
     func update(from relationship: Relationship) {
         self.participantIDs = relationship.participantIDs
         self.typeRaw = relationship.type.rawValue
         self.createdAt = relationship.createdAt
         self.growthScore = relationship.growthScore
+        self.inviteCode = relationship.inviteCode
     }
-    
+
     func toModel() -> Relationship? {
         guard let type = RelationshipType(rawValue: typeRaw) else { return nil }
         return Relationship(
@@ -33,7 +36,8 @@ final class RelationshipEntity {
             participantIDs: participantIDs,
             type: type,
             createdAt: createdAt,
-            growthScore: growthScore
+            growthScore: growthScore,
+            inviteCode: inviteCode
         )
     }
 }

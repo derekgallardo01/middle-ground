@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Middle Ground</title>
+<meta name="description" content="Privacy Policy for Middle Ground, the app for shared decisions.">
+<style>
+  :root {
+    --indigo:#6366F1; --teal:#14B8A6; --coral:#FF8FA3;
+    --sand:#F7F6F3; --surface:#FFFFFF;
+    --warm-100:#F0EFEC; --warm-200:#E4E3E0; --warm-600:#71717A; --slate:#334155;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --indigo:#818CF8; --teal:#2DD4BF; --coral:#FDA4AF;
+      --sand:#1E293B; --surface:#334155;
+      --warm-100:#475569; --warm-200:#64748B; --warm-600:#CBD5E1; --slate:#F8FAFC;
+    }
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; padding:0 20px 96px;
+    background:var(--sand); color:var(--slate);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap { max-width:720px; margin:0 auto; }
+  header { padding:48px 0 8px; }
+  .brand {
+    display:inline-flex; align-items:center; gap:10px;
+    font-weight:700; letter-spacing:-.01em; color:var(--slate);
+    text-decoration:none; font-size:17px;
+  }
+  .brand svg { display:block; }
+  h1 { font-size:34px; line-height:1.2; letter-spacing:-.02em; margin:28px 0 4px; }
+  h2 { font-size:22px; letter-spacing:-.01em; margin:40px 0 8px; }
+  h3 { font-size:17px; margin:28px 0 4px; }
+  p, li { color:var(--slate); }
+  a { color:var(--indigo); }
+  strong { font-weight:650; }
+  code {
+    background:var(--warm-100); padding:2px 6px; border-radius:6px;
+    font:0.9em/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  hr { border:0; border-top:1px solid var(--warm-200); margin:40px 0; }
+  blockquote {
+    margin:24px 0; padding:14px 18px;
+    background:var(--surface); border-left:3px solid var(--coral);
+    border-radius:0 12px 12px 0;
+  }
+  blockquote p { margin:0; color:var(--warm-600); }
+  table {
+    width:100%; border-collapse:collapse; margin:20px 0;
+    background:var(--surface); border-radius:12px; overflow:hidden;
+    display:block; overflow-x:auto; white-space:normal;
+  }
+  th, td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--warm-100); }
+  th { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--warm-600); }
+  tr:last-child td { border-bottom:0; }
+  footer {
+    margin-top:56px; padding-top:20px; border-top:1px solid var(--warm-200);
+    color:var(--warm-600); font-size:14px;
+  }
+  footer a { margin-right:16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a class="brand" href="index.html">
+    <svg width="26" height="26" viewBox="0 0 512 512" aria-hidden="true">
+      <circle cx="170" cy="130" r="48" fill="var(--indigo)"/>
+      <rect x="95" y="190" width="160" height="280" rx="80" fill="var(--indigo)"/>
+      <circle cx="342" cy="130" r="48" fill="var(--teal)"/>
+      <rect x="257" y="190" width="160" height="280" rx="80" fill="var(--teal)"/>
+      <path d="M256 340C256 340 190 285 190 235c0-50 40-65 66-25 26-40 66-25 66 25 0 50-66 105-66 105z"
+            fill="var(--coral)"/>
+    </svg>
+    Middle Ground
+  </a>
+</header>
+<h1>Privacy Policy</h1>
+<p><strong>Effective date:</strong> 30 July 2026</p>
+<p><strong>Applies to:</strong> the Middle Ground iOS app</p>
+<p>Middle Ground helps two people make shared decisions together. This policy describes exactly what the app collects, why, where it goes, and how to delete it. It describes what the software actually does — every item below corresponds to real behaviour in the app.</p>
+<h2>The short version</h2>
+<ul><li>We collect the minimum needed to show your requests to the person you paired with.</li><li><strong>We record how the app is used</strong> — that you created or answered a request, and when — so we can understand and improve the product. We do <strong>not</strong> sell your data, run advertising, or use third-party trackers or ad SDKs.</li><li>Your requests are visible to you, the person you paired with, <strong>and to authorised Middle Ground staff</strong> who may access accounts for support, safety and debugging. Every such access is recorded in a tamper-evident log.</li><li>We collect <strong>crash diagnostics</strong> so we can fix crashes. They contain no request content.</li><li>You can <strong>report</strong> abusive content and <strong>leave a group</strong> at any time, from inside the app.</li><li>You can delete your account, and everything tied to it, from inside the app.</li></ul>
+<h2>What we collect, and why</h2>
+<table><thead><tr><th>Data</th><th>Where it is stored</th><th>Why</th></tr></thead><tbody>
+<tr><td><strong>Display name</strong></td><td><code>users/{your-id}</code> in Firebase Firestore</td><td>So the person you pair with sees a name instead of an ID</td></tr>
+<tr><td><strong>Account identifier</strong></td><td>Attached to every document you create</td><td>Determines what you are allowed to read and write</td></tr>
+<tr><td><strong>Email address</strong></td><td>Firebase Authentication</td><td>Only if you sign in with a method that provides one. With Sign in with Apple, you may choose Apple's private relay address and we never see your real one</td></tr>
+<tr><td><strong>Requests you create</strong> — title, optional note, optional proposed time, and the responses exchanged</td><td><code>requests/{id}</code> in Firebase Firestore</td><td>This is the product: it is the content you and your partner are deciding on</td></tr>
+<tr><td><strong>Group membership</strong> — who you are paired with, and your invite code</td><td><code>relationships/{id}</code> and <code>invites/{code}</code></td><td>Connects two people so they can send each other requests</td></tr>
+<tr><td><strong>Notification token</strong></td><td><code>user_tokens/{your-id}</code></td><td>Lets us send a push notification when your partner sends or answers a request. Only if you grant notification permission</td></tr>
+<tr><td><strong>Progress data</strong> — XP, streak, achievements</td><td>On your device, and mirrored to <code>gamification/{your-id}</code></td><td>Powers the Activities tab, and means your progress survives changing phone</td></tr>
+<tr><td><strong>Usage events</strong> — that you signed up, paired, created a request, or responded, with a timestamp</td><td><code>events</code></td><td>Lets us understand how the product is actually used and where people get stuck. Records the <em>action</em>, not the words you wrote</td></tr>
+<tr><td><strong>Reports you file</strong> — which request you reported, who sent it, the reason, and your optional note</td><td><code>reports/{id}</code></td><td>So we can act on harassment and abuse. Readable only by staff</td></tr>
+<tr><td><strong>Crash diagnostics</strong> — stack trace, device model, OS version, and the app version at the time of a crash</td><td>Firebase Crashlytics</td><td>So we can find and fix crashes. Contains no request content and no message text</td></tr>
+</tbody></table>
+<p>We do <strong>not</strong> collect: contacts, photos, location, calendars, health data, advertising identifiers, or device fingerprints.</p>
+<p>You can read the usage events recorded about you at any time — they are readable by your own account and by nobody else's.</p>
+<h2>Who can see your content</h2>
+<ul><li><strong>You and the person you paired with.</strong> Requests are readable only by their participants, and this is enforced on the server, not just in the app.</li><li><strong>Authorised Middle Ground staff.</strong> A small number of accounts hold an administrator permission that allows access to account records and request content. It exists so we can provide support, investigate abuse or safety reports, and diagnose faults. - The permission is granted server-side and cannot be obtained by modifying the app. - <strong>Every administrator access to an individual's data is written to an append-only audit log</strong> that administrators cannot edit or delete. - We use it only for the reasons above — not for browsing, marketing, or curiosity.</li><li><strong>No other app user.</strong> Invite codes cannot be listed or enumerated — a code only works if someone tells it to you. Notification tokens are not readable by any app user, including you.</li><li><strong>We do not sell, rent, or share your data with third parties for their own purposes.</strong></li></ul>
+<p>If you would like to know whether your account has been accessed by staff, email us and we will tell you what the audit log shows.</p>
+<h2>Service providers</h2>
+<p>Middle Ground uses <strong>Google Firebase</strong> (Google LLC) for authentication, database storage, and push notification delivery. Firebase processes data on our behalf under Google's terms, and data is stored on Google's infrastructure, which may be located in the United States. Google's privacy information is at <a href="https://firebase.google.com/support/privacy">https://firebase.google.com/support/privacy</a>.</p>
+<p>Push notifications are delivered through <strong>Apple Push Notification service</strong>. If you sign in with Apple, Apple handles that authentication; see <a href="https://www.apple.com/legal/privacy/">https://www.apple.com/legal/privacy/</a>.</p>
+<p>Crash diagnostics are collected by <strong>Firebase Crashlytics</strong>, also part of Google Firebase. It reports crashes only — stack traces and device/OS/app-version details. It does not see request titles, notes, or messages.</p>
+<p>These are the only third parties involved. Usage events are recorded in our own Firestore database — there are no advertising, attribution, or third-party marketing-analytics SDKs in the app, and no usage data is shared with anyone else.</p>
+<h2>Reporting abuse, and leaving a group</h2>
+<p>If someone sends you something abusive, you can act on it from inside the app without contacting us first:</p>
+<ul><li><strong>Report it.</strong> Open the request, tap the menu, and choose <strong>Report this</strong>. We review every report within 24 hours.</li><li><strong>Leave the group.</strong> Open <strong>Profile → Your groups → Leave</strong>. You immediately stop seeing each other's requests and they can no longer send you any. If the invite code was yours, it is revoked at the same time so nobody can use it to reach you again.</li></ul>
+<p>Reports are kept even if you later delete your account, because a report is a record about somebody else's conduct and erasing it would remove the evidence of what you reported.</p>
+<h2>Sign in with Apple</h2>
+<p>If you sign in with Apple, we receive an account identifier and — only if you choose to share it — your name and an email address. Apple's Hide My Email option gives us a relay address instead of your real one, and the app works normally either way. When you delete your account we also revoke the Apple token issued to us, so the connection between your Apple ID and Middle Ground is severed.</p>
+<h2>Notifications</h2>
+<p>Notifications are optional. The app asks only when it is relevant, and declining does not limit any other feature. If you allow them, a device token is stored so notifications can be routed to your phone; you can turn them off at any time in Profile → Push Notifications, or in iOS Settings. Turning them off removes the token from your account.</p>
+<h2>Deleting your account and data</h2>
+<p>Open <strong>Profile → Delete Account</strong>. After you confirm:</p>
+<ul><li>Your authentication account is deleted and, for Sign in with Apple, the token we hold is revoked.</li><li>The progress data stored on your device is removed with the app's data.</li><li>Your profile, notification token, invite codes, group membership, progress data, usage events, and requests that involved only you are erased from our database. Requests shared with your partner have your participation removed so they keep their own history.</li></ul>
+<p>The erasure happens while you are still signed in, as part of the deletion itself — not on a delay and not in a queue. An automated server-side job runs the same cleanup afterwards to catch anything the app could not reach (for example if your phone lost connectivity mid-way).</p>
+<p>Deletion is permanent and cannot be undone. There is no waiting period and you do not need to contact us to do it.</p>
+<p>The one thing not erased is any <strong>report you filed about someone else</strong>, for the reason given above.</p>
+<h2>Retention</h2>
+<p>Your content is kept until you delete it or delete your account, and is erased when you do. <strong>Usage events are additionally deleted automatically 90 days after they are recorded</strong>, whether or not you delete your account. We do not keep backups of deleted accounts for our own purposes.</p>
+<h2>Children</h2>
+<p>Middle Ground is not directed at children under 13, and we do not knowingly collect their data. If you believe a child has provided us data, contact us and we will remove it.</p>
+<h2>Your rights</h2>
+<p>Depending on where you live, you may have the right to access, correct, export, or erase your data, and to object to processing. The app's delete function satisfies erasure directly. For anything else, contact us and we will respond within 30 days.</p>
+<h2>Security</h2>
+<p>Access is enforced by server-side security rules, not just by the app: every read and write is checked against who you are and which conversations you belong to. Data is encrypted in transit, and at rest by our provider. No system is perfectly secure, but we do not store passwords ourselves and we collect as little as we can.</p>
+<h2>Changes</h2>
+<p>If this policy changes materially we will update the effective date above and note the change in the app's release notes.</p>
+<h2>Contact</h2>
+<p><strong>support@middleground.app</strong></p>
+<footer>
+  <a href="privacy-policy.html">Privacy</a>
+  <a href="terms-of-service.html">Terms</a>
+  <a href="support.html">Support</a>
+</footer>
+</div>
+</body>
+</html>

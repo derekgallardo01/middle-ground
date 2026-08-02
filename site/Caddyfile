@@ -1,0 +1,75 @@
+# seekmiddleground.com — static file serving for Railway.
+#
+# Railway terminates TLS at its edge and Cloudflare sits in front of that, so Caddy must not
+# attempt ACME. A port-only site address would not trigger it anyway, but saying so explicitly
+# means that adding a hostname block later cannot silently start a certificate dance behind
+# a proxy that would fail it.
+
+{
+	auto_https off
+	admin off
+	persist_config off
+	log {
+		format console
+	}
+}
+
+# `{$PORT:8080}` is substituted by the Caddyfile *adapter*, at config-load time, which is why
+# it is legal in the address position. `{env.PORT}` is a runtime placeholder and does not work
+# here — the address has to be known before the server starts.
+:{$PORT:8080} {
+	root * /srv
+	encode zstd gzip
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()"
+		# `style-src 'unsafe-inline'` is load-bearing, not laziness: the pages carry their CSS
+		# in an inline <style> block and the logo as inline SVG, so that the whole site is one
+		# request with nothing render-blocking. Without it every page renders unstyled.
+		Content-Security-Policy "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+	}
+
+	# The social card is versioned in its filename, so it can be cached hard. Icons live at
+	# fixed conventional paths and deliberately are not: a year-long immutable cache on a path
+	# you cannot rename, layered under Cloudflare's cache and Apple's uncacheable preview
+	# cache, is how a bad image becomes permanent.
+	@versioned path /og-image-v*.png
+	header @versioned Cache-Control "public, max-age=31536000, immutable"
+
+	@icons path /favicon.ico /favicon.svg /apple-touch-icon.png /icon-*.png /site.webmanifest
+	header @icons Cache-Control "public, max-age=604800"
+
+	@pages path / *.html
+	header @pages Cache-Control "public, max-age=300, stale-while-revalidate=86400"
+
+	# `route` preserves the order written here. Top-level directives are otherwise sorted by
+	# Caddy's own fixed precedence, which is how "redirect before try_files" silently becomes
+	# "try_files before redirect" and the redirects never fire.
+	route {
+		# Paths that exist in shipped binaries and in App Store Connect metadata. These must
+		# keep resolving for as long as any build referencing them is installed anywhere.
+		redir /index.html / 301
+		redir /privacy-policy /privacy 301
+		redir /privacy-policy.html /privacy 301
+		redir /terms-of-service /terms 301
+		redir /terms-of-service.html /terms 301
+
+		# Canonicalise the rest to extensionless. No loop: /privacy.html redirects to /privacy,
+		# and try_files then resolves that back to the file on disk without another redirect.
+		@html path_regexp html ^/(.+)\.html$
+		redir @html /{re.html.1} 301
+
+		try_files {path} {path}/index.html {path}.html
+		file_server
+	}
+
+	handle_errors {
+		rewrite * /404.html
+		file_server
+	}
+}

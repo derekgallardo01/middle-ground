@@ -5,7 +5,7 @@ struct SpontaneousRequestView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onCreated: ((Request) -> Void)?
-    
+
     let quickIdeas = [
         "I'm grabbing tacos in 20 minutes. Who's in?",
         "Drinks in 30?",
@@ -13,7 +13,7 @@ struct SpontaneousRequestView: View {
         "Park walk in 15?",
         "Game night at 8?"
     ]
-    
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
@@ -25,31 +25,31 @@ struct SpontaneousRequestView: View {
                         Text("⚡")
                             .font(.system(size: 40))
                     }
-                    
+
                     Text("Spontaneous Mode")
-                        .font(MGFonts.h1)
+                        .mgFont(.h1)
                     Text("One tap. Quick decisions. No overthinking.")
-                        .font(MGFonts.body)
+                        .mgFont(.body)
                         .foregroundStyle(MGColors.warm600)
                         .multilineTextAlignment(.center)
                 }
-                
+
                 TextField("What are you doing?", text: $viewModel.title, axis: .vertical)
-                    .font(MGFonts.h2)
+                    .mgFont(.h2)
                     .multilineTextAlignment(.center)
                     .padding()
                     .background(MGColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                
+                    .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Quick ideas")
-                        .font(MGFonts.h3)
-                    
+                        .mgFont(.h3)
+
                     FlowLayout(spacing: 8) {
                         ForEach(quickIdeas, id: \.self) { idea in
                             Button {
                                 if !reduceMotion {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    withAnimation(MGMotion.tap) {
                                         viewModel.title = idea
                                     }
                                 } else {
@@ -58,7 +58,7 @@ struct SpontaneousRequestView: View {
                                 Haptics.shared.impact(.light)
                             } label: {
                                 Text(idea)
-                                    .font(MGFonts.bodySmall)
+                                    .mgFont(.bodySmall)
                                     .foregroundStyle(MGColors.slate)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 8)
@@ -70,10 +70,10 @@ struct SpontaneousRequestView: View {
                         }
                     }
                 }
-                
+
                 HStack {
                     Text("Expires in")
-                        .font(MGFonts.body)
+                        .mgFont(.body)
                     Spacer()
                     Picker("Expires in", selection: $viewModel.expiresInMinutes) {
                         Text("15 min").tag(15)
@@ -86,12 +86,12 @@ struct SpontaneousRequestView: View {
                 }
                 .padding()
                 .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                
+                .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+
                 recipientSection
-                
+
                 Spacer()
-                
+
                 PrimaryButton(title: "Send Now", systemImage: "paperplane.fill") {
                     Task {
                         if let request = await viewModel.sendRequest() {
@@ -104,6 +104,7 @@ struct SpontaneousRequestView: View {
                 .accessibilityLabel("Send spontaneous request")
             }
             .padding()
+            .mgReadableWidth()
             .background(MGColors.sand.ignoresSafeArea())
             .navigationTitle("Spontaneous")
             .navigationBarTitleDisplayMode(.inline)
@@ -114,28 +115,38 @@ struct SpontaneousRequestView: View {
                         .accessibilityLabel("Cancel spontaneous request")
                 }
             }
+            // This view had no alert at all, so both failures the view model can produce —
+            // "Couldn't load partners." and "Failed to send spontaneous request." — were set
+            // and never rendered. Send Now simply did nothing: the sheet stayed open, the
+            // error haptic fired, and nothing explained why.
+            .alert("Oops", isPresented: .constant(viewModel.errorMessage != nil)) {
+                Button("OK") { viewModel.errorMessage = nil }
+            } message: {
+                Text(viewModel.errorMessage ?? "")
+            }
         }
         .task {
             await viewModel.loadCurrentUserAndPartners()
         }
     }
-    
+
     private var recipientSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Who's in?")
-                .font(MGFonts.h3)
-            
+                .mgFont(.h3)
+
             if viewModel.isLoadingPartners {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
-            } else if viewModel.relationships.isEmpty {
-                Text("No partners connected yet")
-                    .foregroundStyle(MGColors.warm600)
-                    .font(MGFonts.body)
+            } else if viewModel.relationships.isEmpty || viewModel.needsPartner {
+                // Without this an unpaired owner got a one-segment picker tagged "" and a
+                // permanently disabled Send Now, with nothing explaining why. The prompt now
+                // also offers the share sheet, rather than naming a tab it cannot open.
+                InvitePrompt(code: viewModel.inviteCode, compact: true)
             } else {
                 Picker("Recipient", selection: $viewModel.recipientID) {
                     ForEach(viewModel.relationships) { relationship in
-                        Text(relationship.type.displayName)
+                        Text(viewModel.label(for: relationship))
                             .tag(partnerID(from: relationship) ?? "")
                     }
                 }
@@ -144,9 +155,9 @@ struct SpontaneousRequestView: View {
         }
         .padding()
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
     }
-    
+
     private func partnerID(from relationship: Relationship) -> String? {
         guard let currentUserID = viewModel.currentUser?.id else { return nil }
         return relationship.participantIDs.first { $0 != currentUserID }
@@ -156,12 +167,12 @@ struct SpontaneousRequestView: View {
 // Simple flow layout helper
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
-    
+
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let result = FlowResult(in: proposal.width ?? 0, subviews: subviews, spacing: spacing)
         return result.size
     }
-    
+
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let result = FlowResult(in: bounds.width, subviews: subviews, spacing: spacing)
         for (index, subview) in subviews.enumerated() {
@@ -170,16 +181,16 @@ struct FlowLayout: Layout {
                          proposal: .unspecified)
         }
     }
-    
+
     struct FlowResult {
         var size: CGSize = .zero
         var positions: [CGPoint] = []
-        
+
         init(in maxWidth: CGFloat, subviews: Subviews, spacing: CGFloat) {
             var x: CGFloat = 0
             var y: CGFloat = 0
             var lineHeight: CGFloat = 0
-            
+
             for subview in subviews {
                 let size = subview.sizeThatFits(.unspecified)
                 if x + size.width > maxWidth && x > 0 {

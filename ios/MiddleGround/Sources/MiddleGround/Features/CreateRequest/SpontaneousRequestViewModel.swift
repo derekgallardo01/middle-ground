@@ -6,31 +6,51 @@ import Factory
 final class SpontaneousRequestViewModel {
     private let requestService = Container.shared.requestService()
     private let authService = Container.shared.authService()
-    private let relationshipRepository = Container.shared.relationshipRepository()
-    
+    private let relationshipService = Container.shared.relationshipService()
+
     var currentUser: User?
     var relationships: [Relationship] = []
-    
+    /// relationship.id -> partner display name.
+    var displayLabels: [String: String] = [:]
+
+    /// True when the user has groups but nobody has joined any of them yet.
+    var needsPartner: Bool {
+        !relationships.isEmpty && relationships.allSatisfy { !$0.isPaired }
+    }
+
+    /// The code to share when nobody has joined yet, so the empty state can offer the share
+    /// sheet inline instead of naming the Profile tab it cannot open.
+    var inviteCode: String? {
+        relationships.first { !$0.isPaired }?.inviteCode
+    }
+
+    func label(for relationship: Relationship) -> String {
+        displayLabels[relationship.id] ?? relationship.type.displayName
+    }
+
     var title: String = ""
     var details: String = ""
-    var expiresInMinutes: Int = 20
+    var expiresInMinutes: Int = 30
     var recipientID: String = ""
-    
+
     var isLoading = false
     var isLoadingPartners = false
     var errorMessage: String?
-    
+
     var canSubmit: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty && !recipientID.isEmpty
     }
-    
+
     func loadCurrentUserAndPartners() async {
         isLoadingPartners = true
         currentUser = await authService.currentUser()
         if let userID = currentUser?.id {
             do {
-                relationships = try await relationshipRepository.fetchRelationships(for: userID)
-                if let firstPartner = relationships.first?.participantIDs.first(where: { $0 != userID }) {
+                relationships = try await relationshipService.relationships(for: userID)
+                displayLabels = await relationshipService.displayLabels(
+                    for: relationships, currentUserID: userID
+                )
+                if let firstPartner = relationships.compactMap({ $0.partnerID(excluding: userID) }).first {
                     recipientID = firstPartner
                 }
             } catch {
@@ -39,12 +59,12 @@ final class SpontaneousRequestViewModel {
         }
         isLoadingPartners = false
     }
-    
+
     func sendRequest() async -> Request? {
         guard canSubmit, let currentUser else { return nil }
         isLoading = true
         errorMessage = nil
-        
+
         let request = Request(
             creatorID: currentUser.id,
             recipientIDs: [recipientID],
@@ -53,7 +73,7 @@ final class SpontaneousRequestViewModel {
             details: details.isEmpty ? nil : details,
             proposedTime: Date().addingTimeInterval(TimeInterval(expiresInMinutes * 60))
         )
-        
+
         do {
             try await requestService.createRequest(request)
             isLoading = false

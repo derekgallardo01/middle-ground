@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Export options for an App Store upload.
+
+	  This is the step that applies distribution signing. With CODE_SIGN_STYLE: Automatic the
+	  *archive* is signed with the Apple Development identity — Xcode does that by design and
+	  refuses a manually specified distribution identity — so the archive shows
+	  `get-task-allow: true` and `aps-environment: development`. That archive is not what gets
+	  uploaded. `xcodebuild -exportArchive` with this file re-signs the payload with the Apple
+	  Distribution certificate and a distribution provisioning profile, which is where
+	  MiddleGroundRelease.entitlements finally takes effect.
+
+	    xcodebuild -exportArchive \
+	      -archivePath MiddleGround.xcarchive \
+	      -exportPath build/ipa \
+	      -exportOptionsPlist ExportOptions.plist \
+	      -allowProvisioningUpdates \
+	      -authenticationKeyPath <ASC .p8> \
+	      -authenticationKeyID <key id> \
+	      -authenticationKeyIssuerID <issuer id>
+
+	  Verify the result rather than trusting it — the entitlements in the exported .ipa are
+	  the ones that ship:
+	    codesign -d --entitlements - --xml Payload/*.app | plutil -p -
+	  `aps-environment` must be `production` and `get-task-allow` must be absent.
+	-->
+	<key>method</key>
+	<string>app-store-connect</string>
+
+	<key>teamID</key>
+	<string>9U3ZSABZG7</string>
+
+	<key>signingStyle</key>
+	<string>automatic</string>
+
+	<key>destination</key>
+	<string>export</string>
+
+	<!-- Symbols are what make Crashlytics and Xcode Organizer crash reports readable. -->
+	<key>uploadSymbols</key>
+	<true/>
+
+	<!-- Bitcode is deprecated and removed; leaving this true produces a warning on upload. -->
+	<key>uploadBitcode</key>
+	<false/>
+
+	<!-- Keep the binary we tested. App thinning would produce variants we have not run. -->
+	<key>thinning</key>
+	<string>&lt;none&gt;</string>
+
+	<!-- Managed capabilities/profiles are handled by -allowProvisioningUpdates. -->
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+</dict>
+</plist>

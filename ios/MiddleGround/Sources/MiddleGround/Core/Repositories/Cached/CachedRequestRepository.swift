@@ -4,122 +4,145 @@ import SwiftData
 actor CachedRequestRepository: RequestRepository {
     private let remote: RequestRepository
     private let modelContainer: ModelContainer
-    
+
     init(remote: RequestRepository, modelContainer: ModelContainer) {
         self.remote = remote
         self.modelContainer = modelContainer
     }
-    
+
     private var context: ModelContext {
         ModelContext(modelContainer)
     }
-    
+
     func fetchRequests(for userID: String) async throws -> [Request] {
-        // Return local data immediately, then refresh from remote
-        let local = try fetchLocal()
-        
-        Task {
-            do {
-                let remoteRequests = try await remote.fetchRequests(for: userID)
-                try await merge(requests: remoteRequests)
-            } catch {
-                // Offline: keep local data
-            }
+        // Refresh from remote and merge before returning, so callers never see a stale snapshot.
+        // If the network is unavailable, fall through to whatever is cached locally.
+        do {
+            let remoteRequests = try await remote.fetchRequests(for: userID)
+            try merge(requests: remoteRequests)
+        } catch {
+            // Offline: keep local data
         }
-        
-        return local
+
+        return try fetchLocal(for: userID)
     }
-    
+
     func createRequest(_ request: Request) async throws {
-        try await insertLocal(request, needsSync: true)
+        try insertLocal(request, needsSync: true)
         try await remote.createRequest(request)
-        try await markSynced(id: request.id)
+        try markSynced(id: request.id)
     }
-    
+
     func updateRequest(_ request: Request) async throws {
-        try await insertLocal(request, needsSync: true)
+        try insertLocal(request, needsSync: true)
         try await remote.updateRequest(request)
-        try await markSynced(id: request.id)
+        try markSynced(id: request.id)
     }
-    
+
     func deleteRequest(_ request: Request) async throws {
-        try await deleteLocal(id: request.id)
+        try deleteLocal(id: request.id)
         try await remote.deleteRequest(request)
     }
-    
-    func observeRequests(for userID: String) -> AsyncStream<[Request]> {
+
+    // Invites and membership are server-side concerns: there is nothing useful to cache, and
+    // a stale local copy of who can see a plan would be worse than none.
+    func publishPlanInvite(code: String, requestID: String, ownerID: String) async throws {
+        try await remote.publishPlanInvite(code: code, requestID: requestID, ownerID: ownerID)
+    }
+
+    func planInvite(forCode code: String) async throws -> String? {
+        try await remote.planInvite(forCode: code)
+    }
+
+    func addParticipant(_ userID: String, to requestID: String) async throws {
+        try await remote.addParticipant(userID, to: requestID)
+    }
+
+    nonisolated func observeRequests(for userID: String) -> AsyncStream<[Request]> {
         AsyncStream { continuation in
             let task = Task {
                 do {
                     // Initial local data
-                    let local = try fetchLocal()
-                    continuation.yield(local)
-                    
+                    continuation.yield(try await self.fetchLocal(for: userID))
+
                     // Then listen to remote updates
-                    for await requests in await remote.observeRequests(for: userID) {
-                        try await merge(requests: requests)
-                        continuation.yield(try fetchLocal())
+                    for await requests in self.remote.observeRequests(for: userID) {
+                        try await self.merge(requests: requests)
+                        continuation.yield(try await self.fetchLocal(for: userID))
                     }
+                    continuation.finish()
                 } catch {
                     continuation.finish()
                 }
             }
-            
+
             continuation.onTermination = { _ in
                 task.cancel()
             }
         }
     }
-    
+
     // MARK: - Private
-    
-    private func fetchLocal() throws -> [Request] {
+
+    /// Local requests **for a specific user**.
+    ///
+    /// This used to return every cached row regardless of owner, and `merge` never deletes, so
+    /// signing out and signing in as someone else on the same device surfaced the previous
+    /// user's requests. `CachedRelationshipRepository` already filtered correctly; this did not.
+    private func fetchLocal(for userID: String) throws -> [Request] {
+        let ctx = context
         let descriptor = FetchDescriptor<RequestEntity>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
-        return try modelContext.fetch(descriptor).compactMap { $0.toModel() }
+        return try ctx.fetch(descriptor)
+            .compactMap { $0.toModel() }
+            .filter { $0.allParticipantIDs.contains(userID) }
     }
-    
+
     private func merge(requests: [Request]) throws {
+        let ctx = context
         for request in requests {
             let descriptor = FetchDescriptor<RequestEntity>(predicate: #Predicate { $0.id == request.id })
-            if let existing = try modelContext.fetch(descriptor).first {
+            if let existing = try ctx.fetch(descriptor).first {
                 // Only update if remote is newer
                 if existing.updatedAt < request.updatedAt {
                     existing.update(from: request)
                     existing.needsSync = false
                 }
             } else {
-                modelContext.insert(RequestEntity(from: request))
+                ctx.insert(RequestEntity(from: request))
             }
         }
-        try modelContext.save()
+        try ctx.save()
     }
-    
+
     private func insertLocal(_ request: Request, needsSync: Bool) throws {
+        let ctx = context
         let descriptor = FetchDescriptor<RequestEntity>(predicate: #Predicate { $0.id == request.id })
-        if let existing = try modelContext.fetch(descriptor).first {
+        if let existing = try ctx.fetch(descriptor).first {
             existing.update(from: request)
             existing.needsSync = needsSync
         } else {
             let entity = RequestEntity(from: request)
             entity.needsSync = needsSync
-            modelContext.insert(entity)
+            ctx.insert(entity)
         }
-        try modelContext.save()
+        try ctx.save()
     }
-    
+
     private func markSynced(id: String) throws {
+        let ctx = context
         let descriptor = FetchDescriptor<RequestEntity>(predicate: #Predicate { $0.id == id })
-        if let entity = try modelContext.fetch(descriptor).first {
+        if let entity = try ctx.fetch(descriptor).first {
             entity.needsSync = false
-            try modelContext.save()
+            try ctx.save()
         }
     }
-    
+
     private func deleteLocal(id: String) throws {
+        let ctx = context
         let descriptor = FetchDescriptor<RequestEntity>(predicate: #Predicate { $0.id == id })
-        if let entity = try modelContext.fetch(descriptor).first {
-            modelContext.delete(entity)
-            try modelContext.save()
+        if let entity = try ctx.fetch(descriptor).first {
+            ctx.delete(entity)
+            try ctx.save()
         }
     }
 }

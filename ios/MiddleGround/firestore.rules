@@ -1,0 +1,559 @@
+rules_version = '2';
+
+// Middle Ground — Firestore security rules.
+//
+// Model: every document is scoped to the people it belongs to. Requests are readable only
+// by their participants, relationships only by their members, and device tokens only by
+// their owner. Nothing is world-readable, and there is no default-open fallthrough.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    // Server-issued custom claim, granted out-of-band via Scripts/grant-admin.mjs.
+    // The in-app Admin tab checks the same claim, but THIS is the enforcement: a tampered
+    // client that forces the UI open still gets refused every read.
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    // Fields a client must never change after creation.
+    //
+    // `get(field, null)` rather than `data[field]`, because reading a key that is absent is an
+    // evaluation *error* in this language, not a false — and optional fields are absent all the
+    // time. Pinning `proposedTime` on a request that never had a time therefore blew up the
+    // whole rule and denied a write that had nothing to do with the time. Two absent fields
+    // compare equal, which is exactly the intent: unset and still unset is unchanged.
+    function immutable(field) {
+      return request.resource.data.get(field, null) == resource.data.get(field, null);
+    }
+
+    // ---------------------------------------------------------------- users
+    // Profiles hold only a display name and avatar URL. Any signed-in user may read one
+    // (needed to show a partner's name); only the owner may write their own.
+    match /users/{userId} {
+      allow get: if signedIn();
+      allow list: if isAdmin();
+      allow create, update: if signedIn() && uid() == userId;
+      // Account deletion (Guideline 5.1.1(v)). Only your own profile — the wider cascade
+      // across relationships and requests is done by the onUserDeleted Cloud Function,
+      // which runs with admin privileges.
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    // -------------------------------------------------------- relationships
+    function isParticipant(data) {
+      return signedIn() && uid() in data.participantIDs;
+    }
+
+    // A non-member may add *only themselves* to a relationship with a free seat, and only when
+    // they hold a valid invite code for it. Everything else stays fixed.
+    //
+    // This used to require `size() == 1`, which capped every group in the app at two people
+    // forever — "multiple groups" worked, a group of three did not exist. The ceiling is now the
+    // group's own `seats`, and `get('seats', 2)` is what makes that safe to deploy: every group
+    // written before this field existed could hold exactly two, and absence keeps meaning two
+    // rather than silently widening all of them.
+    //
+    // `seats` is pinned immutable below, so a member cannot raise their own ceiling — otherwise
+    // a couple could be turned into an eight-person group, and the couple exclusion that keeps
+    // reliability scores and leaderboards out of relationships would quietly stop applying.
+    function isRedeemingInvite(relationshipId) {
+      return signedIn()
+        && !(uid() in resource.data.participantIDs)
+        && resource.data.participantIDs.size() < resource.data.get('seats', 2)
+        && request.resource.data.participantIDs == resource.data.participantIDs.concat([uid()])
+        && immutable('inviteCode')
+        && immutable('type')
+        && immutable('seats')
+        && immutable('createdAt')
+        && exists(/databases/$(database)/documents/invites/$(resource.data.inviteCode))
+        && get(/databases/$(database)/documents/invites/$(resource.data.inviteCode)).data.relationshipID == relationshipId;
+    }
+
+    // A member may remove *only themselves* — the escape hatch from a group, and the
+    // "block an abusive user" half of App Review guideline 1.2. Removing anybody else, or
+    // touching any other field, is refused.
+    function isLeaving() {
+      return isParticipant(resource.data)
+        && request.resource.data.participantIDs == resource.data.participantIDs.removeAll([uid()])
+        && immutable('inviteCode')
+        && immutable('type')
+        && immutable('seats')
+        && immutable('createdAt');
+    }
+
+    // The first participant owns the group and may rotate its shareable code. Codes used to
+    // be permanent, so anyone who ever saw one kept indefinite access.
+    function isRotatingCode() {
+      return signedIn()
+        && resource.data.participantIDs[0] == uid()
+        && request.resource.data.participantIDs == resource.data.participantIDs
+        && immutable('type')
+        && immutable('seats')
+        && immutable('createdAt');
+    }
+
+    match /relationships/{relationshipId} {
+      allow get, list: if isParticipant(resource.data) || isAdmin();
+      // The ceiling is set once, at creation, and checked here rather than trusted. A client
+      // that asks for a couple with eight seats is asking to have the couple exclusion — which
+      // keeps reliability scores and leaderboards out of relationships — not apply to it.
+      allow create: if signedIn()
+                    && request.resource.data.participantIDs == [uid()]
+                    && request.resource.data.get('seats', 2) >= 2
+                    && request.resource.data.get('seats', 2) <= 8
+                    && (request.resource.data.type != 'couple'
+                        || request.resource.data.get('seats', 2) == 2);
+      // Narrowed from a blanket `isParticipant` update. That let either member rewrite
+      // `inviteCode`, `type` and `createdAt` freely, and — worse — evict the *other* person
+      // from the group. Every legitimate write is one of these four shapes.
+      allow update: if isRedeemingInvite(relationshipId)
+                    || isLeaving()
+                    || isRotatingCode()
+                    || (isParticipant(resource.data)
+                        && request.resource.data.participantIDs == resource.data.participantIDs
+                        && immutable('inviteCode')
+                        && immutable('type')
+                        && immutable('seats')
+                        && immutable('createdAt'));
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------- invites
+    // Keyed by the invite code itself. `get` is allowed so a code you were told can be
+    // redeemed; `list` is denied so codes cannot be enumerated.
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if signedIn() && request.resource.data.ownerID == uid();
+      allow delete: if signedIn() && resource.data.ownerID == uid();
+    }
+
+    // ------------------------------------------------------------- requests
+    // `allParticipantIDs` is denormalised on write specifically so this rule (and the
+    // Cloud Functions fan-out) can check membership in one comparison.
+    // Accepting, declining or completing settles a decision; nothing may reopen it.
+    function isSettled() {
+      return resource.data.status in ['accepted', 'declined', 'completed', 'cancelled'];
+    }
+
+    function lastMessage() {
+      return resource.data.negotiationChain[resource.data.negotiationChain.size() - 1];
+    }
+
+    // Whose turn it is. Before anyone replies the recipients owe the answer; after that the
+    // turn belongs to whoever did not send the last message.
+    //
+    // Saving is the exception, and it has to be, or the model and the rules disagree: a save
+    // is a bookmark rather than an answer, so it leaves the turn where it was. Without this
+    // clause a recipient who saved could never afterwards accept — the client would offer the
+    // button and the backend would refuse it.
+    function isMyTurn() {
+      return resource.data.negotiationChain.size() == 0
+        ? uid() in resource.data.recipientIDs
+        : (lastMessage().senderID != uid() || lastMessage().responseType == 'save');
+    }
+
+    // Three or more people, so "the other person" is not a thing.
+    function isGroupPlan() {
+      return resource.data.allParticipantIDs.size() > 2;
+    }
+
+    // A group plan someone has already accepted still owes answers.
+    //
+    // With two people an acceptance decides it and `isSettled()` correctly closes the door. With
+    // three, one friend saying yes would otherwise lock the others out of saying yes too — the
+    // plan is on, and everybody else still has an answer to give.
+    function isStillOpenToTheGroup() {
+      return isGroupPlan() && resource.data.status == 'accepted';
+    }
+
+    // The statuses an ordinary response may produce.
+    //
+    // Caught by the rules tests, not by reading: the response branch checked only *whose turn*
+    // it was, never what the answer said — so a recipient could set the status to anything at
+    // all. Marking someone else's request `cancelled` was permitted, and so was jumping it
+    // straight to `completed`, which would have manufactured attendance nobody confirmed.
+    // Cancelling belongs to the creator and completion belongs to confirmation, so neither is
+    // reachable from here.
+    function isResponseStatus() {
+      return request.resource.data.status in
+        ['pending', 'accepted', 'declined', 'negotiated', 'rescheduled', 'countered', 'saved'];
+    }
+
+    // The creator issuing, rotating or revoking the code for their own plan.
+    //
+    // Without this nothing could set `planInviteCode` at all: it is pinned immutable in every
+    // other branch, quite correctly -- a code that grants access must not be rewritable by
+    // whoever responds, cancels, confirms, stakes or joins. The result was a feature that
+    // could be used only by someone who already had a code that could never have been issued.
+    // The rules tests missed it because they seeded invites directly instead of creating one.
+    //
+    // Revoking is simply clearing the code: `isJoiningPlan` requires a non-empty one, so the
+    // moment it is cleared every copy of it stops working.
+    function isManagingPlanInvite() {
+      return resource.data.creatorID == uid()
+        && !isSettled()
+        && immutable('creatorID')
+        && immutable('recipientIDs')
+        && immutable('allParticipantIDs')
+        && immutable('title')
+        && immutable('proposedTime')
+        && immutable('status')
+        && immutable('negotiationChain')
+        && immutable('confirmations')
+        && immutable('stake')
+        && immutable('createdAt');
+    }
+
+    // Joining a single plan by invite, without joining a group.
+    //
+    // "Schedule a date with someone" — someone you are not connected to, invited to one plan
+    // rather than into your life. Deliberately NOT discovery: there is no browsing and no
+    // matching, and the only way in is a code you were given, exactly like a group invite.
+    //
+    // Mirrors `isRedeemingInvite` on relationships, and for the same reason: the joiner cannot
+    // read the request until they are a participant of it, so the invite document is the one
+    // thing they can check against. They may add ONLY themselves, and nothing else may move —
+    // so a code cannot be used to rewrite a plan, answer it, or add anybody but its holder.
+    function isJoiningPlan(requestId) {
+      return signedIn()
+        && !(uid() in resource.data.allParticipantIDs)
+        && request.resource.data.allParticipantIDs == resource.data.allParticipantIDs.concat([uid()])
+        && request.resource.data.recipientIDs == resource.data.recipientIDs.concat([uid()])
+        && !isSettled()
+        && immutable('creatorID')
+        && immutable('title')
+        && immutable('proposedTime')
+        && immutable('status')
+        && immutable('negotiationChain')
+        && immutable('confirmations')
+        && immutable('stake')
+        && immutable('createdAt')
+        && immutable('planInviteCode')
+        && immutable('planInviteSeats')
+        // The code is issued by the creator and already on the request; the joiner writes
+        // nothing but their own membership. `invites` allows `get` and denies `list`, so the
+        // code has to have been given to them — it cannot be discovered, and neither can the
+        // request, which is unreadable until this write lands.
+        && resource.data.get('planInviteCode', '') != ''
+        // A one-off invite is one-off. The creator records how many people the code may admit,
+        // so a forwarded code stops working once the person it was meant for has joined --
+        // which is the whole gate on who can reach you through it.
+        && request.resource.data.allParticipantIDs.size() <= resource.data.get('planInviteSeats', 0)
+        && exists(/databases/$(database)/documents/invites/$(resource.data.planInviteCode))
+        && get(/databases/$(database)/documents/invites/$(resource.data.planInviteCode)).data.requestID == requestId;
+    }
+
+    // Putting points on a plan happening, and agreeing to it.
+    //
+    // Needs its own branch because staking is not turn-taking: either person may propose, and
+    // the *other* must accept, which is precisely when it is not their turn to speak. Narrow
+    // for the same reason as the others — only `stake` and `updatedAt` may move, so this cannot
+    // be used to answer, retime or retitle anything.
+    //
+    // Settlement is deliberately NOT permitted here. It is written as part of confirming
+    // attendance, which requires both people to agree, so a stake can never be collected by one
+    // person asserting an outcome on their own.
+    function isStaking() {
+      return !isSettled()
+        // The invite code and its seat count belong to the creator alone. Without these two
+        // lines any participant could mint or widen an invite for someone else's plan by
+        // dressing it up as a stake — the rules tests caught exactly that.
+        && immutable('planInviteCode')
+        && immutable('planInviteSeats')
+        && immutable('creatorID')
+        && immutable('recipientIDs')
+        && immutable('allParticipantIDs')
+        && immutable('status')
+        && immutable('title')
+        && immutable('proposedTime')
+        && immutable('negotiationChain')
+        && immutable('confirmations')
+        && immutable('createdAt');
+    }
+
+    // Withdrawing your own request, which is now a write rather than a delete.
+    //
+    // Cancelling used to delete the document, which erased the fact a plan had ever been made
+    // along with any chance of "cancelled three times in a row" meaning something. Keeping the
+    // record means the creator needs a way to close it that is not their turn to speak — the
+    // ordinary response path requires `isMyTurn()`, and the person cancelling has usually just
+    // been answered.
+    //
+    // Narrow on purpose: only the creator, only from an open state, only into `cancelled`, and
+    // only `status`, `cancellationReason` and `updatedAt` may move. It cannot be used to edit
+    // the plan or to answer on anyone's behalf.
+    // Calling a plan off. Mirrors `Request.canCancel(as:)`.
+    //
+    // `!isSettled()` was wrong here, and wrong in the direction that matters: `accepted` counts
+    // as settled, so a plan became uncancellable the moment somebody agreed to it. Abandoning a
+    // plan nobody accepted costs no one anything; the agreed one is the one that has to be
+    // callable off, and it is the only kind whose cancellation the reliability score cares about.
+    //
+    // Confirmations are the stop: once anyone has said whether it happened, the plan is a record,
+    // and cancelling would erase attendance somebody already reported.
+    function isCancelling() {
+      return resource.data.creatorID == uid()
+        && !(resource.data.status in ['completed', 'cancelled', 'declined'])
+        && resource.data.get('confirmations', {}).size() == 0
+        && request.resource.data.status == 'cancelled'
+        && immutable('creatorID')
+        && immutable('recipientIDs')
+        && immutable('allParticipantIDs')
+        && immutable('title')
+        && immutable('proposedTime')
+        && immutable('negotiationChain')
+        && immutable('stake')
+        && immutable('planInviteCode')
+        && immutable('planInviteSeats')
+        && immutable('createdAt');
+    }
+
+    // Recording whether an accepted plan actually happened.
+    //
+    // This is the one write allowed on a settled request, and it exists because the app
+    // otherwise never learns the outcome of anything: a request's life ended at `accepted`,
+    // and `completed` was a status nothing ever assigned. Attendance is what every reliability
+    // idea is computed from, so it has to be collected, and collected honestly.
+    //
+    // The narrow shape is the point. A participant may add or change ONLY their own key in
+    // `confirmations`, only once the plan's time has passed, and may not touch anything else —
+    // so nobody can record the other person as absent, backdate an answer, or edit the plan
+    // they are being asked about. `get('confirmations', {})` keeps documents written before the
+    // field existed evaluable rather than denied.
+    function isConfirmingAttendance() {
+      // `get(..., null)` rather than a direct read: a request with no time has no
+      // `proposedTime` field at all, and reading a missing property is an evaluation *error*,
+      // not a false. That error propagated out of this branch and denied the whole update — so
+      // an undated request could not even be cancelled, because a rule about attendance blew up
+      // while deciding something unrelated.
+      return resource.data.status == 'accepted'
+        && resource.data.get('proposedTime', null) != null
+        && resource.data.get('proposedTime', request.time) < request.time
+        && request.resource.data.confirmations.diff(
+             resource.data.get('confirmations', {})
+           ).affectedKeys() == [uid()].toSet()
+        && immutable('creatorID')
+        && immutable('recipientIDs')
+        && immutable('allParticipantIDs')
+        && immutable('proposedTime')
+        && immutable('title')
+        && immutable('negotiationChain')
+        // The stake settles by derivation from these confirmations, so nothing writes it here.
+        // Leaving it open would let whoever confirms also rewrite what was at stake.
+        && immutable('stake')
+        && immutable('planInviteCode')
+        && immutable('planInviteSeats');
+    }
+
+    match /requests/{requestId} {
+      allow get, list: if (signedIn() && uid() in resource.data.allParticipantIDs) || isAdmin();
+
+      allow create: if signedIn()
+                    && request.resource.data.creatorID == uid()
+                    && uid() in request.resource.data.allParticipantIDs;
+
+      // Responding is turn-based, mirroring `Request.awaitingResponseFrom` on the client.
+      //
+      // This used to be "only a RECIPIENT may respond", which was too strict once a
+      // conversation could continue past the first reply: a counter handed the turn back to
+      // the creator, and the rules refused their answer. The invariant that actually matters
+      // is unchanged — you may never answer your own last message, so one person still cannot
+      // close a shared decision alone or farm XP for it.
+      // Two shapes, and the membership gate belongs to only one of them.
+      //
+      // Every write by an existing participant sits inside `uid() in allParticipantIDs`.
+      // Joining by invite cannot: the whole point is that the joiner is *not* a participant
+      // yet, so gating it behind that check made the branch unreachable — the rules tests
+      // caught it as the one legitimate case failing while all seven denials passed.
+      // `isJoiningPlan` does its own authorisation, and a tighter one: it requires a valid
+      // invite naming this exact request.
+      allow update: if signedIn()
+                    && (
+                      (uid() in resource.data.allParticipantIDs
+                        && (
+                          ((!isSettled() || isStillOpenToTheGroup())
+                            && isMyTurn()
+                            && isResponseStatus()
+                            && immutable('creatorID')
+                            && immutable('recipientIDs')
+                            && immutable('allParticipantIDs')
+                            && immutable('stake')
+                            && immutable('planInviteCode')
+                            && immutable('planInviteSeats'))
+                          || isConfirmingAttendance()
+                          || isCancelling()
+                          || isStaking()
+                          || isManagingPlanInvite()
+                        ))
+                      || isJoiningPlan(requestId)
+                    );
+
+      // The creator may withdraw their own request while it is still open.
+      //
+      // The rule used to permit deleting any request they created, settled or not. The client's
+      // `canCancel` is `isOpen && isCreator`, but nothing talking to Firestore directly had to
+      // honour that. Harmless while a request was only a plan; once attendance is recorded on
+      // it, an unrestricted delete is a way to erase your own no-shows — so the constraint moves
+      // to where it is actually enforced.
+      //
+      // `!isSettled()` and not "no replies yet": cancelling a request someone has countered is
+      // legitimate and the client offers it, so a stricter rule here would refuse a button the
+      // app shows.
+      allow delete: if signedIn()
+                    && resource.data.creatorID == uid()
+                    && !isSettled();
+    }
+
+    // ------------------------------------------------ requests/{id}/locations
+    // A point somebody chose to share for one plan, readable only by that plan's participants.
+    //
+    // The time window is enforced HERE and not only in the app. A client that has been tampered
+    // with is the entire threat model for a location feature: if the window lived only in Swift,
+    // "share my location" would in practice mean "share my location whenever, forever", and the
+    // promise the App Privacy answers make would be false. `request.time` is the server's clock,
+    // which is the point — a device with its clock wound forward gets nowhere.
+    //
+    // Reads are NOT window-gated. A point written legitimately stays readable until it is deleted
+    // or expires, because the alternative is a pin that vanishes mid-journey when the window
+    // closes while someone is still looking at it. Expiry is what bounds the read, via TTL on
+    // `expiresAt` plus the client filter.
+    match /requests/{requestId}/locations/{userId} {
+      function plan() {
+        return get(/databases/$(database)/documents/requests/$(requestId)).data;
+      }
+
+      function inPlan() {
+        return signedIn() && uid() in plan().allParticipantIDs;
+      }
+
+      // Only an accepted, dated plan, and only around the time it is meant to happen. Opening an
+      // hour early is deliberate: "I'm five minutes away" is said on the way, not on arrival.
+      function planIsLive() {
+        return plan().status == 'accepted'
+          && plan().proposedTime is timestamp
+          && request.time >= plan().proposedTime - duration.value(1, 'h')
+          && request.time <= plan().proposedTime + duration.value(4, 'h');
+      }
+
+      // Pinned so a coordinate cannot be written with an expiry of its own choosing — otherwise
+      // the window is enforced on the write and then quietly ignored by the thing that deletes it.
+      function isWellFormed() {
+        return request.resource.data.keys().hasOnly(
+                 ['latitude', 'longitude', 'sharedAt', 'expiresAt'])
+          && request.resource.data.latitude is number
+          && request.resource.data.longitude is number
+          && request.resource.data.expiresAt is timestamp
+          && request.resource.data.expiresAt <= plan().proposedTime + duration.value(4, 'h');
+      }
+
+      // No admin read, unlike gamification and events. Nothing in the admin panel wants this,
+      // and "where a user was on Tuesday" is the one thing that should not be readable by
+      // somebody merely because they hold the admin flag.
+      allow get, list: if inPlan();
+      allow create, update: if inPlan() && uid() == userId && planIsLive() && isWellFormed();
+      // Always allowed, window or no window: taking it back must never be the thing that is
+      // refused. Participants may also clear a stale point when the plan is done.
+      allow delete: if signedIn() && (uid() == userId || inPlan());
+    }
+
+    // ---------------------------------------------------------- user_tokens
+    // FCM device tokens. Written by the client, read only by Cloud Functions via the
+    // Admin SDK (which bypasses these rules), so clients never read anyone's tokens.
+    match /user_tokens/{userId} {
+      allow read: if false;
+      allow create, update: if signedIn() && uid() == userId;
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    // --------------------------------------------------------------- events
+    // Product-usage events. A user may write, read and delete events attributed to
+    // themselves, and nobody else's — so the log still cannot be mined from a client.
+    // Disclosed in the Privacy Policy.
+    //
+    // Self-read and self-delete exist so account deletion can erase this collection from the
+    // client (Guideline 5.1.1(v)) while Cloud Functions are undeployed: without `list` the
+    // app cannot discover its own document IDs to remove them. It also happens to be the
+    // right answer for a GDPR access or erasure request.
+    match /events/{eventId} {
+      allow get, list: if isAdmin() || (signedIn() && resource.data.userID == uid());
+      allow create: if signedIn() && request.resource.data.userID == uid();
+      // Still no updates: an event log you can rewrite is not an event log.
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.userID == uid();
+    }
+
+    // ---------------------------------------------------------- gamification
+    // Mirror of XP / streak / achievements, so progress survives a device change.
+    match /gamification/{userId} {
+      allow read: if (signedIn() && uid() == userId) || isAdmin();
+      allow create, update: if signedIn() && uid() == userId;
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    // -------------------------------------------- notification preferences
+    // Which kinds of push a person wants. Their own document and nobody else's: what someone
+    // has chosen to be interrupted about is theirs to know.
+    //
+    // Its own collection rather than a field on `users/{uid}`, which any signed-in user may
+    // read, or on `user_tokens/{uid}`, which nobody may read at all — device tokens are
+    // deliberately write-only, so settings kept there could never be shown back to their owner.
+    //
+    // A missing document means everything is on. New users and everyone who predates this get
+    // the same behaviour they had, with nothing to migrate.
+    match /notification_settings/{userId} {
+      allow read: if (signedIn() && uid() == userId) || isAdmin();
+      allow create, update: if signedIn() && uid() == userId;
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    // --------------------------------------------------------------- venues
+    // The curated list of real places offered when filling in "Where?".
+    //
+    // Editorial content, not user data: readable by anyone signed in, writable only by an admin.
+    // Curated here rather than compiled into the app precisely so a closed restaurant is a
+    // thirty-second edit instead of a code change and an App Store submission.
+    //
+    // `list` is allowed, unlike almost everything else in this file. There is nothing to leak —
+    // these are public places somebody chose to recommend, with no connection to any user.
+    match /venues/{venueId} {
+      allow get, list: if signedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------- reports
+    // Abuse reports (App Review guideline 1.2). A user files one against content they can
+    // see; only an admin can read them. Write-only from the reporter's side on purpose —
+    // being able to list reports would expose who reported whom.
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if signedIn()
+                    && request.resource.data.reporterID == uid()
+                    && request.resource.data.reportedUserID != uid();
+      allow update, delete: if false;
+    }
+
+    // ----------------------------------------------------------- admin_audit
+    // Record of every admin access to user data. Append-only ON PURPOSE: an audit trail an
+    // admin can edit or erase is not an audit trail. Invisible to non-admins.
+    match /admin_audit/{entryId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.adminID == uid();
+      allow update, delete: if false;
+    }
+
+    // Deny everything not matched above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

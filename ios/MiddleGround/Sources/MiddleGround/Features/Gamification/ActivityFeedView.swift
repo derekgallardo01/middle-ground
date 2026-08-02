@@ -2,16 +2,24 @@ import SwiftUI
 
 struct ActivityFeedView: View {
     let activities: [Activity]
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recent Activity")
-                .font(MGFonts.h2)
-            
+                .mgFont(.h2)
+
             LazyVStack(spacing: 10) {
-                ForEach(activities) { activity in
+                if activities.isEmpty {
+                Text("Respond to a request and your activity shows up here.")
+                    .mgFont(.bodySmall)
+                    .foregroundStyle(MGColors.warm600)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 8)
+            }
+
+            ForEach(activities) { activity in
                     ActivityRow(activity: activity)
-                }
+            }
             }
         }
     }
@@ -19,43 +27,46 @@ struct ActivityFeedView: View {
 
 struct ActivityRow: View {
     let activity: Activity
-    
+
+    @ScaledMetric(relativeTo: .body) private var iconWell: CGFloat = 44
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
+
     var body: some View {
         HStack(spacing: 14) {
             ZStack {
                 Circle()
                     .fill(activityColor.opacity(0.12))
-                    .frame(width: 44, height: 44)
-                
+                    .frame(width: iconWell, height: iconWell)
+
                 Image(systemName: activityIcon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: iconSize, weight: .semibold))
                     .foregroundStyle(activityColor)
             }
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(activity.title)
-                    .font(MGFonts.body)
+                    .mgFont(.body)
                     .fontWeight(.semibold)
                     .foregroundStyle(MGColors.slate)
-                
+
                 if let subtitle = activity.subtitle {
                     Text(subtitle)
-                        .font(MGFonts.bodySmall)
+                        .mgFont(.bodySmall)
                         .foregroundStyle(MGColors.warm600)
                 }
             }
-            
+
             Spacer()
-            
+
             Text(activity.timestamp, style: .time)
-                .font(MGFonts.caption)
-                .foregroundStyle(MGColors.warm400)
+                .mgFont(.caption)
+                .foregroundStyle(MGColors.warm600)
         }
         .padding(14)
         .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
     }
-    
+
     private var activityColor: Color {
         switch activity.type {
         case .streakUpdate: return MGColors.coral
@@ -66,7 +77,7 @@ struct ActivityRow: View {
         case .memoryAdded: return MGColors.lavender
         }
     }
-    
+
     private var activityIcon: String {
         switch activity.type {
         case .streakUpdate: return "flame.fill"

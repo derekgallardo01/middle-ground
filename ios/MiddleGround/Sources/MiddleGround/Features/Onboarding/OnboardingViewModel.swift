@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Factory
 
 @MainActor
@@ -7,24 +8,49 @@ final class OnboardingViewModel {
     private let authService = Container.shared.authService()
     private let signInManager = Container.shared.signInWithAppleManager()
     private let userRepository = Container.shared.userRepository()
-    private let relationshipRepository = Container.shared.relationshipRepository()
+    private let relationshipService = Container.shared.relationshipService()
     private let notificationService = NotificationService.shared
-    
+
     var currentStep: Step = .welcome
     var isLoading = false
     var errorMessage: String?
-    
+
     var userName: String = ""
     var selectedRelationshipType: RelationshipType = .couple
-    var partnerName: String = ""
-    
+    var pairingMode: PairingMode = .create
+    var inviteCodeInput: String = ""
+
+    /// Set once onboarding creates a relationship, so the final step can show the code to share.
+    private(set) var createdInviteCode: String?
+
+    /// The signed-in user, held until the person dismisses the final step.
+    ///
+    /// Onboarding used to hand this straight to `AppState`, which flipped the root view to
+    /// the main tabs immediately — so the "done" step (and the invite code on it) flashed
+    /// past and was never actually readable.
+    private(set) var completedUser: User?
+
+    enum PairingMode: String, CaseIterable, Identifiable {
+        case create
+        case join
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .create: return "Invite someone"
+            case .join: return "I have a code"
+            }
+        }
+    }
+
     enum Step: CaseIterable {
         case welcome
         case permissions
         case profile
         case relationship
         case done
-        
+
         var title: String {
             switch self {
             case .welcome: return "Meet in the Middle"
@@ -35,21 +61,26 @@ final class OnboardingViewModel {
             }
         }
     }
-    
+
     var canContinue: Bool {
         switch currentStep {
         case .welcome: return true
         case .permissions: return true
         case .profile: return !userName.trimmingCharacters(in: .whitespaces).isEmpty
-        case .relationship: return partnerName.trimmingCharacters(in: .whitespaces).isEmpty == false
+        case .relationship:
+            // Creating a group needs nothing extra; joining needs a plausible code.
+            switch pairingMode {
+            case .create: return true
+            case .join: return Relationship.normalizeInviteCode(inviteCodeInput).count >= 6
+            }
         case .done: return true
         }
     }
-    
+
     func signInWithApple() {
         isLoading = true
         errorMessage = nil
-        
+
         signInManager.signIn { [weak self] result in
             Task { @MainActor in
                 self?.isLoading = false
@@ -72,39 +103,74 @@ final class OnboardingViewModel {
             }
         }
     }
-    
+
+    #if DEBUG
+    /// Debug-only sign-in used to drive multi-device pairing tests.
+    func signInAsTestUser() {
+        isLoading = true
+        errorMessage = nil
+        Task {
+            do {
+                let user = try await authService.signInAsTestUser(named: Self.testerName())
+                userName = user.name
+                isLoading = false
+                advance()
+            } catch {
+                errorMessage = error.localizedDescription
+                isLoading = false
+            }
+        }
+    }
+
+    /// Uses `-MGTestUser <label>` when supplied so a scripted two-device run is
+    /// reproducible; falls back to a random name for ad-hoc manual testing.
+    private static func testerName() -> String {
+        if let label = AppConfiguration.testUserLabel, !label.isEmpty {
+            return "Tester \(label)"
+        }
+        return "Tester \(Int.random(in: 100...999))"
+    }
+    #endif
+
     func requestNotifications() {
         Task {
             _ = await notificationService.requestAuthorization()
             advance()
         }
     }
-    
+
     func completeOnboarding() async -> User? {
         isLoading = true
         errorMessage = nil
-        
+
         do {
-            guard var user = try await authService.currentUser() else {
+            guard var user = await authService.currentUser() else {
                 errorMessage = "Not signed in"
                 isLoading = false
                 return nil
             }
-            
+
             let cleanName = userName.trimmingCharacters(in: .whitespaces)
             if !cleanName.isEmpty {
                 user.name = cleanName
                 try await userRepository.saveUser(user)
             }
-            
-            let relationship = Relationship(
-                id: UUID().uuidString,
-                participantIDs: [user.id],
-                type: selectedRelationshipType
-            )
-            try await relationshipRepository.saveRelationship(relationship)
-            
+
+            switch pairingMode {
+            case .create:
+                let relationship = try await relationshipService.createRelationship(
+                    type: selectedRelationshipType,
+                    ownerID: user.id
+                )
+                createdInviteCode = relationship.inviteCode
+
+            case .join:
+                _ = try await relationshipService.join(inviteCode: inviteCodeInput, userID: user.id)
+                createdInviteCode = nil
+            }
+
             isLoading = false
+            completedUser = user
             advance()
             return user
         } catch {
@@ -113,12 +179,32 @@ final class OnboardingViewModel {
             return nil
         }
     }
-    
+
     func advance() {
         guard let currentIndex = Step.allCases.firstIndex(of: currentStep),
               currentIndex < Step.allCases.count - 1 else { return }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            currentStep = Step.allCases[currentIndex + 1]
-        }
+        // No `withAnimation` here. A view model cannot reach `@Environment`, so motion started
+        // from one can never honour Reduce Motion — the view animates this instead, by watching
+        // `currentStep`.
+        currentStep = Step.allCases[currentIndex + 1]
+    }
+
+    /// Whether there is a step to go back to.
+    ///
+    /// `.welcome` is the auth wall, so there is nothing behind it, and `.done` is a
+    /// confirmation of work already committed — stepping back from either would be a lie.
+    var canGoBack: Bool {
+        guard let index = Step.allCases.firstIndex(of: currentStep) else { return false }
+        return index > 0 && currentStep != .done
+    }
+
+    /// Steps backwards.
+    ///
+    /// There was no way back from any step: mistype your name on step 3, or pick the wrong
+    /// relationship type on step 4, and the only remedy was deleting the app.
+    func retreat() {
+        guard canGoBack,
+              let index = Step.allCases.firstIndex(of: currentStep) else { return }
+        currentStep = Step.allCases[index - 1]
     }
 }

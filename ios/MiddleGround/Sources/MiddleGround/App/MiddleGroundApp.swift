@@ -2,9 +2,10 @@ import SwiftUI
 
 public struct MiddleGroundRootView: View {
     @State private var appState = AppState()
-    
+    @Environment(\.scenePhase) private var scenePhase
+
     public init() {}
-    
+
     public var body: some View {
         Group {
             if appState.isCheckingAuth {
@@ -16,19 +17,25 @@ public struct MiddleGroundRootView: View {
             }
         }
         .environment(appState)
+        // Cloud Functions set the badge to the user's pending count; without this it would
+        // never come back down, so the icon kept a number long after everything was answered.
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task {
+                await NotificationService.shared.clearBadge()
+                await appState.trackAppOpened()
+            }
+        }
     }
-    
+
     private var splashScreen: some View {
         ZStack {
             MGColors.sand.ignoresSafeArea()
             VStack(spacing: 16) {
-                Image(systemName: "heart.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 72)
-                    .foregroundStyle(MGColors.coral)
+                LogoMark()
+                    .frame(width: 96, height: 96)
                 Text("Middle Ground")
-                    .font(MGFonts.displayL)
+                    .mgFont(.displayL)
             }
         }
     }
@@ -36,30 +43,34 @@ public struct MiddleGroundRootView: View {
 
 struct MainTabView: View {
     @Environment(AppState.self) private var appState
-    
+
     var body: some View {
         @Bindable var appState = appState
-        
+
         TabView(selection: $appState.selectedTab) {
             HomeView()
                 .tabItem { Label("Requests", systemImage: "bubble.left.and.bubble.right") }
                 .tag(AppState.Tab.home)
-            
+
             CalendarView()
                 .tabItem { Label("Calendar", systemImage: "calendar") }
                 .tag(AppState.Tab.calendar)
-            
+
             GamificationView()
                 .tabItem { Label("Activities", systemImage: "sparkles") }
                 .tag(AppState.Tab.activities)
-            
-            AIAssistantView()
-                .tabItem { Label("AI", systemImage: "cpu") }
-                .tag(AppState.Tab.ai)
-            
+
             ProfileView()
                 .tabItem { Label("Profile", systemImage: "person") }
                 .tag(AppState.Tab.profile)
+
+            // Present only for accounts carrying the server-issued `admin` claim. This is a
+            // convenience gate: firestore.rules refuses the underlying reads regardless.
+            if appState.isAdmin {
+                AdminView()
+                    .tabItem { Label("Admin", systemImage: "gauge.with.dots.needle.bottom.50percent") }
+                    .tag(AppState.Tab.admin)
+            }
         }
         .tint(MGColors.indigo)
     }

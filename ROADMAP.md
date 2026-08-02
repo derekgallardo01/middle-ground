@@ -266,24 +266,63 @@ Constraints that come with the decision:
 - App Review guideline 1.2 (user-generated content) applies once users rate each other: reporting,
   blocking and a response window are required. Reporting already exists (`reports` collection).
 
-## Identity & trust — 🚧 blocked on two definitions
+## Identity & trust — one defined, one still open
 
 In-person identity verification · gate guardian *(undefined)* · authorised representative
 *(undefined)* · start at 0 *(defined: reputation earned from zero)*.
 
-**Deliberately not started.** Two of the three items still have no agreed meaning, and the third is
-a regulated undertaking rather than a feature.
+**Specced, deliberately not built.** Gate Guardian now has a definition (below). It is not started
+because feature work is paused until 1.0 ships, and because its second stage is an operational
+commitment rather than an engineering one.
 
 **Identity verification** means handling government ID: a data-protection posture well beyond
 anything this app does today, a new App Privacy disclosure, near-certain review scrutiny, and an
 ongoing obligation to store and destroy identity documents correctly. That is a company decision,
 not a sprint.
 
-**Gate Guardian** and **Authorized Representative** each change the account model in a different
-direction — one is about controlling who may approach you, the other about someone acting on your
-behalf — and the second would require `firestore.rules` to let a third party write to a request
-they are not a participant of. That is the single widest change anyone could make to this app's
-security model, and it should not be built from a guess at what the words mean.
+### Gate Guardian — ✅ defined, specced, not built
+
+**A two-stage trust ladder, and a gate on meeting strangers.**
+
+| Stage | How | What it proves |
+|---|---|---|
+| 1. Identity | A third-party provider (Stripe Identity, Persona or similar) | The person holds a real government ID |
+| 2. In person | A staff member or agent meets them | A human has actually seen them |
+
+**What it unlocks:** planning with someone outside your existing groups. Today that means the
+single-plan invite — a code handed to someone you are not in a group with — and it would cover any
+future discovery. This is the "gate" the name implies, and the only version where the cost of
+verification clearly buys something: a badge alone changes nothing, and weighting the reliability
+score by verification would penalise people for declining to hand over a passport.
+
+**Documents never touch our storage.** The provider holds them; we store a pass/fail, a level and
+an opaque provider reference. That is the difference between a feature and a liability — becoming
+the custodian of identity documents brings retention, deletion and breach obligations that dwarf
+anything this app does today.
+
+Shape of the data: a `verification/{uid}` document holding `level` (`none` / `id` / `inPerson`),
+the provider reference and timestamps. Others may see *that* someone is verified — that is the
+whole point — but never the reference or anything from the document itself, which means the public
+half and the private half cannot live in the same readable record. Same reasoning that put
+notification settings in their own collection rather than on `users/{uid}`.
+
+⚠️ **Stage 2 is an operational business, not a feature.** "A staff member meets them" means people
+on the ground, in a place, being paid, with a process for what happens when they are wrong. It does
+not scale past one city without an operation behind it, and it is the **second** standing
+obligation on this roadmap — the appeals queue for Rejection Denials is the first. Two of those is
+a company rather than a backlog item, and the honest sequence is to confirm you want to run them
+before either is built.
+
+**Before it can start:** an App Privacy disclosure for identity data, a provider chosen and under
+contract, a written retention and deletion policy, and a decision about what happens to someone
+whose verification is revoked mid-plan.
+
+### Authorized Representative — still undefined
+
+Someone acting on another person's behalf. Still no agreed meaning, and it is the more dangerous of
+the two: letting a third party accept or decline for someone requires `firestore.rules` to permit
+writes to a request they are not a participant of, which is the single widest change anyone could
+make to this app's security model. It should not be built from a guess.
 
 **What exists already, and may be enough:** App Review guideline 1.2 asks for a way to report
 content, a way to block an abusive user, and a published response window. Reporting is built,

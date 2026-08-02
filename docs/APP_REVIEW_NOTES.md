@@ -5,6 +5,22 @@ Everything else here is context for us, not for Apple.
 
 ---
 
+## ⚠️ Do not clean the demo data while a version is in review
+
+`node Scripts/seed-review-data.mjs --clean` deletes the demo groups the review codes point at.
+Run it while a submission is in flight and the reviewer enters a code, is refused, and sees a
+broken app — a rejection caused entirely by housekeeping.
+
+Only run it once the version is **Ready for Sale**, and from `ios/MiddleGround` — not `ios/`,
+which is one level short and fails with MODULE_NOT_FOUND:
+
+```sh
+cd ios/MiddleGround
+node Scripts/seed-review-data.mjs --clean
+```
+
+Codes currently live for the 1.0 review: `GCE6NN`, `4H4EY6`, `995ZXA`.
+
 ## Before every submission
 
 1. **Seed fresh demo groups and collect the codes.**

@@ -84,6 +84,17 @@ extension Container {
         }
     }
 
+    var planOutcomeRepository: Factory<PlanOutcomeRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockPlanOutcomeRepository()
+            }
+            #endif
+            return FirestorePlanOutcomeRepository()
+        }
+    }
+
     var analyticsService: Factory<AnalyticsService> {
         Factory(self) { AnalyticsService(repository: self.eventRepository()) }
     }

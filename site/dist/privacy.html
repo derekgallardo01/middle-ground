@@ -358,6 +358,7 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
 <tr><td><strong>Usage events</strong> — that you signed up, paired, created a request, or responded, with a timestamp</td><td><code>events</code></td><td>Lets us understand how the product is actually used and where people get stuck. Records the <em>action</em>, not the words you wrote</td></tr>
 <tr><td><strong>Reports you file</strong> — which request you reported, who sent it, the reason, and your optional note</td><td><code>reports/{id}</code></td><td>So we can act on harassment and abuse. Readable only by staff</td></tr>
 <tr><td><strong>Crash diagnostics</strong> — stack trace, device model, OS version, and the app version at the time of a crash</td><td>Firebase Crashlytics</td><td>So we can find and fix crashes. Contains no request content and no message text</td></tr>
+<tr><td><strong>What became of a plan</strong> — that a plan was agreed, happened, was called off, or did not happen, with the party size and the kind of plan</td><td><code>plan_outcomes</code></td><td>So we can tell how often plans people agree to actually happen. <strong>These records contain no name, no account identifier, and no link to the plan or the people on it</strong> — they cannot be traced back to you, which is why they are kept rather than deleted with your account</td></tr>
 </tbody></table>
 <p>We do <strong>not</strong> collect: contacts, photos, health data, advertising identifiers, or device fingerprints. We do not collect location in the background, and we never read or upload your calendar — both are explained in full below.</p>
 <p>You can read the usage events recorded about you at any time — they are readable by your own account and by nobody else's.</p>
@@ -433,6 +434,7 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
 <li>Any location you shared expires on its own schedule — hours after the plan it belonged to —</li>
 </ul>
 <p>and is deleted by the server whether or not you delete your account.</p>
+<p>The one category of record that is <strong>not</strong> erased is the anonymous count of what became of a plan, described in the table above. It carries nothing that identifies you or the plan, so there is nothing in it to erase and no way to find "yours" — it is a tally, not a history.</p>
 <p>The erasure happens while you are still signed in, as part of the deletion itself — not on a delay and not in a queue. An automated server-side job runs the same cleanup afterwards to catch anything the app could not reach (for example if your phone lost connectivity mid-way).</p>
 <p>Deletion is permanent and cannot be undone. There is no waiting period and you do not need to contact us to do it.</p>
 <p>The one thing not erased is any <strong>report you filed about someone else</strong>, for the reason given above.</p>

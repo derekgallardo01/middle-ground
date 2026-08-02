@@ -492,6 +492,37 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.userID == uid();
     }
 
+    // -------------------------------------------------------- plan outcomes
+    // What became of a plan: agreed, attended, cancelled early or late, no-showed, disputed.
+    //
+    // Deliberately unlike `events`. Those are per-user, self-readable, deleted with the account
+    // and expired by TTL after 90 days — all correct for usage data, and all of which destroy the
+    // one record that cannot be rebuilt afterwards. These rows are kept instead, which is only
+    // defensible because they are not personal data: `hasOnly` below is what enforces that, by
+    // refusing any write carrying a user or request identifier rather than trusting the client
+    // not to send one. If a field is ever added here, it must be one that cannot single anybody
+    // out, and docs/legal/privacy-policy.md must say so.
+    match /plan_outcomes/{outcomeId} {
+      function isAnonymous() {
+        return request.resource.data.keys().hasOnly(
+                 ['outcome', 'groupSize', 'category', 'hadProposedTime', 'hoursBeforePlan', 'at'])
+          && request.resource.data.outcome in
+               ['agreed', 'attended', 'cancelled_early', 'cancelled_late', 'no_showed', 'disputed']
+          && request.resource.data.groupSize is int
+          && request.resource.data.groupSize >= 2
+          && request.resource.data.category is string
+          && request.resource.data.hadProposedTime is bool
+          && request.resource.data.at is timestamp;
+      }
+
+      // Nobody reads these in the app — reliability shown to a user is computed from their own
+      // requests. Operator-only, like the rest of the reporting surface.
+      allow get, list: if isAdmin();
+      allow create: if signedIn() && isAnonymous();
+      // Append-only, for the same reason as the event log and the audit trail.
+      allow update, delete: if false;
+    }
+
     // ---------------------------------------------------------- gamification
     // Mirror of XP / streak / achievements, so progress survives a device change.
     match /gamification/{userId} {

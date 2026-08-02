@@ -1324,6 +1324,67 @@ describe('notification settings', () => {
   });
 });
 
+// These rows are kept when events and requests are not, which is only defensible while they
+// cannot identify anyone. The rules are the enforcement, so they are what gets tested.
+describe('plan outcomes', () => {
+  const asAdmin = () => testEnv.authenticatedContext('root', { admin: true }).firestore();
+  const valid = {
+    outcome: 'attended',
+    groupSize: 3,
+    category: 'friends',
+    hadProposedTime: true,
+    hoursBeforePlan: -2,
+    at: new Date(),
+  };
+
+  test('a signed-in user can record an anonymous outcome', async () => {
+    await assertSucceeds(setDoc(doc(asAlice(), 'plan_outcomes/o1'), valid));
+  });
+
+  test('an anonymous client cannot write one', async () => {
+    await assertFails(setDoc(doc(asAnon(), 'plan_outcomes/o1'), valid));
+  });
+
+  // The point of the collection: a row that cannot be traced to a person survives account
+  // deletion honestly. A client that smuggles an identifier in defeats that entirely.
+  test('a row carrying a user or request identifier is refused', async () => {
+    await assertFails(
+      setDoc(doc(asAlice(), 'plan_outcomes/o2'), { ...valid, userID: ALICE }),
+    );
+    await assertFails(
+      setDoc(doc(asAlice(), 'plan_outcomes/o3'), { ...valid, requestID: 'r1' }),
+    );
+  });
+
+  test('an unrecognised outcome is refused', async () => {
+    await assertFails(
+      setDoc(doc(asAlice(), 'plan_outcomes/o4'), { ...valid, outcome: 'whatever' }),
+    );
+  });
+
+  test('a group of fewer than two is refused', async () => {
+    await assertFails(setDoc(doc(asAlice(), 'plan_outcomes/o5'), { ...valid, groupSize: 1 }));
+  });
+
+  test('append-only: no rewriting or deleting what was recorded', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'plan_outcomes/o6'), valid);
+    });
+    await assertFails(updateDoc(doc(asAlice(), 'plan_outcomes/o6'), { outcome: 'agreed' }));
+    await assertFails(deleteDoc(doc(asAlice(), 'plan_outcomes/o6'), {}));
+    await assertFails(updateDoc(doc(asAdmin(), 'plan_outcomes/o6'), { outcome: 'agreed' }));
+    await assertFails(deleteDoc(doc(asAdmin(), 'plan_outcomes/o6'), {}));
+  });
+
+  test('only an admin reads them back', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'plan_outcomes/o7'), valid);
+    });
+    await assertFails(getDoc(doc(asAlice(), 'plan_outcomes/o7')));
+    await assertSucceeds(getDoc(doc(asAdmin(), 'plan_outcomes/o7')));
+  });
+});
+
 describe('unmatched paths', () => {
   test('a collection with no rule is denied', async () => {
     await assertFails(getDoc(doc(asAlice(), 'secrets/s1')));

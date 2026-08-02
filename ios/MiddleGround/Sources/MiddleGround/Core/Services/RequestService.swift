@@ -5,6 +5,10 @@ import Factory
 final class RequestService {
     private let repository: RequestRepository
     private let analytics = Container.shared.analyticsService()
+    /// Separate from `analytics` on purpose: events are deleted after 90 days and with the
+    /// account, which is right for usage data and fatal for a follow-through record. See
+    /// `PlanOutcome`.
+    private let planOutcomes = Container.shared.planOutcomeRepository()
 
     init(repository: RequestRepository) {
         self.repository = repository
@@ -47,6 +51,13 @@ final class RequestService {
         try updated.addResponse(message)
         try await repository.updateRequest(updated)
         await analytics.trackResponse(response, to: request, by: userID)
+
+        // The denominator. Recorded on the transition into `.accepted`, not on every response to
+        // an already-accepted plan — a group plan stays open to further acceptances, so testing
+        // the new status alone would count one night several times.
+        if updated.status == .accepted, request.status != .accepted {
+            await planOutcomes.record(.from(updated, outcome: .agreed))
+        }
         return updated
     }
 
@@ -85,6 +96,19 @@ final class RequestService {
             requestID: request.id,
             metadata: ["outcome": outcome.rawValue]
         )
+
+        // Only the answer that completes the set settles the plan. Recording per answer would
+        // count a two-person plan twice, and a three-person plan three times.
+        if updated.everyoneHasAnswered {
+            let settled: PlanOutcomeType = if updated.isConfirmedComplete {
+                .attended
+            } else if updated.isDisputed {
+                .disputed
+            } else {
+                .noShowed
+            }
+            await planOutcomes.record(.from(updated, outcome: settled))
+        }
         return updated
     }
 
@@ -197,6 +221,12 @@ final class RequestService {
             userID: userID,
             requestID: request.id,
             metadata: reason.map { ["reason": $0.rawValue] } ?? [:]
+        )
+        // Early and late are separate outcomes, not one cancellation with a flag: the whole
+        // argument about follow-through is that calling off a week ahead and calling off an hour
+        // ahead are different acts.
+        await planOutcomes.record(
+            .from(updated, outcome: request.isCancellingLate() ? .cancelledLate : .cancelledEarly)
         )
         return updated
     }

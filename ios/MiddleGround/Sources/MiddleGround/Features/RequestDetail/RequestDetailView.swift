@@ -254,20 +254,27 @@ struct RequestDetailView: View {
                 Spacer()
             }
 
-            Button(role: .destructive) {
-                showCancelConfirmation = true
-            } label: {
-                HStack {
-                    Image(systemName: "xmark.circle")
-                    Text("Cancel request")
-                        .mgFont(.body)
-                    Spacer()
+            // Only the creator may call a plan off, and this row is shown to *whoever* is waiting
+            // — which after a counter is usually the recipient. The button was rendered
+            // unconditionally, so they could open the reason picker, choose one, and only then be
+            // told "Only the person who sent this can cancel it". `viewModel.canCancel` existed
+            // the whole time and was used nowhere in this view.
+            if viewModel.canCancel {
+                Button(role: .destructive) {
+                    showCancelConfirmation = true
+                } label: {
+                    HStack {
+                        Image(systemName: "xmark.circle")
+                        Text("Cancel request")
+                            .mgFont(.body)
+                        Spacer()
+                    }
+                    .foregroundStyle(MGColors.coral)
                 }
-                .foregroundStyle(MGColors.coral)
+                .disabled(viewModel.isSending)
+                .accessibilityLabel("Cancel request")
+                .accessibilityHint("Withdraws this request so your partner no longer sees it")
             }
-            .disabled(viewModel.isSending)
-            .accessibilityLabel("Cancel request")
-            .accessibilityHint("Withdraws this request so your partner no longer sees it")
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)

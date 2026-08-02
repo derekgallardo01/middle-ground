@@ -101,6 +101,30 @@ final class LateCancellationTests: XCTestCase {
         XCTAssertTrue(cancelled.wasCancelledLate)
     }
 
+    // MARK: - Who is offered the option
+
+    /// Found on a real device: the detail screen showed "Cancel request" to whoever was waiting,
+    /// which after a counter is usually the *recipient*. They could open the reason picker,
+    /// choose a reason, and only then be told they were not allowed. `canCancel` is the gate the
+    /// view should have been asking, and these assert the answer it gives.
+    func testTheRecipientIsNotOfferedCancellation() {
+        // The state from the screenshot: negotiated, waiting on the other person.
+        let negotiating = plan(status: .negotiated, at: Date().addingTimeInterval(5 * day))
+
+        XCTAssertTrue(negotiating.canCancel(as: alice), "the creator may call it off")
+        XCTAssertFalse(negotiating.canCancel(as: bob), "the recipient may not, so must not be asked")
+    }
+
+    /// The same question for every state the waiting row can appear in — it is shown whenever
+    /// someone has replied and is waiting, which is most of a plan's life.
+    func testOnlyTheCreatorIsEverOfferedCancellation() {
+        for status in [RequestStatus.pending, .negotiated, .countered, .rescheduled, .saved, .accepted] {
+            let request = plan(status: status, at: Date().addingTimeInterval(5 * day))
+            XCTAssertTrue(request.canCancel(as: alice), "creator, \(status.rawValue)")
+            XCTAssertFalse(request.canCancel(as: bob), "recipient, \(status.rawValue)")
+        }
+    }
+
     // MARK: - What the score does with it
 
     func testOnlyLateCancellationsCountAgainstYou() {

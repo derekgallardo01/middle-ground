@@ -471,6 +471,64 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.senderID == uid();
     }
 
+    // ---------------------------------------------------------- read receipts
+    // How far each person has read a plan. Per plan, not per message, on purpose: "Alex has
+    // seen this" answers a real question, while a tick against every line imports the thing that
+    // makes group chats stressful. It is also the weaker of two signals already here --
+    // `awaitingResponseFrom` says who owes an *answer*, which matters more than who looked.
+    //
+    // `readAt` is a server timestamp, checked rather than trusted: a client that could choose it
+    // could claim to have read a message before it was sent, or never mark itself read at all
+    // while still appearing current.
+    match /requests/{requestId}/reads/{userId} {
+      function plan() {
+        return get(/databases/$(database)/documents/requests/$(requestId)).data;
+      }
+
+      function inPlan() {
+        return signedIn() && uid() in plan().allParticipantIDs;
+      }
+
+      allow get, list: if inPlan();
+      allow create, update: if inPlan()
+                            && uid() == userId
+                            && request.resource.data.keys().hasOnly(['readAt'])
+                            && request.resource.data.readAt == request.time;
+      allow delete: if signedIn() && uid() == userId;
+    }
+
+    // ------------------------------------------------------ typing indicator
+    // Ephemeral, disposable, and the least important data in the app.
+    //
+    // Its own subcollection because presence on the request document would rewrite the whole
+    // plan several times per person per sentence. Here each flag is a few bytes nothing else
+    // listens to.
+    //
+    // The expiry is pinned rather than trusted: a client that could choose it would claim to be
+    // typing for an hour, and "Alex is typing…" that never clears is worse than no indicator.
+    match /requests/{requestId}/presence/{userId} {
+      function plan() {
+        return get(/databases/$(database)/documents/requests/$(requestId)).data;
+      }
+
+      function inPlan() {
+        return signedIn() && uid() in plan().allParticipantIDs;
+      }
+
+      allow get, list: if inPlan();
+
+      // Only your own flag, only the two timestamps, and only a few seconds into the future.
+      allow create, update: if inPlan()
+                            && uid() == userId
+                            && request.resource.data.keys().hasOnly(['startedAt', 'expiresAt'])
+                            && request.resource.data.startedAt is timestamp
+                            && request.resource.data.expiresAt is timestamp
+                            && request.resource.data.expiresAt > request.time
+                            && request.resource.data.expiresAt <= request.time + duration.value(30, 's');
+
+      allow delete: if signedIn() && uid() == userId;
+    }
+
     match /requests/{requestId}/locations/{userId} {
       function plan() {
         return get(/databases/$(database)/documents/requests/$(requestId)).data;

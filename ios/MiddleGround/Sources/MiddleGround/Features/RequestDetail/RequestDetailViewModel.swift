@@ -17,6 +17,8 @@ final class RequestDetailViewModel {
     let reservations = Container.shared.reservationProvider()
     let planOutcomes = Container.shared.planOutcomeRepository()
     let planMessages = Container.shared.planMessageRepository()
+    let typingPresence = Container.shared.typingPresenceRepository()
+    let readReceiptRepository = Container.shared.planReadReceiptRepository()
 
     var request: Request
     var currentUser: User?
@@ -39,6 +41,14 @@ final class RequestDetailViewModel {
     var messages: [PlanMessage] = []
     /// The message being replied to, if the composer is aimed at one.
     var replyingToID: String?
+    /// Everyone currently typing, excluding you.
+    var typing: [TypingPresence] = []
+    /// Throttles the typing heartbeat. See `noteTyping()`.
+    var lastTypingPing: Date = .distantPast
+    let typingTask = TaskBox()
+    /// Who else has seen this plan.
+    var readReceipts: [PlanReadReceipt] = []
+    let readsTask = TaskBox()
     /// Boxed so `deinit` can cancel it. `deinit` on a @MainActor type is nonisolated, so it
     /// cannot touch an isolated stored property — and leaving the Firestore listener running
     /// after the screen closes is a real cost, not a tidiness point.
@@ -261,6 +271,9 @@ final class RequestDetailViewModel {
         await loadPartnerName()
         await loadParticipantNames()
         observeMessages()
+        observeTyping()
+        observeReadReceipts()
+        markRead()
         await loadSharedLocations()
         await loadBookingLink()
     }
@@ -464,5 +477,7 @@ final class RequestDetailViewModel {
 
     deinit {
         messagesTask.cancel()
+        typingTask.cancel()
+        readsTask.cancel()
     }
 }

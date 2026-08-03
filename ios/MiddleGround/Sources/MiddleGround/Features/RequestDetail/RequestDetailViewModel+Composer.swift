@@ -65,6 +65,8 @@ extension RequestDetailViewModel {
         counterText = ""
         replyingToID = nil
 
+        stopTyping()
+
         let message = PlanMessage(senderID: currentUserID, text: text, parentID: parentID)
         do {
             try await planMessages.send(message, forRequest: request.id)

@@ -48,6 +48,19 @@ struct NegotiationView: View {
                 .mgAnimation(MGMotion.reveal, value: viewModel.transcript.count)
             }
 
+            if let seenBy = viewModel.seenBySentence {
+                Text(seenBy)
+                    .mgFont(.caption)
+                    .foregroundStyle(MGColors.warm400)
+                    .padding(.horizontal, MGSpacing.sm)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+
+            if !viewModel.typingNames.isEmpty {
+                TypingIndicator(names: viewModel.typingNames)
+                    .mgTransition(.opacity)
+            }
+
             // Gated on being able to *speak*, not on whose turn it is. Gating the whole composer
             // on `canRespond` meant somebody who had already answered could not ask a question
             // about the plan they had just agreed to — and the only send path was a counter, so
@@ -112,6 +125,9 @@ struct NegotiationView: View {
                             text: $viewModel.counterText,
                             axis: .vertical
                         )
+                        // Throttled inside the view model to one write per heartbeat, not one
+                        // per keystroke.
+                        .onChange(of: viewModel.counterText) { _, _ in viewModel.noteTyping() }
                             .mgFont(.body)
                             .focused($composerFocused)
                             .submitLabel(.send)

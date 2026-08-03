@@ -19,7 +19,7 @@ const {
   assertSucceeds,
 } = require('@firebase/rules-unit-testing');
 const {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp,
 } = require('firebase/firestore');
 
 const ALICE = 'alice';
@@ -1384,6 +1384,79 @@ describe('messages on a plan', () => {
       await setDoc(doc(ctx.firestore(), 'requests/r2'), request({ status: 'cancelled' }));
     });
     await assertFails(setDoc(doc(asBob(), 'requests/r2/messages/m9'), message(BOB)));
+  });
+});
+
+// Ephemeral, and pinned so it cannot lie. A client that chose its own expiry could claim to be
+// typing for an hour, and an indicator that never clears is worse than none.
+describe('typing presence', () => {
+  beforeEach(() =>
+    seed((db) => setDoc(doc(db, 'requests/r1'), request({ status: 'accepted' }))),
+  );
+
+  const soon = (seconds) => new Date(Date.now() + seconds * 1000);
+
+  test('you can flag yourself typing on a plan you are on', async () => {
+    await assertSucceeds(setDoc(doc(asBob(), 'requests/r1/presence/bob'), {
+      startedAt: new Date(),
+      expiresAt: soon(8),
+    }));
+  });
+
+  test('you cannot flag someone else as typing', async () => {
+    await assertFails(setDoc(doc(asBob(), 'requests/r1/presence/alice'), {
+      startedAt: new Date(),
+      expiresAt: soon(8),
+    }));
+  });
+
+  test('an expiry far in the future is refused', async () => {
+    await assertFails(setDoc(doc(asBob(), 'requests/r1/presence/bob'), {
+      startedAt: new Date(),
+      expiresAt: soon(3600),
+    }));
+  });
+
+  test('someone outside the plan cannot read or write presence', async () => {
+    await assertFails(setDoc(doc(asMallory(), 'requests/r1/presence/mallory'), {
+      startedAt: new Date(),
+      expiresAt: soon(8),
+    }));
+    await assertFails(getDoc(doc(asMallory(), 'requests/r1/presence/bob')));
+  });
+});
+
+// Per plan, not per message. `readAt` is the server's clock, so nobody can claim to have read
+// something before it was sent.
+describe('read receipts', () => {
+  beforeEach(() =>
+    seed((db) => setDoc(doc(db, 'requests/r1'), request({ status: 'accepted' }))),
+  );
+
+  test('you can mark a plan read with the server clock', async () => {
+    await assertSucceeds(setDoc(doc(asBob(), 'requests/r1/reads/bob'), {
+      readAt: serverTimestamp(),
+    }));
+  });
+
+  test('a client-chosen time is refused', async () => {
+    await assertFails(setDoc(doc(asBob(), 'requests/r1/reads/bob'), {
+      readAt: new Date(2000, 0, 1),
+    }));
+  });
+
+  test('you cannot mark the plan read on somebody else behalf', async () => {
+    await assertFails(setDoc(doc(asBob(), 'requests/r1/reads/alice'), {
+      readAt: serverTimestamp(),
+    }));
+  });
+
+  test('participants can see who has read, outsiders cannot', async () => {
+    await assertSucceeds(setDoc(doc(asBob(), 'requests/r1/reads/bob'), {
+      readAt: serverTimestamp(),
+    }));
+    await assertSucceeds(getDoc(doc(asAlice(), 'requests/r1/reads/bob')));
+    await assertFails(getDoc(doc(asMallory(), 'requests/r1/reads/bob')));
   });
 });
 

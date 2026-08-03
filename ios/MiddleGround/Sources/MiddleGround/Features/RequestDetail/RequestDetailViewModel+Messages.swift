@@ -48,7 +48,12 @@ extension RequestDetailViewModel {
         messagesTask.task = Task { [weak self] in
             for await latest in repository.observeMessages(forRequest: requestID, limit: 100) {
                 guard !Task.isCancelled else { return }
-                await MainActor.run { self?.messages = latest }
+                await MainActor.run {
+                    let grew = latest.count > (self?.messages.count ?? 0)
+                    self?.messages = latest
+                    // Still looking when it arrived, so it has genuinely been seen.
+                    if grew { self?.markRead() }
+                }
             }
         }
     }

@@ -84,6 +84,28 @@ extension Container {
         }
     }
 
+    var planReadReceiptRepository: Factory<PlanReadReceiptRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockPlanReadReceiptRepository()
+            }
+            #endif
+            return FirestorePlanReadReceiptRepository()
+        }
+    }
+
+    var typingPresenceRepository: Factory<TypingPresenceRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockTypingPresenceRepository()
+            }
+            #endif
+            return FirestoreTypingPresenceRepository()
+        }
+    }
+
     var planMessageRepository: Factory<PlanMessageRepository> {
         Factory(self) {
             #if DEBUG

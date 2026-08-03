@@ -50,6 +50,11 @@ Group chats are great for talking. They're terrible for deciding.
 <p>Send a plan to the whole group. One person dropping out doesn't cancel the night for everyone else.</p>
 </div>
 <div class="card">
+<span class="ico">💬</span>
+<h3>Talk it through</h3>
+<p>Ask a question about a plan without accidentally changing it. Replies tuck under the message they answer.</p>
+</div>
+<div class="card">
 <span class="ico">🏅</span>
 <h3>A friendly scoreboard</h3>
 <p>In a group of friends, see who turns up most. Never between two people — that one stays off, on purpose.</p>

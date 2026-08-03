@@ -42,12 +42,25 @@ Recorded so a future claim can be checked against the same facts rather than re-
 
 ## Status page
 
-<https://status-api.opentable.com> — live, titled "Status Dashboard". Partners are expected to
-subscribe. It exposes no RSS/Atom feed and no public `/api/v2/` JSON endpoint (both 404), so
-subscription is a manual step through the page itself and needs a real email address.
+<https://status-api.opentable.com> — a StatusDashboard-hosted page. No RSS/Atom feed and no public
+JSON API (`/api/v1/*`, `/api/v2/*` all 404); the only subscription route is the form at
+`/subscribe`, which POSTs `email` plus one repeated `service` field per service to
+`subscribe/email`.
 
-**Open action:** subscribe with the same address used on the application, so notices arrive where
-the rest of the correspondence does.
+**Requested 2 August 2026** for `derekgallardo01@gmail.com`, on the two services that bear on us:
+
+| ID | Service | Why |
+|---|---|---|
+| 5720 | Consumer API | Directory, Availability Search and Booking — what a `ReservationProvider` implementation would call |
+| 5721 | Network Access API | Partner-facing Inventory and Onboarding APIs — relevant once there is an agreement |
+
+Not subscribed to 5722 (Restaurant Partner API — POS, Sync, CRM): it serves restaurants running
+OpenTable's till systems, which is not us.
+
+> ⚠️ **Not active yet.** The server replied "we have just sent you an email to confirm your
+> subscription". It only takes effect when the validation link in that email is clicked, which
+> cannot be done from here. If the application used a different address, resubscribe with that one
+> instead — alerts should arrive where the rest of the correspondence does.
 
 ## Why the follow-through data matters here
 

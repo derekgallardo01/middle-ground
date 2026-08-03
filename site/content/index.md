@@ -45,6 +45,21 @@ Group chats are great for talking. They're terrible for deciding.
 <p>Afterwards, the app checks in. Over time you get an honest picture of who actually shows up.</p>
 </div>
 <div class="card">
+<span class="ico">👥</span>
+<h3>More than two of you</h3>
+<p>Send a plan to the whole group. One person dropping out doesn't cancel the night for everyone else.</p>
+</div>
+<div class="card">
+<span class="ico">🏅</span>
+<h3>A friendly scoreboard</h3>
+<p>In a group of friends, see who turns up most. Never between two people — that one stays off, on purpose.</p>
+</div>
+<div class="card">
+<span class="ico">🍴</span>
+<h3>Somewhere to sit</h3>
+<p>Once you've agreed on a place, book it in a tap. The time and the number of you are already filled in.</p>
+</div>
+<div class="card">
 <span class="ico">📆</span>
 <h3>Spot the clashes</h3>
 <p>It quietly checks your calendar and warns you if you're already busy. Your calendar never leaves your phone.</p>
@@ -65,7 +80,7 @@ Group chats are great for talking. They're terrible for deciding.
 
 The hard decisions in an app about relationships are the ones about what to leave out.
 
-**Couples never get scored.** The app tracks who shows up, but partners can't see each other's number. A score your partner can throw back at you isn't feedback, it's ammunition.
+**Couples never get scored.** Friends get a scoreboard. Couples never do — not as a setting, as a rule the app won't let you turn on. A score your partner can throw back at you isn't feedback, it's ammunition. Two people are two people whatever you label the group, so the app checks the number, not the name.
 
 **Location disappears.** You can only share it around the time of a plan you both agreed to, and it's deleted afterwards. There's no tracking, and nothing runs in the background.
 

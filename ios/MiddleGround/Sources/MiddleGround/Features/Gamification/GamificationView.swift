@@ -28,6 +28,13 @@ struct GamificationView: View {
                         if let reliability = viewModel.reliability {
                             ReliabilityCard(score: reliability)
                         }
+                        ForEach(viewModel.scoreboards, id: \.group.id) { entry in
+                            ScoreboardCard(
+                                groupName: entry.group.label,
+                                board: entry.board,
+                                currentUserID: viewModel.currentUser?.id
+                            )
+                        }
                         AchievementsView(achievements: viewModel.achievements)
                         ActivityFeedView(activities: viewModel.activities)
                     }

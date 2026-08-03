@@ -18,6 +18,7 @@ Screenshots show the app as it looks today.
 <li>Deleting your account now also removes your notification preferences, which were being left behind.</li>
 <li><strong>We started measuring whether plans actually happen.</strong> The app now keeps a running count of how many agreed plans go ahead, and how many get called off early or at the last minute. It's anonymous — no names, no link to anyone — and it's the number restaurants care about most. We can't work it out later, so it starts now.</li>
 <li><strong>Groundwork for booking a table.</strong> The part that doesn't need anyone's permission is in: suggested places now hand you a booking link with the time and party size already filled in. Booking without leaving the app needs a partnership; the app is built so that becomes a switch rather than a rewrite.</li>
+<li><strong>A friendly scoreboard.</strong> In a group of friends, you can now see who turns up most. It never appears between two people — a ranking between partners is a weapon, not a game — and nobody gets a number until there are enough plans to mean something.</li>
 </ul>
 <figure class="shot"><img src="/shots/05-group.webp" alt="A plan shared with a group, showing who has replied" loading="lazy" width="540" height="1174"><figcaption>A plan with a group</figcaption></figure>
 </div>

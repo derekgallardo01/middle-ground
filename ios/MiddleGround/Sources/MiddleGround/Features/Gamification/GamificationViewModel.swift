@@ -7,10 +7,16 @@ final class GamificationViewModel {
     private let gamificationService = Container.shared.gamificationService()
     private let authService = Container.shared.authService()
     private let requestService = Container.shared.requestService()
+    private let relationshipRepository = Container.shared.relationshipRepository()
+    private let userRepository = Container.shared.userRepository()
 
     /// Derived from the request history rather than stored, so it can never drift from the
     /// records it is drawn from — and there is no separate number to tamper with.
     private(set) var reliability: ReliabilityScore?
+
+    /// One board per eligible group — never for a couple, never for two people. See
+    /// `GroupScoreboard` for why that rule is in the type rather than in this screen.
+    private(set) var scoreboards: [(group: Relationship, board: GroupScoreboard)] = []
 
     var currentUser: User?
     var stats: GamificationStats = GamificationStats(streakDays: 0, relationshipXP: 0, level: 1, growthScore: 0, nextLevelXP: 500)
@@ -69,8 +75,36 @@ final class GamificationViewModel {
         // Best-effort: a failed request fetch costs the reliability card, not the whole screen.
         if let requests = try? await requestService.fetchRequests(for: currentUser.id) {
             reliability = ReliabilityScore.from(requests: requests, userID: currentUser.id)
+            await loadScoreboards(from: requests)
         }
         isLoading = false
         hasLoaded = true
+    }
+
+    /// Builds a board for each group that may have one.
+    ///
+    /// Names are fetched only for members of eligible groups, so a couple costs no reads at all.
+    private func loadScoreboards(from requests: [Request]) async {
+        guard let currentUser else { return }
+        let groups = (try? await relationshipRepository.fetchRelationships(for: currentUser.id))?
+            .filter(GroupScoreboard.isEligible) ?? []
+        guard !groups.isEmpty else {
+            scoreboards = []
+            return
+        }
+
+        var names: [String: String] = [currentUser.id: currentUser.name]
+        for userID in Set(groups.flatMap(\.participantIDs)) where names[userID] == nil {
+            if let user = try? await userRepository.user(id: userID) {
+                names[userID] = user.name
+            }
+        }
+
+        scoreboards = groups.compactMap { group in
+            guard let board = GroupScoreboard.from(
+                relationship: group, requests: requests, names: names
+            ), board.isWorthShowing else { return nil }
+            return (group, board)
+        }
     }
 }

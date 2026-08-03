@@ -4,31 +4,24 @@ A record of the application as sent, kept because the next conversation will be 
 If they come back with questions, or if we reapply at a different tier in a year, the thing we
 will want is not a summary — it is the exact claim we made about volume and use case.
 
-> **⚠️ Unconfirmed fields are marked `TO CONFIRM`.** They are what only the sender knows. Fill
-> them in while it is still fresh; a year from now nobody remembers what number went in the box.
-
 ## Submission facts
 
 | | |
 |---|---|
-| Submitted on | `TO CONFIRM` |
-| Submitted by | Derek Gallardo |
-| Contact email given | `TO CONFIRM` |
-| Tier / programme applied for | `TO CONFIRM` — affiliate, referral, or booking API |
-| MAU / volume claimed | `TO CONFIRM` — **the single most important field to record verbatim** |
+| Submitted | Yes — 2 August 2026, by Derek Gallardo |
 | Market stated | Miami |
 | Stage stated | Early-stage iOS app, pre-launch on the App Store at time of writing |
-| Reference number, if any | `TO CONFIRM` |
+| Exact wording, tier and volume claimed | **Not recorded.** Submitted directly; the form's contents were not captured |
+
+> The figure claimed about volume is the one a later conversation is most likely to be held
+> against, and it is not recoverable from this repo. If it can still be found — in a sent
+> confirmation email, or the form's own record — it is worth pasting here. If not, treat the facts
+> below as the only verifiable ground and do not reconstruct the number from memory.
 
 ## Answer given
 
-The prepared answer is in [opentable.md](opentable.md). If the submitted text differed from it —
-shortened for a form field, or rewritten in the box — paste what actually went in below, not a
-description of it.
-
-```
-TO CONFIRM: paste the submitted text verbatim
-```
+The prepared answer is in [opentable.md](opentable.md). The submitted text was not captured, so
+treat that file as *what we intended to say* rather than a transcript of what went in the box.
 
 ## What was true on the day
 

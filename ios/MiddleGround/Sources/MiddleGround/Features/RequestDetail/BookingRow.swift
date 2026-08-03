@@ -23,7 +23,15 @@ struct BookingRow: View {
             Text("Somewhere to sit")
                 .mgFont(.h3)
 
-            Text("Check tables at \(placeName) for \(partySize). We'll fill in the time and how many of you there are.")
+            // One paragraph rather than a description plus a footnote: `.caption` is semibold in
+            // this design system — a badge weight — so a disclaimer set in it came out heavier
+            // than the copy above it, which put the least important line at the top of the
+            // hierarchy. Said plainly here instead, because the button looks like it books and
+            // it does not.
+            Text("""
+                 Check tables at \(placeName) for \(partySize), around the time you agreed. \
+                 Booking happens on OpenTable, not here.
+                 """)
                 .mgFont(.bodySmall)
                 .foregroundStyle(MGColors.warm600)
 
@@ -40,11 +48,6 @@ struct BookingRow: View {
                     .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
             }
             .buttonStyle(ScaleButtonStyle())
-
-            // Said plainly because the button looks like it books, and it does not.
-            Text("Opens OpenTable. Booking happens there, not here.")
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
         }
         .mgSurfaceCard()
     }

@@ -4,6 +4,23 @@ protocol RequestRepository: Sendable {
     func fetchRequests(for userID: String) async throws -> [Request]
     func createRequest(_ request: Request) async throws
     func updateRequest(_ request: Request) async throws
+
+    /// Appends one message atomically, and returns the request as it now stands.
+    ///
+    /// `updateRequest` writes the whole document from a copy the client read earlier, so two
+    /// people answering at the same moment both append to *their* copy of the chain and the
+    /// second write silently drops the first message. Turn-taking used to hide this — with two
+    /// people only one could ever write — but a group plan can legitimately have several people
+    /// owing an answer at once, and comments deliberately let anyone speak at any time. Both
+    /// make the overlap ordinary rather than exotic.
+    ///
+    /// Doing the read inside a transaction also means the model validates the *server's* current
+    /// state, not a snapshot from before someone else's write.
+    func appendMessage(
+        _ message: NegotiationMessage,
+        to requestID: String,
+        proposedTime: Date?
+    ) async throws -> Request
     func deleteRequest(_ request: Request) async throws
 
     /// Publishes an invite that grants access to one plan.
@@ -33,6 +50,23 @@ actor MockRequestRepository: RequestRepository {
 
     func createRequest(_ request: Request) async throws {
         requests.insert(request, at: 0)
+    }
+
+    /// Serial by construction, being an actor — which is exactly the property the Firestore
+    /// implementation has to buy with a transaction.
+    func appendMessage(
+        _ message: NegotiationMessage,
+        to requestID: String,
+        proposedTime: Date?
+    ) async throws -> Request {
+        guard let index = requests.firstIndex(where: { $0.id == requestID }) else {
+            throw RequestError.notAllowedToRespond
+        }
+        var request = requests[index]
+        if let proposedTime { request.proposedTime = proposedTime }
+        try request.addResponse(message)
+        requests[index] = request
+        return request
     }
 
     func updateRequest(_ request: Request) async throws {

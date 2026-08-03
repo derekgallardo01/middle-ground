@@ -1,4 +1,5 @@
 import XCTest
+import Factory
 @testable import MiddleGround
 
 /// Saying something must cost nothing.
@@ -111,5 +112,59 @@ final class CommentTests: XCTestCase {
         var request = groupPlan()
         request.status = .completed
         XCTAssertTrue(request.canComment(as: "bob"))
+    }
+
+    /// Two people answering from the same stale copy must not lose one of the messages.
+    ///
+    /// This is what `appendMessage` buys. Writing the whole document from the caller's copy —
+    /// which is what `updateRequest` does — meant the second write rebuilt the chain from a
+    /// snapshot taken before the first, and the first message simply vanished. Turn-taking hid
+    /// it while plans had two people; a group can have several people legitimately owing an
+    /// answer at once, and comments let anyone speak at any time.
+    func testTwoAnswersFromTheSameStaleCopyBothSurvive() async throws {
+        AppConfiguration.useMockRepositories = true
+        defer { AppConfiguration.useMockRepositories = false }
+
+        let repository = MockRequestRepository()
+        let service = RequestService(repository: repository)
+        let plan = groupPlan()
+        try await repository.createRequest(plan)
+
+        // Both "clients" hold the copy from before either of them answered.
+        let stale = plan
+        _ = try await service.respond(to: stale, with: .accept, by: "bob")
+        _ = try await service.respond(to: stale, with: .accept, by: "carol")
+
+        let stored = try await repository.fetchRequests(for: "alice")
+            .first { $0.id == plan.id }
+        XCTAssertEqual(
+            stored?.negotiationChain.count,
+            2,
+            "carol's answer was built from a copy that predates bob's, and must not erase it"
+        )
+        XCTAssertEqual(
+            Set(stored?.negotiationChain.map(\.senderID) ?? []),
+            ["bob", "carol"]
+        )
+    }
+
+    /// The same hazard, from the direction comments opened up.
+    func testACommentDoesNotEraseAnAnswerSentAtTheSameMoment() async throws {
+        AppConfiguration.useMockRepositories = true
+        defer { AppConfiguration.useMockRepositories = false }
+
+        let repository = MockRequestRepository()
+        let service = RequestService(repository: repository)
+        let plan = groupPlan()
+        try await repository.createRequest(plan)
+
+        let stale = plan
+        _ = try await service.respond(to: stale, with: .accept, by: "bob")
+        _ = try await service.respond(to: stale, with: .comment, text: "running late", by: "carol")
+
+        let stored = try await repository.fetchRequests(for: "alice")
+            .first { $0.id == plan.id }
+        XCTAssertEqual(stored?.negotiationChain.count, 2)
+        XCTAssertEqual(stored?.status, .accepted, "the comment did not undo bob's yes")
     }
 }

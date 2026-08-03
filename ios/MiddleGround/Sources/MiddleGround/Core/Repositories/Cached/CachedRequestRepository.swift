@@ -39,6 +39,24 @@ actor CachedRequestRepository: RequestRepository {
         try markSynced(id: request.id)
     }
 
+    /// Remote first, then cache what came back.
+    ///
+    /// The opposite order to `updateRequest`, and deliberately: the appended chain is decided by
+    /// the server inside a transaction, so there is nothing correct to write locally until it
+    /// returns. Guessing the result here would put a message in the cache that may have lost a
+    /// race — the exact failure the transaction exists to prevent.
+    func appendMessage(
+        _ message: NegotiationMessage,
+        to requestID: String,
+        proposedTime: Date?
+    ) async throws -> Request {
+        let updated = try await remote.appendMessage(
+            message, to: requestID, proposedTime: proposedTime
+        )
+        try? insertLocal(updated, needsSync: false)
+        return updated
+    }
+
     func deleteRequest(_ request: Request) async throws {
         try deleteLocal(id: request.id)
         try await remote.deleteRequest(request)

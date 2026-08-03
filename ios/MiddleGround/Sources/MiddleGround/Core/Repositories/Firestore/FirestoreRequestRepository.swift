@@ -45,6 +45,44 @@ actor FirestoreRequestRepository: RequestRepository {
         try db.collection(Self.collection).document(request.id).setData(from: dto, merge: true)
     }
 
+    func appendMessage(
+        _ message: NegotiationMessage,
+        to requestID: String,
+        proposedTime: Date?
+    ) async throws -> Request {
+        let reference = db.collection(Self.collection).document(requestID)
+
+        return try await withCheckedThrowingContinuation { continuation in
+            db.runTransaction { transaction, errorPointer -> Any? in
+                do {
+                    // Read inside the transaction, so the chain being appended to is the one on
+                    // the server right now — not the copy this screen loaded a minute ago.
+                    let snapshot = try transaction.getDocument(reference)
+                    guard var request = try snapshot.data(as: RequestDTO.self).toModel() else {
+                        throw RequestError.notAllowedToRespond
+                    }
+                    if let proposedTime { request.proposedTime = proposedTime }
+                    try request.addResponse(message)
+                    try transaction.setData(
+                        from: RequestDTO(from: request),
+                        forDocument: reference,
+                        merge: true
+                    )
+                    return request
+                } catch {
+                    errorPointer?.pointee = error as NSError
+                    return nil
+                }
+            } completion: { result, error in
+                if let request = result as? Request {
+                    continuation.resume(returning: request)
+                } else {
+                    continuation.resume(throwing: error ?? RequestError.notAllowedToRespond)
+                }
+            }
+        }
+    }
+
     private static let inviteCollection = "invites"
 
     /// Publishes the invite alongside the code already written on the request.

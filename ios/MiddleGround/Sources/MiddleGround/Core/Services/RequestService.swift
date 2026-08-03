@@ -32,24 +32,41 @@ final class RequestService {
         )
     }
 
+    /// `proposedTime` is passed explicitly rather than read off `request`, which is a copy the
+    /// caller loaded earlier. Inferring it would mean every response rewrote the time to whatever
+    /// this client last saw — quietly undoing someone else's counter-offer.
     func respond(
         to request: Request,
         with response: ResponseType,
         text: String? = nil,
+        proposedTime: Date? = nil,
         by userID: String
     ) async throws -> Request {
-        guard request.canRespond(as: userID) else {
+        // Mirrors `addResponse`, which is the authoritative check and runs inside the
+        // transaction against the server's state. Getting this wrong the other way is what a
+        // plain `canRespond` would do: refuse a comment from somebody who has already answered,
+        // which is precisely who comments are for.
+        let permitted = response == .comment
+            ? request.canComment(as: userID)
+            : request.canRespond(as: userID)
+        guard permitted else {
             throw RequestError.notAllowedToRespond
         }
 
-        var updated = request
         let message = NegotiationMessage(
             senderID: userID,
             responseType: response,
             text: text
         )
-        try updated.addResponse(message)
-        try await repository.updateRequest(updated)
+        // Appended inside a transaction rather than written from this copy: in a group several
+        // people can owe an answer at once, and anyone may comment at any time, so two writes
+        // overlapping is ordinary. Writing the whole chain from a local copy loses one of them.
+        // The permission check still runs — inside `addResponse`, against the server's state.
+        let updated = try await repository.appendMessage(
+            message,
+            to: request.id,
+            proposedTime: proposedTime
+        )
         await analytics.trackResponse(response, to: request, by: userID)
 
         // The denominator. Recorded on the transition into `.accepted`, not on every response to

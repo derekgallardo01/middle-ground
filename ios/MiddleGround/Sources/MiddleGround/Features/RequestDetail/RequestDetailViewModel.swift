@@ -29,6 +29,8 @@ final class RequestDetailViewModel {
     var isSending = false
     var errorMessage: String?
     var partnerName: String?
+    /// Names by participant ID, for the group status row.
+    private(set) var participantNames: [String: String] = [:]
     var didCancel = false
     var showReschedulePicker = false
     var proposedNewTime = Date().addingTimeInterval(3600)
@@ -45,12 +47,11 @@ final class RequestDetailViewModel {
         defer { isSending = false }
         do {
             let previous = request
-            var updated = request
-            updated.proposedTime = proposedNewTime
             request = try await requestService.respond(
-                to: updated,
+                to: request,
                 with: .reschedule,
                 text: Self.rescheduleText(for: proposedNewTime),
+                proposedTime: proposedNewTime,
                 by: currentUser.id
             )
             showReschedulePicker = false
@@ -246,6 +247,7 @@ final class RequestDetailViewModel {
     func loadCurrentUser() async {
         currentUser = await authService.currentUser()
         await loadPartnerName()
+        await loadParticipantNames()
         await loadSharedLocations()
         await loadBookingLink()
     }
@@ -335,6 +337,18 @@ final class RequestDetailViewModel {
         partnerName = (try? await userRepository.user(id: otherID))?.name
     }
 
+    /// Everyone's name, for the group status row. Only fetched for a plan that has a group.
+    private func loadParticipantNames() async {
+        guard request.isGroupPlan else { return }
+        var resolved: [String: String] = [:]
+        for id in request.allParticipantIDs {
+            if let user = try? await userRepository.user(id: id) {
+                resolved[id] = user.name
+            }
+        }
+        participantNames = resolved
+    }
+
     /// Whether calling this off now would be recorded as last-minute.
     ///
     /// Surfaced before the decision, not after it. The reliability score has always counted late
@@ -384,9 +398,13 @@ final class RequestDetailViewModel {
         errorMessage = nil
         do {
             let previous = request
-            var outgoing = request
-            if let newTime { outgoing.proposedTime = newTime }
-            request = try await requestService.respond(to: outgoing, with: response, text: text, by: currentUser.id)
+            request = try await requestService.respond(
+                to: request,
+                with: response,
+                text: text,
+                proposedTime: newTime,
+                by: currentUser.id
+            )
             counterText = ""
             // Accepting is what makes the booking link appear; without this it arrives a screen
             // later, for no reason the person can see.

@@ -45,6 +45,14 @@ struct RequestDetailView: View {
                             .mgTransition(.opacity)
                     }
 
+                    if viewModel.showsGroupStatus {
+                        GroupStatusRow(
+                            attendeeNames: viewModel.attendeeNames,
+                            awaitingNames: viewModel.awaitingNames,
+                            isSettled: viewModel.groupIsSettled
+                        )
+                    }
+
                     if viewModel.canInviteToPlan || viewModel.planInviteCode != nil {
                         PlanInviteRow(
                             code: viewModel.planInviteCode,

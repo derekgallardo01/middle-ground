@@ -168,17 +168,22 @@ When 1.0 is approved, in one pass:
    were consumed by the 1.0 review. Re-run the seed script and paste the new ones.
 4. **Mention the new permission prompts** in the review notes. A reviewer will now see a location
    prompt and a calendar prompt that 1.0 never showed, and unexplained prompts invite questions.
-5. **Deploy `firestore.rules` first — before the build goes anywhere.** 1.0.1 is the first build
-   that writes `plan_outcomes` **and `booking_intents`**, and production is still running rules
-   with no match block for either. Unmatched paths are denied, so every row would be silently
-   refused: the app keeps working (both writes are swallowed by design) and the records quietly
-   stay empty, which is the one failure that looks exactly like success. Deploying was deliberately
-   *not* done while 1.0 sat in review — it gains nothing until a client writes those rows, and a
-   rules change during review risks the submission for no benefit.
+5. ✅ **`firestore.rules` deployed** (2 August 2026, ruleset `f0e0db5e-1410-4b4a-84ee-2e096720b628`,
+   rolled forward from `fa73caed-7c9a-4238-aa07-c82186b51dd3`).
 
-   Verify after deploying, rather than assuming: agree a plan with a place on a real device, tap
-   **Find a table**, then confirm a `booking_intents` document exists. An empty collection after a
-   week of use means this step was missed.
+   This was originally sequenced for *after* approval, on the grounds that it gained nothing until
+   a client wrote those rows. Cutting a TestFlight build changed that: without the rules, a tester
+   taps **Find a table**, sees it work, and records nothing — the write is swallowed by design, so
+   the feature would have been "tested" while `plan_outcomes` and `booking_intents` stayed empty.
+   The diff was verified purely additive first (two new match blocks, nothing existing removed or
+   changed), so it cannot affect the 1.0 build in review, which never touches those paths.
+
+   Still verify on a device rather than assuming: agree a plan with a place, tap **Find a table**,
+   then confirm a `booking_intents` document exists. An empty collection after a week of real use
+   means something else is wrong.
+
+   Redeploy or roll back with `node Scripts/deploy-firestore-rules.mjs` (`--dry-run` compiles
+   without releasing). The Firebase CLI is not installed here.
 6. **Archive from a committed tree**, upload, attach, submit.
 
 ✅ **Device testing done** (2 August 2026). Groups of three and late cancellation were exercised on

@@ -184,7 +184,25 @@ When 1.0 is approved, in one pass:
 
    Redeploy or roll back with `node Scripts/deploy-firestore-rules.mjs` (`--dry-run` compiles
    without releasing). The Firebase CLI is not installed here.
-6. **Archive from a committed tree**, upload, attach, submit.
+6. **Deploy Cloud Functions, or chat ships silent.** `notifyPlanMessage` is written and committed
+   but undeployed. `notifyRequestResponse` watches `negotiationChain`, and conversation now lives
+   in `requests/{id}/messages`, so **a message currently notifies nobody** — the feature works
+   perfectly and no push ever arrives. That is the same shape of failure as the rules deploy: it
+   looks exactly like success.
+
+   Needs `firebase-tools` (Node only — the Java requirement is for the emulators, not deploys).
+   Deploy the one function rather than everything:
+
+   ```
+   cd ios/MiddleGround && npx firebase-tools deploy --only functions:notifyPlanMessage
+   ```
+
+   ⚠️ **Check the scheduler afterwards.** `firebase-schedule-dailyDigest-us-central1` is
+   deliberately `PAUSED` and must stay that way. A functions deploy can resume a paused job.
+   Verify with the Cloud Scheduler API, and re-pause with `jobs.pause` if it came back — the
+   other two jobs (`promptForAttendance`, `weeklyNudge`) are `ENABLED` and should stay so.
+
+7. **Archive from a committed tree**, upload, attach, submit.
 
 ✅ **Device testing done** (2 August 2026). Groups of three and late cancellation were exercised on
 real hardware and behave correctly, including the two-person flow they changed. That was the

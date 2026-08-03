@@ -250,10 +250,9 @@ struct Request: Identifiable, Hashable, Codable {
         let proposer = proposalIndex.map { negotiationChain[$0].senderID } ?? creatorID
         let since = proposalIndex.map { $0 + 1 } ?? 0
 
-        // Neither a bookmark nor a remark is an answer, so neither clears what someone owes.
         let answered = Set(
             negotiationChain[since...]
-                .filter { $0.responseType != .save && $0.responseType != .comment }
+                .filter { $0.responseType != .save }
                 .map(\.senderID)
         )
 
@@ -267,15 +266,19 @@ struct Request: Identifiable, Hashable, Codable {
         awaitingResponseFrom.contains(userID)
     }
 
-    /// Whether `userID` may say something.
+    /// Whether `userID` may say something about this plan.
     ///
     /// Deliberately much wider than `canRespond`: anyone on the plan, whether or not it is their
-    /// turn and whether or not they have already answered. Speaking is not answering, so gating it
-    /// on the turn is what forced a question to be dressed up as a counter-proposal.
+    /// turn and whether or not they have already answered. Speaking is not answering, and gating
+    /// it on the turn is what once forced a question to be dressed up as a counter-proposal —
+    /// asking "which entrance?" withdrew an agreement three people had already given.
+    ///
+    /// Messages live in `requests/{id}/messages` (see `PlanMessage`); this is the client-side
+    /// half of the gate, mirrored by `inPlan()` in firestore.rules.
     ///
     /// Stops once the plan is off. There is nothing left to arrange, and a cancelled plan people
     /// can still post to is a thread that outlives its subject.
-    func canComment(as userID: String) -> Bool {
+    func canMessage(as userID: String) -> Bool {
         isParticipant(userID) && status != .cancelled && status != .declined
     }
 
@@ -365,10 +368,7 @@ struct Request: Identifiable, Hashable, Codable {
     /// Throws rather than silently ignoring an invalid responder: a caller that gets this wrong
     /// has a bug, and swallowing it would let the UI show a state the backend rejects.
     mutating func addResponse(_ message: NegotiationMessage) throws {
-        let permitted = message.responseType == .comment
-            ? canComment(as: message.senderID)
-            : canRespond(as: message.senderID)
-        guard permitted else {
+        guard canRespond(as: message.senderID) else {
             throw RequestError.notAllowedToRespond
         }
         negotiationChain.append(message)
@@ -384,12 +384,7 @@ struct Request: Identifiable, Hashable, Codable {
     /// that. So in a group a decline means "not me", and the plan is only declined once there is
     /// nobody left who might still come.
     private func resolvedStatus(after message: NegotiationMessage) -> RequestStatus {
-        // A comment is not an answer, so it changes nothing. Before this existed the composer's
-        // only send path was `.counter`, which meant asking "which entrance?" on a plan three
-        // people had agreed to withdrew the agreement: the status fell back to `countered`,
-        // every acceptance was voided, and three people who had said yes owed another answer.
-        // Saying something has to be free.
-        guard let mapped = message.responseType.statusMapping else { return status }
+        let mapped = message.responseType.statusMapping
         guard isGroupPlan, message.responseType == .decline else { return mapped }
         if hasAcceptance { return .accepted }
         return awaitingResponseFrom.isEmpty ? .declined : .pending
@@ -420,9 +415,7 @@ struct Request: Identifiable, Hashable, Codable {
 }
 
 extension ResponseType {
-    /// What the request's status becomes. Nil for a response that is not an answer — see
-    /// `Request.resolvedStatus(after:)`, which keeps the current status in that case.
-    var statusMapping: RequestStatus? {
+    var statusMapping: RequestStatus {
         switch self {
         case .accept: return .accepted
         case .decline: return .declined
@@ -430,7 +423,6 @@ extension ResponseType {
         case .reschedule: return .rescheduled
         case .counter: return .countered
         case .save: return .saved
-        case .comment: return nil
         }
     }
 }

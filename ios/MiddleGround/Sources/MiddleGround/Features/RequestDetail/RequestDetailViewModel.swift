@@ -8,13 +8,15 @@ final class RequestDetailViewModel {
     private let authService = Container.shared.authService()
     private let gamificationService = Container.shared.gamificationService()
     private let userRepository = Container.shared.userRepository()
-    private let eventRepository = Container.shared.eventRepository()
-    private let analytics = Container.shared.analyticsService()
+    let eventRepository = Container.shared.eventRepository()
+    let analytics = Container.shared.analyticsService()
     private let sharedLocationRepository = Container.shared.sharedLocationRepository()
     private let locationService = Container.shared.locationService()
-    // Not private: the booking extension lives in its own file, and `private` is file-scoped.
+    // Not private: the booking and composer extensions live in their own files, and `private`
+    // is file-scoped.
     let reservations = Container.shared.reservationProvider()
     let planOutcomes = Container.shared.planOutcomeRepository()
+    let planMessages = Container.shared.planMessageRepository()
 
     var request: Request
     var currentUser: User?
@@ -29,8 +31,18 @@ final class RequestDetailViewModel {
     var isSending = false
     var errorMessage: String?
     var partnerName: String?
-    /// Names by participant ID, for the group status row.
+    /// Names by participant ID, for the group status row and the transcript.
     private(set) var participantNames: [String: String] = [:]
+
+    /// Conversation, live. Kept apart from `request.negotiationChain` because it is stored
+    /// apart — see `PlanMessage`.
+    var messages: [PlanMessage] = []
+    /// The message being replied to, if the composer is aimed at one.
+    var replyingToID: String?
+    /// Boxed so `deinit` can cancel it. `deinit` on a @MainActor type is nonisolated, so it
+    /// cannot touch an isolated stored property — and leaving the Firestore listener running
+    /// after the screen closes is a real cost, not a tidiness point.
+    let messagesTask = TaskBox()
     var didCancel = false
     var showReschedulePicker = false
     var proposedNewTime = Date().addingTimeInterval(3600)
@@ -248,6 +260,7 @@ final class RequestDetailViewModel {
         currentUser = await authService.currentUser()
         await loadPartnerName()
         await loadParticipantNames()
+        observeMessages()
         await loadSharedLocations()
         await loadBookingLink()
     }
@@ -438,7 +451,7 @@ final class RequestDetailViewModel {
         showCelebration = true
     }
 
-    // MARK: - Reporting
+    // MARK: - Reporting (behaviour in RequestDetailViewModel+Reporting.swift)
 
     var showReportSheet = false
     var reportReason: ReportReason = .harassment
@@ -449,51 +462,7 @@ final class RequestDetailViewModel {
     }
     var didSubmitReport = false
 
-    /// You cannot report your own request — there is nobody else to report.
-    var canReport: Bool {
-        guard let currentUser else { return false }
-        return reportedUserID(from: currentUser.id) != nil
-    }
-
-    private func reportedUserID(from userID: String) -> String? {
-        request.allParticipantIDs.first { $0 != userID }
-    }
-
-    /// Files an abuse report (App Review guideline 1.2). Leaving the group is the other half
-    /// and lives in Profile — reporting alone does not stop the person contacting you.
-    func submitReport() async {
-        guard let currentUser, let reportedUserID = reportedUserID(from: currentUser.id) else {
-            errorMessage = "Not signed in."
-            return
-        }
-        isSending = true
-        errorMessage = nil
-        defer { isSending = false }
-
-        let note = reportNote.trimmingCharacters(in: .whitespacesAndNewlines)
-        do {
-            try await eventRepository.submitReport(
-                ContentReport(
-                    reporterID: currentUser.id,
-                    requestID: request.id,
-                    reportedUserID: reportedUserID,
-                    reason: reportReason,
-                    note: note.isEmpty ? nil : note
-                )
-            )
-            await analytics.track(
-                .contentReported,
-                userID: currentUser.id,
-                requestID: request.id,
-                metadata: ["reason": reportReason.rawValue]
-            )
-            showReportSheet = false
-            didSubmitReport = true
-            reportNote = ""
-            Haptics.shared.notification(.success)
-        } catch {
-            errorMessage = "Couldn't send that report. Please try again."
-            Haptics.shared.notification(.error)
-        }
+    deinit {
+        messagesTask.cancel()
     }
 }

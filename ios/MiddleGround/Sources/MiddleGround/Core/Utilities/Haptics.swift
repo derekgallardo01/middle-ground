@@ -40,10 +40,6 @@ final class Haptics {
             impact(.light)
         case .save:
             impact(.light)
-        // Softer than an answer, because it is not one. A message that lands like an acceptance
-        // makes speaking feel weightier than it is.
-        case .comment:
-            impact(.soft)
         }
     }
 }

@@ -162,44 +162,6 @@ service cloud.firestore {
         : (lastMessage().senderID != uid() || lastMessage().responseType == 'save');
     }
 
-    // The message this write is adding, rather than the last one already stored.
-    function appendedMessage() {
-      return request.resource.data.negotiationChain[
-        request.resource.data.negotiationChain.size() - 1
-      ];
-    }
-
-    // Saying something without answering.
-    //
-    // Deliberately outside `isMyTurn()`, which is the entire point. The composer's only send
-    // path used to be a counter-proposal, so asking "which entrance?" on a plan three people
-    // had agreed to withdrew the agreement — status back to `countered`, every acceptance
-    // voided, three people owing a fresh answer. Speaking had to cost nothing, and enforcing
-    // that here as well as in `Request.canComment(as:)` is what stops a modified client from
-    // using a comment to smuggle through a status change.
-    //
-    // Exactly one message may be appended, it must be a comment, and it must be from the
-    // sender writing it — otherwise this branch becomes a way to put words in someone's mouth.
-    function isCommenting() {
-      return request.resource.data.negotiationChain.size()
-               == resource.data.negotiationChain.size() + 1
-        && appendedMessage().responseType == 'comment'
-        && appendedMessage().senderID == uid()
-        && !(resource.data.status in ['cancelled', 'declined'])
-        && immutable('status')
-        && immutable('proposedTime')
-        && immutable('creatorID')
-        && immutable('recipientIDs')
-        && immutable('allParticipantIDs')
-        && immutable('confirmations')
-        && immutable('stake')
-        && immutable('title')
-        && immutable('seats')
-        && immutable('planInviteCode')
-        && immutable('planInviteSeats')
-        && immutable('createdAt');
-    }
-
     // Three or more people, so "the other person" is not a thing.
     function isGroupPlan() {
       return resource.data.allParticipantIDs.size() > 2;
@@ -428,7 +390,6 @@ service cloud.firestore {
                             && immutable('stake')
                             && immutable('planInviteCode')
                             && immutable('planInviteSeats'))
-                          || isCommenting()
                           || isConfirmingAttendance()
                           || isCancelling()
                           || isStaking()
@@ -466,6 +427,50 @@ service cloud.firestore {
     // or expires, because the alternative is a pin that vanishes mid-journey when the window
     // closes while someone is still looking at it. Expiry is what bounds the read, via TTL on
     // `expiresAt` plus the client filter.
+    // ------------------------------------------------ conversation on a plan
+    // What people say about a plan, as opposed to what they decide about it.
+    //
+    // A subcollection because the request document cannot carry a conversation: every message
+    // would rewrite the whole document and re-push it to every listener, and the document caps
+    // at 1 MiB. Decisions stay on the document precisely because rules cannot query a
+    // subcollection — `isMyTurn()` and friends can only read fields that sit on the request
+    // itself, so the negotiation chain has to stay where they can see it.
+    //
+    // Independent documents also remove the write conflict the chain needed a transaction for:
+    // two people sending at the same moment write two documents rather than racing over one.
+    match /requests/{requestId}/messages/{messageId} {
+      function plan() {
+        return get(/databases/$(database)/documents/requests/$(requestId)).data;
+      }
+
+      function inPlan() {
+        return signedIn() && uid() in plan().allParticipantIDs;
+      }
+
+      function isWellFormed() {
+        return request.resource.data.keys().hasOnly(['senderID', 'text', 'parentID', 'at'])
+          && request.resource.data.senderID == uid()
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.at is timestamp;
+      }
+
+      // Everyone on the plan reads the conversation; only its author writes their own line.
+      allow get, list: if inPlan();
+
+      // A called-off plan stops taking messages. There is nothing left to arrange, and a thread
+      // that outlives its subject is a different product from this one.
+      allow create: if inPlan()
+                    && isWellFormed()
+                    && !(plan().status in ['cancelled', 'declined']);
+
+      // No edits, on purpose: a transcript people arranged an evening around should not change
+      // under them afterwards. Deleting your own is allowed — that is retraction, not revision.
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.senderID == uid();
+    }
+
     match /requests/{requestId}/locations/{userId} {
       function plan() {
         return get(/databases/$(database)/documents/requests/$(requestId)).data;

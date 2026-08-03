@@ -27,16 +27,20 @@ extension RequestDetailViewModel {
     /// Whether this person may say something, which is far more often than they may answer.
     var canComment: Bool {
         guard let currentUserID else { return false }
-        return request.canComment(as: currentUserID)
+        return request.canMessage(as: currentUserID)
     }
 
     /// Whether what is being written will move the plan rather than just describe it.
     var isProposingNewTime: Bool { counterProposedTime != nil }
 
-    func sendCounter() async {
+    /// One send button, three outcomes: a reply, a remark, or a proposal.
+    ///
+    /// Attaching a time is what makes it a proposal — the thing that moves the plan and puts the
+    /// decision back on everyone. Plain text is conversation and changes nothing.
+    func send() async {
         guard canSendCounter else { return }
         guard let time = counterProposedTime else {
-            await respond(with: .comment, text: counterText)
+            await sendMessage(replyingTo: replyingToID)
             return
         }
         // A counter with only a time still needs to read as something in the transcript.
@@ -47,5 +51,28 @@ extension RequestDetailViewModel {
 
     func saveForLater() async {
         await respond(with: .save)
+    }
+
+    /// Sends a line of conversation.
+    ///
+    /// Goes to `requests/{id}/messages` rather than onto the negotiation chain — see
+    /// `PlanMessage`. One independent document per message, so two people sending at the same
+    /// moment cannot overwrite each other, and a long conversation never grows the request
+    /// document it belongs to.
+    func sendMessage(replyingTo parentID: String? = nil) async {
+        guard let currentUserID, !isCounterEmpty else { return }
+        let text = counterText
+        counterText = ""
+        replyingToID = nil
+
+        let message = PlanMessage(senderID: currentUserID, text: text, parentID: parentID)
+        do {
+            try await planMessages.send(message, forRequest: request.id)
+            Haptics.shared.impact(.soft)
+        } catch {
+            // Put the text back rather than losing what somebody typed.
+            counterText = text
+            errorMessage = error.localizedDescription
+        }
     }
 }

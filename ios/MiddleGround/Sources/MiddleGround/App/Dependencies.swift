@@ -84,6 +84,17 @@ extension Container {
         }
     }
 
+    var planMessageRepository: Factory<PlanMessageRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockPlanMessageRepository()
+            }
+            #endif
+            return FirestorePlanMessageRepository()
+        }
+    }
+
     var planOutcomeRepository: Factory<PlanOutcomeRepository> {
         Factory(self) {
             #if DEBUG

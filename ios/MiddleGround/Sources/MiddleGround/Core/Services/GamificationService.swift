@@ -116,10 +116,6 @@ enum GamificationRules {
         case .negotiate, .counter: return 15
         case .reschedule: return 10
         case .decline, .save: return 5
-        // Nothing, deliberately. Everything else here is an answer that moves a decision along;
-        // a remark is unlimited and costs nothing to make, so paying for it would turn the
-        // reward loop into something you farm by talking.
-        case .comment: return 0
         }
     }
 
@@ -330,7 +326,7 @@ actor GamificationService: GamificationServiceProtocol {
             }
         case .negotiate, .counter:
             stats.negotiatedCount += 1
-        case .decline, .reschedule, .save, .comment:
+        case .decline, .reschedule, .save:
             break
         }
 

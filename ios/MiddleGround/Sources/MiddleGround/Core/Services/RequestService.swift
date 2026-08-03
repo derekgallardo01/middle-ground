@@ -42,14 +42,9 @@ final class RequestService {
         proposedTime: Date? = nil,
         by userID: String
     ) async throws -> Request {
-        // Mirrors `addResponse`, which is the authoritative check and runs inside the
-        // transaction against the server's state. Getting this wrong the other way is what a
-        // plain `canRespond` would do: refuse a comment from somebody who has already answered,
-        // which is precisely who comments are for.
-        let permitted = response == .comment
-            ? request.canComment(as: userID)
-            : request.canRespond(as: userID)
-        guard permitted else {
+        // A fast local check. The authoritative one runs inside the transaction, against the
+        // server's state rather than this copy.
+        guard request.canRespond(as: userID) else {
             throw RequestError.notAllowedToRespond
         }
 

@@ -119,9 +119,6 @@ extension ResponseType {
         case .reschedule: return MGColors.sky
         case .counter: return MGColors.sunshine
         case .save: return MGColors.coral.opacity(0.8)
-        // Neutral. Every other colour here marks a decision; a remark should not compete with
-        // one for attention in the transcript.
-        case .comment: return MGColors.warm400
         }
     }
 }

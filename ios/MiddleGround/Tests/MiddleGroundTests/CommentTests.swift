@@ -2,12 +2,14 @@ import XCTest
 import Factory
 @testable import MiddleGround
 
-/// Saying something must cost nothing.
+/// Saying something must cost nothing, and must not be stored where it can hurt.
 ///
-/// Before `.comment` existed the composer's only send path was `.counter`, so a logistics question
-/// on a plan three people had agreed to withdrew the agreement: status back to `countered`, every
-/// acceptance voided, and three people who had said yes owing a fresh answer. These tests exist so
-/// that cannot come back.
+/// The original failure: the composer's only send path was `.counter`, a *proposal*, so asking
+/// "which entrance?" on a plan three people had agreed to withdrew the agreement — status back to
+/// `countered`, every acceptance voided, three people owing a fresh answer. Conversation now lives
+/// in `requests/{id}/messages` and cannot touch the decision at all, which is the strongest form
+/// of that guarantee: not "a comment does not change the status" but "a comment is not on the
+/// object the status is computed from".
 final class CommentTests: XCTestCase {
     private func groupPlan() -> Request {
         Request(
@@ -20,28 +22,22 @@ final class CommentTests: XCTestCase {
         )
     }
 
-    /// The exact scenario that motivated this.
-    func testAQuestionDoesNotUnpickAnAgreement() throws {
+    // MARK: - Conversation cannot move a decision
+
+    func testAMessageIsNotOnTheObjectTheStatusIsComputedFrom() throws {
         var request = groupPlan()
         try request.addResponse(.init(senderID: "bob", responseType: .accept))
         try request.addResponse(.init(senderID: "carol", responseType: .accept))
 
-        XCTAssertEqual(request.status, .accepted)
-        let attendeesBefore = request.attendeeIDs
-        let awaitingBefore = request.awaitingResponseFrom
+        let before = (request.status, request.attendeeIDs, request.awaitingResponseFrom)
 
-        try request.addResponse(
-            .init(senderID: "dave", responseType: .comment, text: "which entrance?")
-        )
+        // A message is a separate document. There is no code path by which it reaches here.
+        _ = PlanMessage(senderID: "dave", text: "which entrance?")
 
-        XCTAssertEqual(request.status, .accepted, "a question is not a counter-proposal")
+        XCTAssertEqual(request.status, before.0)
+        XCTAssertEqual(request.attendeeIDs, before.1)
+        XCTAssertEqual(request.awaitingResponseFrom, before.2)
         XCTAssertTrue(request.hasAcceptance)
-        XCTAssertEqual(request.attendeeIDs, attendeesBefore, "nobody's yes was taken away")
-        XCTAssertEqual(
-            request.awaitingResponseFrom,
-            awaitingBefore,
-            "the turn did not move, so nobody suddenly owes another answer"
-        )
     }
 
     /// The contrast: attaching a time *is* a proposal, and still behaves like one.
@@ -58,113 +54,95 @@ final class CommentTests: XCTestCase {
         XCTAssertFalse(request.hasAcceptance, "an old yes is not a yes to the new time")
     }
 
-    /// Commenting is not answering, so it must not clear what someone owes.
-    func testCommentingDoesNotCountAsAnswering() throws {
-        var request = groupPlan()
-        XCTAssertTrue(request.awaitingResponseFrom.contains("bob"))
+    // MARK: - Who may speak
 
-        try request.addResponse(.init(senderID: "bob", responseType: .comment, text: "maybe!"))
-
-        XCTAssertTrue(
-            request.awaitingResponseFrom.contains("bob"),
-            "bob still owes a yes or no"
-        )
-        XCTAssertTrue(request.canRespond(as: "bob"))
-    }
-
-    /// The whole point: you may speak when it is not your turn.
     func testAnyoneOnThePlanMaySpeakWheneverTheyLike() throws {
         var request = groupPlan()
         try request.addResponse(.init(senderID: "bob", responseType: .accept))
 
         XCTAssertFalse(request.canRespond(as: "bob"), "bob has answered")
-        XCTAssertTrue(request.canComment(as: "bob"), "but he can still say something")
-        XCTAssertNoThrow(
-            try request.addResponse(
-                .init(senderID: "bob", responseType: .comment, text: "shall I book?")
-            )
-        )
+        XCTAssertTrue(request.canMessage(as: "bob"), "but he can still say something")
     }
 
     func testSomeoneNotOnThePlanCannotSpeak() {
-        var request = groupPlan()
-        XCTAssertFalse(request.canComment(as: "stranger"))
-        XCTAssertThrowsError(
-            try request.addResponse(
-                .init(senderID: "stranger", responseType: .comment, text: "hi")
-            )
-        )
+        XCTAssertFalse(groupPlan().canMessage(as: "stranger"))
     }
 
     /// A cancelled plan is over. A thread that outlives its subject is a different product.
-    func testACalledOffPlanCannotBeCommentedOn() throws {
-        var request = groupPlan()
-        request.status = .cancelled
-        XCTAssertFalse(request.canComment(as: "bob"))
-
-        var declined = groupPlan()
-        declined.status = .declined
-        XCTAssertFalse(declined.canComment(as: "bob"))
+    func testACalledOffPlanCannotBeMessaged() {
+        for status in [RequestStatus.cancelled, .declined] {
+            var request = groupPlan()
+            request.status = status
+            XCTAssertFalse(request.canMessage(as: "bob"), "\(status.rawValue) is over")
+        }
     }
 
-    /// Comments should still be possible once a plan is done — "that was fun" is not a proposal.
     func testAFinishedPlanCanStillBeTalkedAbout() {
         var request = groupPlan()
         request.status = .completed
-        XCTAssertTrue(request.canComment(as: "bob"))
+        XCTAssertTrue(request.canMessage(as: "bob"))
     }
 
-    /// Two people answering from the same stale copy must not lose one of the messages.
-    ///
-    /// This is what `appendMessage` buys. Writing the whole document from the caller's copy —
-    /// which is what `updateRequest` does — meant the second write rebuilt the chain from a
-    /// snapshot taken before the first, and the first message simply vanished. Turn-taking hid
-    /// it while plans had two people; a group can have several people legitimately owing an
-    /// answer at once, and comments let anyone speak at any time.
-    func testTwoAnswersFromTheSameStaleCopyBothSurvive() async throws {
-        AppConfiguration.useMockRepositories = true
-        defer { AppConfiguration.useMockRepositories = false }
+    // MARK: - Storage
 
-        let repository = MockRequestRepository()
-        let service = RequestService(repository: repository)
-        let plan = groupPlan()
-        try await repository.createRequest(plan)
+    /// Independent documents, so simultaneous senders cannot overwrite each other. This is the
+    /// property the negotiation chain had to buy with a transaction.
+    func testTwoPeopleSendingAtOnceBothLand() async throws {
+        let repository = MockPlanMessageRepository()
+        try await repository.send(.init(senderID: "bob", text: "on my way"), forRequest: "r1")
+        try await repository.send(.init(senderID: "carol", text: "me too"), forRequest: "r1")
 
-        // Both "clients" hold the copy from before either of them answered.
-        let stale = plan
-        _ = try await service.respond(to: stale, with: .accept, by: "bob")
-        _ = try await service.respond(to: stale, with: .accept, by: "carol")
-
-        let stored = try await repository.fetchRequests(for: "alice")
-            .first { $0.id == plan.id }
-        XCTAssertEqual(
-            stored?.negotiationChain.count,
-            2,
-            "carol's answer was built from a copy that predates bob's, and must not erase it"
-        )
-        XCTAssertEqual(
-            Set(stored?.negotiationChain.map(\.senderID) ?? []),
-            ["bob", "carol"]
-        )
+        let stored = try await repository.messages(forRequest: "r1", limit: 100)
+        XCTAssertEqual(stored.count, 2)
+        XCTAssertEqual(Set(stored.map(\.senderID)), ["bob", "carol"])
     }
 
-    /// The same hazard, from the direction comments opened up.
-    func testACommentDoesNotEraseAnAnswerSentAtTheSameMoment() async throws {
-        AppConfiguration.useMockRepositories = true
-        defer { AppConfiguration.useMockRepositories = false }
+    func testMessagesComeBackOldestFirst() async throws {
+        let repository = MockPlanMessageRepository()
+        let now = Date()
+        try await repository.send(
+            .init(senderID: "bob", text: "second", at: now), forRequest: "r1"
+        )
+        try await repository.send(
+            .init(senderID: "carol", text: "first", at: now.addingTimeInterval(-60)),
+            forRequest: "r1"
+        )
 
-        let repository = MockRequestRepository()
-        let service = RequestService(repository: repository)
-        let plan = groupPlan()
-        try await repository.createRequest(plan)
+        let stored = try await repository.messages(forRequest: "r1", limit: 100)
+        XCTAssertEqual(stored.map(\.text), ["first", "second"])
+    }
 
-        let stale = plan
-        _ = try await service.respond(to: stale, with: .accept, by: "bob")
-        _ = try await service.respond(to: stale, with: .comment, text: "running late", by: "carol")
+    // MARK: - Threads
 
-        let stored = try await repository.fetchRequests(for: "alice")
-            .first { $0.id == plan.id }
-        XCTAssertEqual(stored?.negotiationChain.count, 2)
-        XCTAssertEqual(stored?.status, .accepted, "the comment did not undo bob's yes")
+    func testRepliesAreCollapsedUnderTheirParentRatherThanShownInline() {
+        let parent = PlanMessage(id: "p1", senderID: "alice", text: "which entrance?")
+        let reply = PlanMessage(senderID: "bob", text: "the one on Fourth", parentID: "p1")
+        let separate = PlanMessage(senderID: "carol", text: "running late")
+
+        let transcript = TranscriptEntry.transcript(
+            decisions: [],
+            messages: [parent, reply, separate]
+        )
+
+        XCTAssertEqual(transcript.count, 2, "the reply belongs under its parent, not in the timeline")
+        XCTAssertEqual(TranscriptEntry.replies(to: "p1", in: [parent, reply, separate]), [reply])
+    }
+
+    func testTheTranscriptInterleavesDecisionsAndMessagesByTime() {
+        let start = Date()
+        let decision = NegotiationMessage(
+            senderID: "alice",
+            responseType: .counter,
+            text: "Sunday?",
+            timestamp: start.addingTimeInterval(60)
+        )
+        let earlier = PlanMessage(senderID: "bob", text: "before", at: start)
+        let later = PlanMessage(senderID: "carol", text: "after", at: start.addingTimeInterval(120))
+
+        let transcript = TranscriptEntry.transcript(
+            decisions: [decision],
+            messages: [later, earlier]
+        )
+        XCTAssertEqual(transcript.map(\.text), ["before", "Sunday?", "after"])
     }
 }

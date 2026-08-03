@@ -86,6 +86,7 @@ const NotificationType = {
   confirmPlan: 'confirmPlan',
   planCancelled: 'planCancelled',
   weeklyNudge: 'weeklyNudge',
+  message: 'message',
 };
 
 /**

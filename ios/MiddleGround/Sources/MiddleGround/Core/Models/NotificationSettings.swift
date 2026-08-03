@@ -12,6 +12,8 @@ enum NotificationKind: String, CaseIterable, Identifiable, Sendable {
     case confirmPlan
     case planCancelled
     case weeklyNudge
+    /// Somebody said something on a plan, as opposed to answering it.
+    case message
 
     var id: String { rawValue }
 
@@ -22,6 +24,7 @@ enum NotificationKind: String, CaseIterable, Identifiable, Sendable {
         case .confirmPlan: return "Did it happen?"
         case .planCancelled: return "Cancellations"
         case .weeklyNudge: return "Weekly nudge"
+        case .message: return "Messages"
         }
     }
 
@@ -32,6 +35,9 @@ enum NotificationKind: String, CaseIterable, Identifiable, Sendable {
         case .confirmPlan: return "A few hours after a plan, to confirm it happened"
         case .planCancelled: return "A plan you agreed to is called off"
         case .weeklyNudge: return "A reminder when a group has nothing planned"
+        // Its own switch on purpose: talk is far more frequent than decisions, and bundling the
+        // two would make people mute both to escape one.
+        case .message: return "Someone says something on a plan"
         }
     }
 }

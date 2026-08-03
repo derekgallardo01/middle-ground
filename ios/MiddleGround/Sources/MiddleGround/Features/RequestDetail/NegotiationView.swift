@@ -15,12 +15,12 @@ struct NegotiationView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if viewModel.request.negotiationChain.isEmpty {
+            if viewModel.transcript.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "bubble.left.and.bubble.right")
                         .font(.system(size: 32))
                         .foregroundStyle(MGColors.warm600)
-                    Text("No responses yet")
+                    Text("Nothing here yet")
                         .mgFont(.body)
                         .foregroundStyle(MGColors.warm600)
                 }
@@ -32,9 +32,12 @@ struct NegotiationView: View {
                 // almost as close to the *next* bubble as to its own, so a reply and the label
                 // above it read as one unit. The gap between turns has to clearly beat the gap
                 // within one.
+                // Decisions and conversation interleaved by time. They are stored apart -- the
+                // chain on the request document, messages in a subcollection -- for reasons no
+                // reader of this screen should ever have to know about.
                 VStack(alignment: .leading, spacing: MGSpacing.xl) {
-                    ForEach(viewModel.request.negotiationChain) { message in
-                        NegotiationBubble(message: message, currentUserID: viewModel.currentUserID)
+                    ForEach(viewModel.transcript) { entry in
+                        transcriptRow(entry)
                             // The chat surface had no motion at all: a reply simply existed,
                             // with nothing to show it had just arrived. Rising slightly as it
                             // fades in is what makes it read as *new* rather than as something
@@ -42,7 +45,7 @@ struct NegotiationView: View {
                             .mgTransition(.opacity.combined(with: .move(edge: .bottom)))
                     }
                 }
-                .mgAnimation(MGMotion.reveal, value: viewModel.request.negotiationChain.count)
+                .mgAnimation(MGMotion.reveal, value: viewModel.transcript.count)
             }
 
             // Gated on being able to *speak*, not on whose turn it is. Gating the whole composer
@@ -54,6 +57,28 @@ struct NegotiationView: View {
                 VStack(alignment: .leading, spacing: MGSpacing.sm) {
                     if let time = viewModel.counterProposedTime {
                         attachedTime(time)
+                    }
+
+                    // Says what the next send will attach itself to. Without it, tapping Reply
+                    // and then typing looks identical to writing a new line, and the reply lands
+                    // somewhere the person did not expect.
+                    if let replyingTo = viewModel.replyingTo {
+                        HStack(spacing: MGSpacing.xs) {
+                            Image(systemName: "arrowshape.turn.up.left.fill")
+                                .font(.caption)
+                            Text("Replying to \(viewModel.name(for: replyingTo.senderID))")
+                                .mgFont(.caption)
+                            Spacer()
+                            Button {
+                                viewModel.replyingToID = nil
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Stop replying")
+                        }
+                        .foregroundStyle(MGColors.warm600)
+                        .padding(.horizontal, MGSpacing.sm)
                     }
 
                     HStack(spacing: MGSpacing.md) {
@@ -95,7 +120,7 @@ struct NegotiationView: View {
                             .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
 
                         Button {
-                            Task { await viewModel.sendCounter() }
+                            Task { await viewModel.send() }
                         } label: {
                             Group {
                                 if viewModel.isSending {
@@ -126,6 +151,23 @@ struct NegotiationView: View {
     }
 
     /// The time attached to the counter being written, with a way to take it back off.
+    @ViewBuilder
+    private func transcriptRow(_ entry: TranscriptEntry) -> some View {
+        switch entry {
+        case .decision(let message):
+            NegotiationBubble(message: message, currentUserID: viewModel.currentUserID)
+        case .message(let message):
+            MessageBubble(
+                message: message,
+                senderName: viewModel.name(for: message.senderID),
+                isMine: message.senderID == viewModel.currentUserID,
+                replies: viewModel.replies(to: message.id),
+                replyName: { viewModel.name(for: $0) },
+                onReply: { viewModel.replyingToID = message.id }
+            )
+        }
+    }
+
     private func attachedTime(_ time: Date) -> some View {
         HStack(spacing: MGSpacing.sm) {
             Image(systemName: "clock")

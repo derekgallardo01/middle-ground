@@ -82,6 +82,48 @@ exports.notifyNewRequest = onDocumentCreated('requests/{requestId}', async (even
   }, NotificationType.newRequest);
 });
 
+/**
+ * Notifies everyone except the sender when someone says something on a plan.
+ *
+ * Conversation moved out of `negotiationChain` and into a subcollection, because a document
+ * that rewrites itself on every message cannot carry a conversation. `notifyRequestResponse`
+ * watches the chain, so without this function messages would arrive silently -- the feature
+ * would look like it worked and simply never notify anybody.
+ *
+ * Its own notification type, so "somebody answered your plan" and "somebody said something
+ * about it" can be turned off independently. A remark is far more frequent than a decision, and
+ * bundling them would make people mute both to escape one.
+ */
+exports.notifyPlanMessage = onDocumentCreated(
+  'requests/{requestId}/messages/{messageId}',
+  async (event) => {
+    const message = event.data?.data();
+    if (!message) return null;
+
+    const plan = await db()
+      .collection('requests')
+      .doc(event.params.requestId)
+      .get();
+    if (!plan.exists) return null;
+
+    const senderName = await getUserName(message.senderID);
+    const notifyUserIds = (plan.data().allParticipantIDs || []).filter(
+      (id) => id !== message.senderID
+    );
+
+    return notifyUsers(notifyUserIds, {
+      notification: {
+        title: `${senderName} on ${plan.data().title || 'your plan'}`,
+        body: message.text,
+      },
+      data: {
+        request_id: event.params.requestId,
+        type: 'plan_message',
+      },
+    }, NotificationType.message);
+  }
+);
+
 /** Notifies everyone except the responder when a request gains a response. */
 exports.notifyRequestResponse = onDocumentUpdated('requests/{requestId}', async (event) => {
   const before = event.data?.before?.data();

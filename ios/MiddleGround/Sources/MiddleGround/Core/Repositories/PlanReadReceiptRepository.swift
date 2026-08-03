@@ -20,7 +20,10 @@ protocol PlanReadReceiptRepository: Sendable {
 // MARK: - Mock
 
 actor MockPlanReadReceiptRepository: PlanReadReceiptRepository {
-    private var storage: [String: [String: PlanReadReceipt]] = [:]
+    /// Sam has seen the group plan, so the "Seen by" line has something to say in mock mode.
+    private var storage: [String: [String: PlanReadReceipt]] = [
+        "req_6": ["user_2": PlanReadReceipt(userID: "user_2", readAt: Date().addingTimeInterval(-600))]
+    ]
     private var continuations: [String: [UUID: AsyncStream<[PlanReadReceipt]>.Continuation]] = [:]
 
     nonisolated func observeReceipts(

@@ -14,6 +14,14 @@ enum AppConfiguration {
     static var useMockRepositories: Bool =
         ProcessInfo.processInfo.arguments.contains(mockModeLaunchArgument)
 
+    /// Seeds a live "typing" flag in mock mode, for the tests that assert the indicator.
+    ///
+    /// Off by default: typing is momentary, and a permanent indicator in a screenshot claims
+    /// something the image cannot support.
+    static var seedsTypingIndicator: Bool {
+        ProcessInfo.processInfo.arguments.contains("-MGSeedTyping")
+    }
+
     /// Launch argument selecting a deterministic DEBUG test identity, e.g. `-MGTestUser A`.
     ///
     /// Two-device pairing needs two *distinct* accounts. Passing a different label to each

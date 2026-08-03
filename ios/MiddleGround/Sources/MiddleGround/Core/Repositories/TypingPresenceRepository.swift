@@ -23,7 +23,24 @@ protocol TypingPresenceRepository: Sendable {
 // MARK: - Mock
 
 actor MockTypingPresenceRepository: TypingPresenceRepository {
-    private var storage: [String: [String: TypingPresence]] = [:]
+    /// Opt-in, unlike the message and receipt seeds.
+    ///
+    /// Typing is a momentary state, and seeding it by default would put a permanent
+    /// "Sam is typing" into every screenshot and demo — saying something that is not true of a
+    /// still image. `-MGSeedTyping` turns it on for the tests that need to see the indicator.
+    private var storage: [String: [String: TypingPresence]] = {
+        guard AppConfiguration.seedsTypingIndicator else { return [:] }
+        return [
+            "req_6": [
+                "user_2": TypingPresence(
+                    userID: "user_2",
+                    startedAt: Date(),
+                    // Far enough out that it survives the run rather than expiring mid-test.
+                    expiresAt: Date().addingTimeInterval(3600)
+                )
+            ]
+        ]
+    }()
     private var continuations: [String: [UUID: AsyncStream<[TypingPresence]>.Continuation]] = [:]
 
     nonisolated func observeTyping(

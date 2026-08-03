@@ -35,9 +35,30 @@ actor MockPlanMessageRepository: PlanMessageRepository {
     private var storage: [String: [PlanMessage]] = [:]
     private var continuations: [String: [UUID: AsyncStream<[PlanMessage]>.Continuation]] = [:]
 
-    init(seed: [String: [PlanMessage]] = [:]) {
+    init(seed: [String: [PlanMessage]] = MockPlanMessageRepository.samples) {
         storage = seed
     }
+
+    /// A short conversation on the group plan, with one reply, so mock mode actually shows the
+    /// conversation surface. Without it chat and threads render an empty transcript, which makes
+    /// them untestable and invisible in demos and screenshots alike.
+    static let samples: [String: [PlanMessage]] = [
+        "req_6": [
+            PlanMessage(
+                id: "msg_1",
+                senderID: "user_2",
+                text: "Which entrance are we meeting at?",
+                at: Date().addingTimeInterval(-3600)
+            ),
+            PlanMessage(
+                id: "msg_2",
+                senderID: "user_3",
+                text: "The one on Fourth",
+                parentID: "msg_1",
+                at: Date().addingTimeInterval(-3000)
+            )
+        ]
+    ]
 
     func messages(forRequest requestID: String, limit: Int) async throws -> [PlanMessage] {
         Array((storage[requestID] ?? []).sorted { $0.at < $1.at }.suffix(limit))

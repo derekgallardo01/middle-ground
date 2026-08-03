@@ -158,7 +158,11 @@ struct NegotiationView: View {
                         // Announced as "arrow up, button" without this — and it is the only way to
                         // send a counter.
                         .accessibilityLabel("Send")
-                        .accessibilityHint("Sends your suggestion to the other person")
+                        // The field sets `.submitLabel(.send)`, so the keyboard's return key is
+                        // also called "Send" and a label query matches two elements. The
+                        // identifier names this one unambiguously.
+                        .accessibilityIdentifier("sendMessage")
+                        .accessibilityHint("Sends what you wrote. With a time attached it suggests that time instead.")
                     }
                 }
                 .sheet(isPresented: $showTimePicker) { timePicker }

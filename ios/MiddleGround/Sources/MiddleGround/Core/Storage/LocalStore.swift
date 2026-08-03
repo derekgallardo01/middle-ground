@@ -39,6 +39,23 @@ final class LocalStore {
     }
 
     private init() {
+        // Mock mode is in-memory, always.
+        //
+        // Mock mode exists to give a deterministic app with no backend, and an on-disk cache
+        // quietly broke that: a response given in one launch was still there in the next, so
+        // "the fixtures" drifted with use. It surfaced as UI tests that passed alone and failed
+        // in sequence — the earlier test had accepted the plan a later one needed unanswered —
+        // and it affects screenshots and demos the same way, just less visibly.
+        if AppConfiguration.useMockRepositories,
+           let ephemeral = try? ModelContainer(
+               for: Self.schema,
+               configurations: [ModelConfiguration(schema: Self.schema, isStoredInMemoryOnly: true)]
+           ) {
+            container = ephemeral
+            isEphemeral = true
+            return
+        }
+
         // A failure here used to be `fatalError`, which turned any migration problem on
         // upgrade into an unrecoverable launch crash. The cache is derived data — Firestore
         // is the source of truth — so degrading to an in-memory store is always better than

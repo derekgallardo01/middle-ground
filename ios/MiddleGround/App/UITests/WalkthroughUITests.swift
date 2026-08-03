@@ -184,9 +184,19 @@ final class WalkthroughUITests: XCTestCase {
         XCTAssertTrue(cancel.exists, "A creator must be able to withdraw their own request")
 
         // Confirm the destructive alert appears, then back out.
+        //
+        // The title moved from "Cancel this request?" to a reason picker when cancelling started
+        // recording *why*, and again to "Cancelling at short notice" inside the late window. This
+        // test kept asserting the original string and had been failing ever since. Matched on the
+        // "Keep it" button instead, which is the part that actually has to be there — an alert you
+        // cannot back out of is the real hazard.
         cancel.tap()
-        let alert = app.alerts["Cancel this request?"]
+        let alert = app.alerts.firstMatch
         XCTAssertTrue(alert.waitForExistence(timeout: 5), "Cancelling must be confirmed")
+        XCTAssertTrue(
+            alert.buttons["Keep it"].exists,
+            "the confirmation must offer a way out"
+        )
         capture("13-cancel-confirmation")
         alert.buttons["Keep it"].tap()
     }

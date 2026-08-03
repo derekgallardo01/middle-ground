@@ -184,23 +184,28 @@ When 1.0 is approved, in one pass:
 
    Redeploy or roll back with `node Scripts/deploy-firestore-rules.mjs` (`--dry-run` compiles
    without releasing). The Firebase CLI is not installed here.
-6. **Deploy Cloud Functions, or chat ships silent.** `notifyPlanMessage` is written and committed
-   but undeployed. `notifyRequestResponse` watches `negotiationChain`, and conversation now lives
-   in `requests/{id}/messages`, so **a message currently notifies nobody** — the feature works
-   perfectly and no push ever arrives. That is the same shape of failure as the rules deploy: it
-   looks exactly like success.
+6. ✅ **`notifyPlanMessage` deployed** (3 August 2026). Chat notifies again.
 
-   Needs `firebase-tools` (Node only — the Java requirement is for the emulators, not deploys).
-   Deploy the one function rather than everything:
+   Without it messages arrived silently: `notifyRequestResponse` watches `negotiationChain`, and
+   conversation now lives in `requests/{id}/messages`. The feature worked and no push ever came —
+   the same shape of failure as an undeployed rules change.
 
+   **Deploying from this machine needs a longer discovery timeout.** firebase-tools loads the
+   functions source in a child process and gives it 10 seconds to declare its backend; loading
+   `CloudFunctions/index.js` from the network volume takes **~20 s wall clock for ~1.6 s of CPU**,
+   so the deploy fails with "User code failed to load. Cannot determine backend specification"
+   and nothing is deployed. It is filesystem latency, not a code fault:
+
+   ```sh
+   cd ios/MiddleGround
+   FUNCTIONS_DISCOVERY_TIMEOUT=180 npx firebase-tools deploy --only functions:<name>
    ```
-   cd ios/MiddleGround && npx firebase-tools deploy --only functions:notifyPlanMessage
-   ```
 
-   ⚠️ **Check the scheduler afterwards.** `firebase-schedule-dailyDigest-us-central1` is
-   deliberately `PAUSED` and must stay that way. A functions deploy can resume a paused job.
-   Verify with the Cloud Scheduler API, and re-pause with `jobs.pause` if it came back — the
-   other two jobs (`promptForAttendance`, `weeklyNudge`) are `ENABLED` and should stay so.
+   **Always name the function.** A bare `--only functions` redeploys everything, including the
+   scheduled ones — and `firebase-schedule-dailyDigest-us-central1` is deliberately `PAUSED`.
+   Deploying the single trigger left all three scheduler jobs untouched, verified before and
+   after. If one ever does come back, re-pause it through the Cloud Scheduler API `jobs.pause`
+   endpoint; `promptForAttendance` and `weeklyNudge` are `ENABLED` and should stay that way.
 
 7. **Archive from a committed tree**, upload, attach, submit.
 

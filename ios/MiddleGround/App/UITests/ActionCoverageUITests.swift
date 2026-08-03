@@ -284,7 +284,7 @@ final class ActionCoverageUITests: XCTestCase {
     func test_50_calendarRenders() throws {
         tab("Calendar").tap()
         XCTAssertTrue(
-            app.staticTexts.count > 0,
+            app.staticTexts.firstMatch.waitForExistence(timeout: 8),
             "the calendar should render something"
         )
     }

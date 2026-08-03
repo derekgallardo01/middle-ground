@@ -1326,6 +1326,92 @@ describe('notification settings', () => {
 
 // These rows are kept when events and requests are not, which is only defensible while they
 // cannot identify anyone. The rules are the enforcement, so they are what gets tested.
+// Saying something must cost nothing, and must not be a back door.
+//
+// The model enforces this too (`Request.canComment`), but the model is the client -- a modified
+// build could otherwise use a comment to change a status it was never allowed to touch.
+describe('commenting on a plan', () => {
+  const comment = (sender, text = 'which entrance?') => ({
+    id: `m-${sender}-${text.length}`,
+    senderID: sender,
+    responseType: 'comment',
+    text,
+    timestamp: new Date(),
+  });
+
+  beforeEach(() =>
+    seed((db) =>
+      setDoc(doc(db, 'requests/r1'), request({
+        status: 'accepted',
+        negotiationChain: [{ id: 'm1', senderID: BOB, responseType: 'accept', timestamp: new Date() }],
+      })),
+    ),
+  );
+
+  // The point of the whole feature: bob answered, so it is not his turn, and he may still speak.
+  test('someone who has already answered may still say something', async () => {
+    await assertSucceeds(updateDoc(doc(asBob(), 'requests/r1'), {
+      negotiationChain: [
+        { id: 'm1', senderID: BOB, responseType: 'accept', timestamp: new Date() },
+        comment(BOB),
+      ],
+      updatedAt: new Date(),
+    }));
+  });
+
+  test('a comment cannot change the status', async () => {
+    await assertFails(updateDoc(doc(asBob(), 'requests/r1'), {
+      status: 'countered',
+      negotiationChain: [
+        { id: 'm1', senderID: BOB, responseType: 'accept', timestamp: new Date() },
+        comment(BOB),
+      ],
+      updatedAt: new Date(),
+    }));
+  });
+
+  test('a comment cannot move the plan to a different time', async () => {
+    await assertFails(updateDoc(doc(asBob(), 'requests/r1'), {
+      proposedTime: new Date(Date.now() + 86400000),
+      negotiationChain: [
+        { id: 'm1', senderID: BOB, responseType: 'accept', timestamp: new Date() },
+        comment(BOB),
+      ],
+      updatedAt: new Date(),
+    }));
+  });
+
+  test('you cannot put words in someone else mouth', async () => {
+    await assertFails(updateDoc(doc(asBob(), 'requests/r1'), {
+      negotiationChain: [
+        { id: 'm1', senderID: BOB, responseType: 'accept', timestamp: new Date() },
+        comment(ALICE),
+      ],
+      updatedAt: new Date(),
+    }));
+  });
+
+  test('someone outside the plan cannot comment on it', async () => {
+    await assertFails(updateDoc(doc(asMallory(), 'requests/r1'), {
+      negotiationChain: [
+        { id: 'm1', senderID: BOB, responseType: 'accept', timestamp: new Date() },
+        comment(MALLORY),
+      ],
+      updatedAt: new Date(),
+    }));
+  });
+
+  test('a called-off plan cannot be commented on', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'requests/r2'), request({ status: 'cancelled' }));
+    });
+    await assertFails(updateDoc(doc(asBob(), 'requests/r2'), {
+      negotiationChain: [comment(BOB)],
+      updatedAt: new Date(),
+    }));
+  });
+});
+
 describe('plan outcomes', () => {
   const asAdmin = () => testEnv.authenticatedContext('root', { admin: true }).firestore();
   const valid = {

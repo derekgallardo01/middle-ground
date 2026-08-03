@@ -162,6 +162,44 @@ service cloud.firestore {
         : (lastMessage().senderID != uid() || lastMessage().responseType == 'save');
     }
 
+    // The message this write is adding, rather than the last one already stored.
+    function appendedMessage() {
+      return request.resource.data.negotiationChain[
+        request.resource.data.negotiationChain.size() - 1
+      ];
+    }
+
+    // Saying something without answering.
+    //
+    // Deliberately outside `isMyTurn()`, which is the entire point. The composer's only send
+    // path used to be a counter-proposal, so asking "which entrance?" on a plan three people
+    // had agreed to withdrew the agreement — status back to `countered`, every acceptance
+    // voided, three people owing a fresh answer. Speaking had to cost nothing, and enforcing
+    // that here as well as in `Request.canComment(as:)` is what stops a modified client from
+    // using a comment to smuggle through a status change.
+    //
+    // Exactly one message may be appended, it must be a comment, and it must be from the
+    // sender writing it — otherwise this branch becomes a way to put words in someone's mouth.
+    function isCommenting() {
+      return request.resource.data.negotiationChain.size()
+               == resource.data.negotiationChain.size() + 1
+        && appendedMessage().responseType == 'comment'
+        && appendedMessage().senderID == uid()
+        && !(resource.data.status in ['cancelled', 'declined'])
+        && immutable('status')
+        && immutable('proposedTime')
+        && immutable('creatorID')
+        && immutable('recipientIDs')
+        && immutable('allParticipantIDs')
+        && immutable('confirmations')
+        && immutable('stake')
+        && immutable('title')
+        && immutable('seats')
+        && immutable('planInviteCode')
+        && immutable('planInviteSeats')
+        && immutable('createdAt');
+    }
+
     // Three or more people, so "the other person" is not a thing.
     function isGroupPlan() {
       return resource.data.allParticipantIDs.size() > 2;
@@ -390,6 +428,7 @@ service cloud.firestore {
                             && immutable('stake')
                             && immutable('planInviteCode')
                             && immutable('planInviteSeats'))
+                          || isCommenting()
                           || isConfirmingAttendance()
                           || isCancelling()
                           || isStaking()

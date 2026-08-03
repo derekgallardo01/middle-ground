@@ -63,7 +63,8 @@ final class RequestDetailViewModel {
         }
     }
 
-    private static func rescheduleText(for date: Date) -> String {
+    // Not private: the composer extension lives in its own file, and `private` is file-scoped.
+    static func rescheduleText(for date: Date) -> String {
         "How about \(date.formatted(date: .abbreviated, time: .shortened))?"
     }
 
@@ -366,15 +367,8 @@ final class RequestDetailViewModel {
         }
     }
 
-    var isCounterEmpty: Bool {
-        counterText.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
     /// A time attached to the counter being written, if the user picked one.
     var counterProposedTime: Date?
-
-    /// A time on its own is a complete counter-proposal — "how about Sunday?" needs no prose.
-    var canSendCounter: Bool { !isCounterEmpty || counterProposedTime != nil }
 
     /// `newTime` moves the proposed time along with the response.
     ///
@@ -424,19 +418,6 @@ final class RequestDetailViewModel {
     private func presentCelebration(_ title: String) {
         celebrationTitle = title
         showCelebration = true
-    }
-
-    func sendCounter() async {
-        guard canSendCounter else { return }
-        let time = counterProposedTime
-        // A counter with only a time still needs to read as something in the transcript.
-        let message = isCounterEmpty ? (time.map(Self.rescheduleText(for:)) ?? "") : counterText
-        await respond(with: .counter, text: message, newTime: time)
-        counterProposedTime = nil
-    }
-
-    func saveForLater() async {
-        await respond(with: .save)
     }
 
     // MARK: - Reporting

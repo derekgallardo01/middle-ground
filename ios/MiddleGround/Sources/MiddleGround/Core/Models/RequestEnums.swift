@@ -85,6 +85,8 @@ enum ResponseType: String, Codable, CaseIterable, Identifiable {
     case reschedule
     case counter
     case save
+    /// Saying something without answering. See `Request.resolvedStatus(after:)`.
+    case comment
 
     var id: String { rawValue }
 
@@ -96,6 +98,7 @@ enum ResponseType: String, Codable, CaseIterable, Identifiable {
         case .reschedule: return "Reschedule"
         case .counter: return "Counter"
         case .save: return "Save"
+        case .comment: return "Comment"
         }
     }
 
@@ -107,6 +110,7 @@ enum ResponseType: String, Codable, CaseIterable, Identifiable {
         case .reschedule: return "⏰"
         case .counter: return "📝"
         case .save: return "❤️"
+        case .comment: return "💬"
         }
     }
 
@@ -119,6 +123,7 @@ enum ResponseType: String, Codable, CaseIterable, Identifiable {
         case .reschedule: return "Rescheduled a plan"
         case .counter: return "Sent a counter-offer"
         case .save: return "Saved a request for later"
+        case .comment: return "Said something on a plan"
         }
     }
 }

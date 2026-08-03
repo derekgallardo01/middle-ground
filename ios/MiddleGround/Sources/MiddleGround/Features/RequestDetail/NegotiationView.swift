@@ -45,11 +45,12 @@ struct NegotiationView: View {
                 .mgAnimation(MGMotion.reveal, value: viewModel.request.negotiationChain.count)
             }
 
-            // Gated on whose turn it is, not merely on the request being open. Gating on
-            // `isPending` alone showed the creator an enabled composer on their own unanswered
-            // request; sending hit `guard canRespond` in RequestService and surfaced as a
-            // generic "Failed to send response." — a guaranteed failure presented as an error.
-            if viewModel.canRespond {
+            // Gated on being able to *speak*, not on whose turn it is. Gating the whole composer
+            // on `canRespond` meant somebody who had already answered could not ask a question
+            // about the plan they had just agreed to — and the only send path was a counter, so
+            // asking one withdrew the agreement. Attaching a time is still an answer, so that
+            // button keeps the narrower gate.
+            if viewModel.canComment {
                 VStack(alignment: .leading, spacing: MGSpacing.sm) {
                     if let time = viewModel.counterProposedTime {
                         attachedTime(time)
@@ -60,26 +61,32 @@ struct NegotiationView: View {
                         // Without it "Sunday instead?" was only ever transcript text, so
                         // accepting the counter left the original date on the request and the
                         // Calendar entry on a day nobody agreed to.
-                        Button {
-                            pickedTime = viewModel.counterProposedTime
-                                ?? viewModel.request.proposedTime
-                                ?? Date().addingTimeInterval(3600)
-                            showTimePicker = true
-                        } label: {
-                            Image(systemName: viewModel.counterProposedTime == nil
-                                  ? "calendar.badge.plus" : "calendar.badge.checkmark")
-                                .font(.system(size: sendGlyph, weight: .semibold))
-                                .foregroundStyle(MGColors.indigo)
-                                .frame(width: sendButton, height: sendButton)
-                                .background(MGColors.warm100)
-                                .clipShape(Circle())
+                        if viewModel.canRespond {
+                            Button {
+                                pickedTime = viewModel.counterProposedTime
+                                    ?? viewModel.request.proposedTime
+                                    ?? Date().addingTimeInterval(3600)
+                                showTimePicker = true
+                            } label: {
+                                Image(systemName: viewModel.counterProposedTime == nil
+                                      ? "calendar.badge.plus" : "calendar.badge.checkmark")
+                                    .font(.system(size: sendGlyph, weight: .semibold))
+                                    .foregroundStyle(MGColors.indigo)
+                                    .frame(width: sendButton, height: sendButton)
+                                    .background(MGColors.warm100)
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(ScaleButtonStyle())
+                            .accessibilityLabel(viewModel.counterProposedTime == nil
+                                                ? "Suggest a time" : "Change the suggested time")
+                            .accessibilityHint("Attaches a new time to your suggestion")
                         }
-                        .buttonStyle(ScaleButtonStyle())
-                        .accessibilityLabel(viewModel.counterProposedTime == nil
-                                            ? "Suggest a time" : "Change the suggested time")
-                        .accessibilityHint("Attaches a new time to your suggestion")
 
-                        TextField("Suggest another time or idea...", text: $viewModel.counterText, axis: .vertical)
+                        TextField(
+                            viewModel.canRespond ? "Say something, or suggest a time..." : "Say something...",
+                            text: $viewModel.counterText,
+                            axis: .vertical
+                        )
                             .mgFont(.body)
                             .focused($composerFocused)
                             .submitLabel(.send)

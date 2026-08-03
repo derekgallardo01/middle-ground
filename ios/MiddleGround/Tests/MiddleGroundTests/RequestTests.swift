@@ -43,15 +43,27 @@ final class RequestTests: XCTestCase {
         XCTAssertEqual(request.negotiationChain.first?.text, "How about 8pm?")
     }
 
+    /// Every answer moves the status. A comment is the one response that is not an answer, so it
+    /// leaves the status exactly where it was — see `CommentTests` for why that matters.
     func testEveryResponseTypeMapsToAStatus() throws {
         for response in ResponseType.allCases {
             var request = makeRequest()
+            let before = request.status
             try request.addResponse(NegotiationMessage(senderID: recipient, responseType: response))
-            XCTAssertEqual(
-                request.status,
-                response.statusMapping,
-                "\(response.rawValue) did not map to its status"
-            )
+
+            if let expected = response.statusMapping {
+                XCTAssertEqual(
+                    request.status,
+                    expected,
+                    "\(response.rawValue) did not map to its status"
+                )
+            } else {
+                XCTAssertEqual(
+                    request.status,
+                    before,
+                    "\(response.rawValue) is not an answer and must not move the status"
+                )
+            }
         }
     }
 

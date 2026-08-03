@@ -104,6 +104,17 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "_comment": "Collection-group query behind purgeMessages: a deleted user's messages are scattered under every request they were ever on, including ones somebody else still owns, and subcollections survive the deletion of their parent.",
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "senderID",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

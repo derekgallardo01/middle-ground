@@ -26,10 +26,38 @@ actor AccountDataPurger {
     /// deletion proceed, otherwise a user who wants out is trapped by a transient failure.
     /// What is left behind is picked up by `onUserDeleted`.
     func purge(userID: String) async {
+        // Before leaving groups and deleting requests: both of those remove the access this
+        // needs. Once you are out of a group, or the plan is gone, the messages underneath it
+        // are unreadable and unreachable -- and they do not go with the parent, because
+        // Firestore does not delete subcollections when their document is deleted.
+        await deleteOwnMessages(userID: userID)
         await leaveAllRelationships(userID: userID)
         await deleteOwnRequests(userID: userID)
         await deleteOwnEvents(userID: userID)
         await deleteSingletons(userID: userID)
+    }
+
+    // MARK: - Messages
+
+    /// Deletes everything this user said, on every plan they are on.
+    ///
+    /// Per plan rather than a collection-group query: the rules authorise a message list by
+    /// membership of the parent plan, which a collection-group query cannot prove, so the client
+    /// has to walk the plans it can still see. The server backstop in `purge.js` does use a
+    /// collection-group query -- it runs with admin privileges and can.
+    private func deleteOwnMessages(userID: String) async {
+        guard let plans = try? await db.collection("requests")
+            .whereField("allParticipantIDs", arrayContains: userID)
+            .getDocuments()
+        else { return }
+
+        for plan in plans.documents {
+            guard let mine = try? await plan.reference.collection("messages")
+                .whereField("senderID", isEqualTo: userID)
+                .getDocuments()
+            else { continue }
+            await deleteInBatches(mine.documents.map(\.reference))
+        }
     }
 
     // MARK: - Relationships

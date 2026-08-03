@@ -457,7 +457,13 @@ service cloud.firestore {
       }
 
       // Everyone on the plan reads the conversation; only its author writes their own line.
-      allow get, list: if inPlan();
+      //
+      // Admin-readable, like the requests themselves. Guideline 1.2 requires acting on reported
+      // content, and the app promises reports are reviewed within 24 hours -- a promise that
+      // cannot be kept if the reported words are the one thing staff may not look at. Disclosed
+      // in the Privacy Policy alongside the same access to request content, and written to the
+      // append-only audit log.
+      allow get, list: if inPlan() || isAdmin();
 
       // A called-off plan stops taking messages. There is nothing left to arrange, and a thread
       // that outlives its subject is a different product from this one.

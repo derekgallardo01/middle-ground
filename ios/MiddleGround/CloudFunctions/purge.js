@@ -24,6 +24,7 @@ async function purgeUserData(uid) {
     purgeRelationships(uid),
     purgeRequests(uid),
     purgeEvents(uid),
+    purgeMessages(uid),
   ]);
 
   results.forEach((r, i) => {
@@ -33,6 +34,23 @@ async function purgeUserData(uid) {
   });
 
   console.log(`Finished purging ${uid}`);
+}
+
+/**
+ * Removes everything this person said, wherever they said it.
+ *
+ * Subcollections are NOT deleted when their parent document is, so a deleted user's messages
+ * outlive both the account and, often, the plan they were written on. A collection-group query is
+ * the only way to find them all: they are scattered under every request the person was ever on,
+ * including ones somebody else still owns.
+ */
+async function purgeMessages(uid) {
+  const snapshot = await db()
+    .collectionGroup('messages')
+    .where('senderID', '==', uid)
+    .get();
+  await Promise.all(snapshot.docs.map((doc) => doc.ref.delete()));
+  console.log(`Deleted ${snapshot.size} message(s) by ${uid}`);
 }
 
 /**

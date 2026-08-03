@@ -36,6 +36,9 @@ actually does — every item below corresponds to real behaviour in the app.
 | **Requests you create** — title, optional note, optional proposed time, and the responses exchanged | `requests/{id}` in Firebase Firestore | This is the product: it is the content you and the people you plan with are deciding on |
 | **Group membership** — who you are paired with, and your invite code | `relationships/{id}` and `invites/{code}` | Connects a group so its members can send each other requests |
 | **Notification token** | `user_tokens/{your-id}` | Lets us send a push notification when someone sends or answers a request. Only if you grant notification permission |
+| **Messages you send on a plan** — what you write, and which message it replies to | `requests/{id}/messages` | So the people on a plan can talk about it. Readable by them, **and by authorised Middle Ground staff** — the same access, and the same audit log, as the plans themselves. Without it a reported message could not be looked at, and we could not act on abuse |
+| **That you are typing** — a flag with no content, lasting about eight seconds | `requests/{id}/presence` | So the others on a plan can see a reply is coming. It contains no text, expires by itself, and is deleted by the server |
+| **That you opened a plan** — the time you last had it open | `requests/{id}/reads` | So people can tell their message was seen. Recorded **per plan, not per message** — there is no record of which individual messages you read |
 | **Notification preferences** — which kinds of alert you want | `notification_settings/{your-id}` | So we only send the kinds you left switched on. Readable only by you |
 | **A location you choose to share** — one coordinate, the time you shared it, and the time it expires | `requests/{id}/locations/{your-id}` | Lets the other people on an agreed plan see you are on your way. Written only when you tap **Share my location**, and only while that plan is live. Deleted automatically when it expires |
 | **Progress data** — XP, streak, achievements | On your device, and mirrored to `gamification/{your-id}` | Powers the Activities tab, and means your progress survives changing phone |
@@ -158,7 +161,8 @@ Open **Profile → Delete Account**. After you confirm:
   revoked.
 - The progress data stored on your device is removed with the app's data.
 - Your profile, notification token, notification preferences, invite codes, group membership,
-  progress data, usage events, and requests that involved only you are erased from our database.
+  progress data, usage events, **every message you sent on any plan**, and requests that involved
+  only you are erased from our database.
   Requests shared with other people have your participation removed so they keep their own
   history.
 - Any location you shared expires on its own schedule — hours after the plan it belonged to —

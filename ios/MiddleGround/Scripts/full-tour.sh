@@ -46,19 +46,31 @@ xcrun simctl erase "$udid"
 xcrun simctl boot "$udid"
 xcrun simctl bootstatus "$udid" -b >/dev/null 2>&1 || true
 
-echo "==> recording"
-xcrun simctl io "$udid" recordVideo --codec=h264 --force "$OUT/tour.mp4" &
-RECORDER=$!
+# Build BEFORE recording starts.
+#
+# `xcodebuild test` compiles, installs and only then runs, and the recorder started first was
+# capturing all of it — the first six minutes of an eight-minute video were the simulator home
+# screen while the build ran. Splitting the build out means the recording contains the app and
+# nothing else.
+echo "==> building (not recorded)"
+xcodebuild \
+  -project MiddleGround.xcodeproj \
+  -scheme MiddleGroundApp \
+  -destination "id=$udid" \
+  -only-testing:MiddleGroundUITests/FullTourUITests \
+  CODE_SIGNING_ALLOWED=NO \
+  build-for-testing >"$WORK/build.log" 2>&1 || {
+    echo "build failed — see $WORK/build.log"
+    exit 1
+  }
 
-# Stop the recorder however this script exits, or it keeps running with no owner.
-cleanup() {
-  if kill -0 "$RECORDER" 2>/dev/null; then
-    kill -INT "$RECORDER" 2>/dev/null || true
-    wait "$RECORDER" 2>/dev/null || true
-  fi
-}
-trap cleanup EXIT
-
+# Start the test first, and only start recording once the app is actually on screen.
+#
+# Two earlier attempts got this wrong. Recording before `xcodebuild test` captured the compile as
+# well, and moving the build out to `build-for-testing` barely helped — installing onto a freshly
+# erased simulator and launching the test runner still takes minutes, and all of it was recorded
+# as home screen. Six of the eight minutes were dead. Polling for the app's own process is the
+# only version of this that does not depend on guessing how long a machine takes.
 echo "==> touring"
 set +e
 xcodebuild \
@@ -68,7 +80,32 @@ xcodebuild \
   -only-testing:MiddleGroundUITests/FullTourUITests \
   -resultBundlePath "$WORK/tour.xcresult" \
   CODE_SIGNING_ALLOWED=NO \
-  test >"$WORK/build.log" 2>&1
+  test-without-building >"$WORK/test.log" 2>&1 &
+TESTER=$!
+
+echo "==> waiting for the app to appear"
+for _ in $(seq 1 300); do
+  if xcrun simctl spawn "$udid" launchctl list 2>/dev/null | grep -q "app.middleground.MiddleGround"; then
+    break
+  fi
+  # Stop waiting if the test died before ever launching.
+  kill -0 "$TESTER" 2>/dev/null || break
+  sleep 1
+done
+
+echo "==> recording"
+xcrun simctl io "$udid" recordVideo --codec=h264 --force "$OUT/tour.mp4" &
+RECORDER=$!
+
+cleanup() {
+  if kill -0 "$RECORDER" 2>/dev/null; then
+    kill -INT "$RECORDER" 2>/dev/null || true
+    wait "$RECORDER" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+
+wait "$TESTER"
 STATUS=$?
 set -e
 
@@ -78,7 +115,7 @@ cleanup
 trap - EXIT
 
 if [ "$STATUS" -ne 0 ]; then
-  echo "!! the tour reported failures — see $WORK/build.log"
+  echo "!! the tour reported failures — see $WORK/test.log"
   echo "   extracting whatever it did capture anyway"
 fi
 
@@ -178,6 +215,12 @@ if saved:
         print('  every frame is distinct')
 PY
 
-ls -la "$OUT/tour.mp4" 2>/dev/null && echo "  video -> $OUT/tour.mp4" || echo "  !! no video was written"
+if [ -f "$OUT/tour.mp4" ]; then
+  duration=$(mdls -raw -name kMDItemDurationSeconds "$OUT/tour.mp4" 2>/dev/null | cut -d. -f1)
+  size=$(ls -la "$OUT/tour.mp4" | awk '{print $5}')
+  echo "  video -> $OUT/tour.mp4  (${duration}s, ${size} bytes)"
+else
+  echo "  !! no video was written"
+fi
 echo
 echo "Done: $OUT"

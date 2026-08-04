@@ -85,6 +85,19 @@ actor FirestoreEventRepository: EventRepository {
             .getDocuments()
         return snapshot.documents.compactMap { try? $0.data(as: ReportDTO.self).toModel() }
     }
+
+    /// Writes only the three resolution fields. The rules refuse anything else on a report, so a
+    /// whole-document write would be rejected — and should be: the report itself is evidence and
+    /// must stay exactly as it was filed.
+    func resolveReport(id: String, as resolution: ReportResolution, by adminID: String) async throws {
+        try await db.collection(Self.reportCollection)
+            .document(id)
+            .updateData([
+                "resolution": resolution.rawValue,
+                "resolvedBy": adminID,
+                "resolvedAt": Timestamp(date: Date())
+            ])
+    }
 }
 
 // MARK: - DTOs
@@ -130,6 +143,9 @@ private struct ReportDTO: Codable {
     var reason: String
     var note: String?
     var at: Timestamp
+    var resolution: String?
+    var resolvedBy: String?
+    var resolvedAt: Timestamp?
 
     init(from report: ContentReport) {
         self.id = report.id
@@ -139,6 +155,9 @@ private struct ReportDTO: Codable {
         self.reason = report.reason.rawValue
         self.note = report.note
         self.at = Timestamp(date: report.at)
+        self.resolution = report.resolution?.rawValue
+        self.resolvedBy = report.resolvedBy
+        self.resolvedAt = report.resolvedAt.map { Timestamp(date: $0) }
     }
 
     func toModel() -> ContentReport? {
@@ -150,7 +169,10 @@ private struct ReportDTO: Codable {
             reportedUserID: reportedUserID,
             reason: reason,
             note: note,
-            at: at.dateValue()
+            at: at.dateValue(),
+            resolution: resolution.flatMap(ReportResolution.init(rawValue:)),
+            resolvedBy: resolvedBy,
+            resolvedAt: resolvedAt?.dateValue()
         )
     }
 }

@@ -733,7 +733,24 @@ service cloud.firestore {
       allow create: if signedIn()
                     && request.resource.data.reporterID == uid()
                     && request.resource.data.reportedUserID != uid();
-      allow update, delete: if false;
+
+      // An operator may record what was decided, and nothing else. The report itself is
+      // evidence: who filed it, against whom, why and when must read exactly as filed, or the
+      // record of a complaint becomes editable by the people it is a complaint about.
+      //
+      // `diff().affectedKeys()` is what enforces that — an admin writing the whole document
+      // back, even unchanged, is refused, because "unchanged" is not something the rule can
+      // verify field by field without listing every field here.
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['resolution', 'resolvedBy', 'resolvedAt'])
+                    && request.resource.data.resolution in ['actioned', 'dismissed']
+                    && request.resource.data.resolvedBy == uid()
+                    && request.resource.data.resolvedAt is timestamp;
+
+      // Still never deleted: a report is a record about somebody else's conduct, and the
+      // privacy policy says so.
+      allow delete: if false;
     }
 
     // ----------------------------------------------------------- admin_audit

@@ -28,6 +28,11 @@ struct GamificationView: View {
                         if let reliability = viewModel.reliability {
                             ReliabilityCard(score: reliability)
                         }
+                        // "Do we make things happen" sits under "do I turn up". Every group,
+                        // couples included — see `GroupFollowThrough`.
+                        ForEach(viewModel.followThrough, id: \.group.id) { entry in
+                            FollowThroughCard(groupName: entry.group.label, followThrough: entry.rate)
+                        }
                         ForEach(viewModel.scoreboards, id: \.group.id) { entry in
                             ScoreboardCard(
                                 groupName: entry.group.label,

@@ -26,6 +26,10 @@ protocol EventRepository: Sendable {
     /// Files a report. Throws, unlike `record` — the user is told whether it went through.
     func submitReport(_ report: ContentReport) async throws
     func recentReports(limit: Int) async throws -> [ContentReport]
+
+    /// Records what was decided about a report, and who decided it. Admin-only, enforced by the
+    /// security rules rather than only here.
+    func resolveReport(id: String, as resolution: ReportResolution, by adminID: String) async throws
 }
 
 /// A user's report of content someone sent them.
@@ -43,6 +47,17 @@ struct ContentReport: Identifiable, Hashable, Codable, Sendable {
     let note: String?
     let at: Date
 
+    /// What was decided about it, and by whom. Nil means nobody has looked yet.
+    ///
+    /// The reports screen quoted a 24-hour review promise (App Review 1.2) over a list with no
+    /// action on it at all — nothing could be marked done, so a queue of a hundred reports and a
+    /// queue of one looked identical and every report stayed unread forever.
+    let resolution: ReportResolution?
+    let resolvedBy: String?
+    let resolvedAt: Date?
+
+    var isResolved: Bool { resolution != nil }
+
     init(
         id: String = UUID().uuidString,
         reporterID: String,
@@ -50,7 +65,10 @@ struct ContentReport: Identifiable, Hashable, Codable, Sendable {
         reportedUserID: String,
         reason: ReportReason,
         note: String? = nil,
-        at: Date = Date()
+        at: Date = Date(),
+        resolution: ReportResolution? = nil,
+        resolvedBy: String? = nil,
+        resolvedAt: Date? = nil
     ) {
         self.id = id
         self.reporterID = reporterID
@@ -59,6 +77,30 @@ struct ContentReport: Identifiable, Hashable, Codable, Sendable {
         self.reason = reason
         self.note = note
         self.at = at
+        self.resolution = resolution
+        self.resolvedBy = resolvedBy
+        self.resolvedAt = resolvedAt
+    }
+}
+
+/// What an operator decided about a report.
+///
+/// Two outcomes, not five. The distinction that matters for the 24-hour promise is "somebody has
+/// looked at this" versus "nobody has"; finer grades of severity are a moderation policy, and
+/// inventing one here would be pretending to a process that does not exist yet.
+enum ReportResolution: String, Codable, CaseIterable, Identifiable, Sendable {
+    /// Acted on: the content or the account was dealt with outside the app.
+    case actioned
+    /// Looked at and judged to need nothing.
+    case dismissed
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .actioned: return "Actioned"
+        case .dismissed: return "Dismissed"
+        }
     }
 }
 
@@ -147,5 +189,22 @@ actor MockEventRepository: EventRepository {
 
     func recentReports(limit: Int) async throws -> [ContentReport] {
         Array(reports.sorted { $0.at > $1.at }.prefix(limit))
+    }
+
+    func resolveReport(id: String, as resolution: ReportResolution, by adminID: String) async throws {
+        guard let index = reports.firstIndex(where: { $0.id == id }) else { return }
+        let existing = reports[index]
+        reports[index] = ContentReport(
+            id: existing.id,
+            reporterID: existing.reporterID,
+            requestID: existing.requestID,
+            reportedUserID: existing.reportedUserID,
+            reason: existing.reason,
+            note: existing.note,
+            at: existing.at,
+            resolution: resolution,
+            resolvedBy: adminID,
+            resolvedAt: Date()
+        )
     }
 }

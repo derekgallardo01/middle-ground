@@ -1,200 +1,132 @@
-# Verification log — end to end on the simulator
+# Verification log — screenshots and video, personally checked
 
-**Run:** 04 August 2026, 15:31 EDT
-**Commit:** `1336e09` on `fix/build-pairing-and-tooling`
-**Machine:** macOS 26.5 (arm64) · Xcode 26.6
-**Simulator:** iPhone 17 Pro · **Java:** 26.0.2
+Every ✓ below means **I opened that image and read what was on it**. Where I could only read a
+frame at contact-sheet scale, it says so, because "it passed" and "I looked at it" are different
+claims and only one of them is worth anything.
 
-Every row below was driven on a running simulator. Nothing here is inferred from code
-reading, and nothing is reported as verified that was not observed.
+**Run:** 04 August 2026, 16:24 EDT · **Commit:** `65bdb8f`
+**Simulator:** iPhone 17 Pro · macOS 26.5 · Xcode 26.6
 
-## Totals
+## Where the evidence is
+
+```
+~/Desktop/MiddleGround-Evidence/
+  tour.mp4                 6m14s, the whole app end to end
+  tour-contact-sheet.png   all 51 tour frames on one page
+  tour-frames/             51 stills
+  feature-proof/           26 stills, one per action or admin section
+```
+
+## Video — `tour.mp4`
+
+Checked by sampling frames at 3s, 60s, 140s, 220s, 300s, 330s, 350s and 368s, **not** by file
+size. That distinction matters: a tour was once reported as good on file size alone when its first
+six minutes were the iPhone home screen.
+
+| At | ✓ What is on screen |
+|---|---|
+| 0–3s | Home screen while the app launches. Three seconds, not six minutes |
+| 60s | A declined plan, five tabs including Admin |
+| 140s | The feed, response buttons reading **Accept / Suggest / Decline** |
+| 220s | "Why are you cancelling?" with all six reasons |
+| 300s | Profile, all six notification switches |
+| 330s | "Date night this Friday? — Cancelled · Something came up" |
+| 350s | The operator panel overview |
+| 368s | **Follow-through 70%** |
+
+51 frames extracted, every one distinct.
+
+## Actions — driven, and the result photographed
+
+Read at full size. `feature-proof/`
+
+| Action | ✓ What the image shows | File |
+|---|---|---|
+| Asked whether a plan happened | "Did this happen? Your answer is yours alone — the other person is asked separately", **Yes, it did** / **No, it didn't** | `action-01-asked-if-it-happened.png` |
+| Confirming it happened | The question is gone, replaced by "Waiting for Sam to confirm" | `action-01-confirmed.png` |
+| Saying it did not happen | Same — correctly waits for the other person either way | `action-02-did-not-happen.png` |
+| Points offered on a plan | "Put points on it? You both stake the same. Turn up and you each get it back as a bonus." 10 / 25 / 50 — **copy that is now true** | `action-03-stake-offered.png` |
+| Points placed | "25 points on it — waiting for Sam to agree" | `action-03-stake-placed.png` |
+| Cancelling asks why | Six reasons, and "The plan stays in your history rather than disappearing" | `action-04-cancel-asks-why.png` |
+| Cancelled with a reason | Status **Cancelled**, and "Something came up" on the record | `action-04-cancelled.png` |
+| Plan invite created | Code `EVPC8T`, "The next person to use this code joins the plan. It then stops working." | `action-05-plan-invite-created.png` |
+| Plan invite revoked | Back to "Create a code for this plan" | `action-05-plan-invite-revoked.png` |
+| Notification switches | All six kinds, each with its explanation | `action-06-notification-settings.png` |
+| A switch actually switches | "New requests" off, the rest on | `action-06-notification-changed.png` |
+| Reporting inside a group | **"Who is this about?" — Priya / Sam**, then "What's wrong?", Send disabled until chosen | `action-07-report-asks-who.png` |
+| The feed can be filtered | All / Your turn / Saved | `action-08-feed-filters.png` |
+
+## The operator role — every section
+
+| Section | ✓ What the image shows | File |
+|---|---|---|
+| The gate | Admin tab present with the claim, **absent without it** — both launches side by side | `admin-00-tab-present.png` |
+| Overview | Users 2, Groups 1, Paired 1, Requests 3, Activation 100%, plus by-status and by-category | `admin-01-overview.png` |
+| Users | Alex (`user_1`), Sam (`user_2`) | `admin-02-users.png` |
+| Requests | Three plans with status, category, message count, id | `admin-03-requests.png` |
+| Reports, waiting | The report with its note, subject, reporter and plan, offering **Actioned** / **Dismiss** | `admin-04-reports-waiting.png` |
+| **Reports, closed** | Buttons gone, replaced by **"Actioned — user_1 · Aug 4, 2026 at 3:48 PM"** | `admin-05-report-closed.png` |
+| A report decided earlier | "Dismissed — root · Aug 3" | `admin-09-report-already-decided.png` |
+| Events | Empty state: "No events recorded yet." | `admin-06-events.png` |
+| Venues | Three curated places with their cities and plan kinds | `admin-07-venues.png` |
+| Audit | "Every admin view of user data is recorded here. Entries cannot be edited or deleted." | `admin-08-audit.png` |
+| **Outcomes** | **Follow-through 70%** across 10 plans, 10% called off at short notice | `admin-10-outcomes.png` |
+| Outcomes, broken down | By party size and by kind of plan | `admin-11-outcomes-breakdown.png` |
+| Outcomes, the caveat | "Collection began 2 August 2026… it cannot be reconstructed" | `admin-12-outcomes-caveat.png` |
+
+**I checked the arithmetic rather than trusting the label:** happened 7 + called off early 1 +
+called off late 1 + nobody turned up 1 = 10 settled, matching "across 10 plans". 7/10 = 70%.
+1/10 = 10% late. Agreed (2) and disputed (1) are correctly outside the denominator.
+
+## Features — read at contact-sheet scale
+
+`tour-contact-sheet.png`, 51 frames. At that size I can confirm the screen, the flow and the
+headline text, **not** every word of body copy.
+
+| ✓ | Seen in the frames |
+|---|---|
+| ✓ | Feed, calendar, activities, profile |
+| ✓ | Accept, and the "+25 XP · Request accepted!" celebration |
+| ✓ | Decline, and the declined state |
+| ✓ | Suggest, and the reschedule date picker |
+| ✓ | Group plan with three people, chat, a reply, the typing indicator and "Seen by" |
+| ✓ | Points on a plan |
+| ✓ | Cancelling, both ways |
+| ✓ | Calendar with a plan, "I'm not free this day", and "Sam isn't free" |
+| ✓ | Creating a request, every category |
+| ✓ | Spontaneous mode with title, description, expiry, recipients and Send Now |
+| ✓ | Activities: level, streak, achievements, and the follow-through card |
+| ✓ | Every admin section |
+
+## Automated totals behind the pictures
 
 | Suite | Tests | Result |
 |---|---|---|
-| Firestore security rules (emulator) | 181 | **all passed** |
-| Swift unit | 240 | **all passed** |
-| UI, on the simulator | 77 | **all passed** |
-| SwiftLint `--strict` | — | **0 violations** |
-| Cloud Functions syntax | — | **ok** |
-| Recorded tour | 41 frames | **every frame distinct** |
+| Firestore security rules (emulator) | 181 | all passed |
+| Swift unit | 240 | all passed |
+| UI, on the simulator | 77 | all passed |
+| SwiftLint `--strict` | — | 0 violations |
 
-**518 automated tests. 0 failures.**
+## Two things looking at the pictures found
 
-## What this run added
+Neither would have shown up in a pass/fail total, which is the argument for looking.
 
-The previous log reported totals. This one is itemised, and it closes two real holes:
+1. **The report picker offered "Sam" and "Someone".** `MockUserRepository` knew Alex and Sam but
+   not Priya, who is on the three-person plan — so her name fell back to "Someone". On a
+   safety-critical screen, choosing between a name and "Someone" is no choice at all. The fixture
+   now knows her, and the frame above reads **Priya / Sam**. Worth keeping in mind for production:
+   if a participant's user document ever fails to load, that picker degrades the same way.
+2. **Every breakdown row reads "—".** The by-party-size and by-kind tables suppress a percentage
+   until that *slice* has ten settled plans, so at today's volume they all show a dash next to a
+   count. It is the same honesty rule used everywhere else and it is not wrong, but a reader
+   cannot tell "0%" from "not enough yet". Worth deciding deliberately rather than leaving.
 
-- **The operator role had no coverage at all, and could not have had any.** In mock mode
-  `PreviewAuthService.isAdmin()` returned false, so the Admin tab was never built and every
-  section behind it was unreachable on a simulator — including the reports queue and the
-  follow-through figures shipped this week. `-MGAdmin` exists for that now, mock-mode only,
-  and it confers nothing real: `firestore.rules` checks a server-issued claim.
-- **Several actions were only ever checked for presence.** Confirming a plan happened,
-  staking points, cancelling with a reason, creating and revoking a plan code, and changing
-  a notification switch were all asserted as "the control is there". They are now pressed.
+## What no simulator can show
 
-## Per test
-
-### The operator role
-
-`E2EAdminUITests` — 13 tests, all passed
-
-| Test | Result |
-|---|---|
-| Tab Is Present Only For An Admin | pass |
-| Overview | pass |
-| Users | pass |
-| Requests | pass |
-| Reports Queue Offers A Decision | pass |
-| A Report Can Be Closed | pass |
-| Events | pass |
-| Venues | pass |
-| Audit | pass |
-| A Decided Report Shows Who Decided It | pass |
-| Outcomes Show Follow Through | pass |
-| Outcomes Break Down By Party Size And Kind | pass |
-| Outcomes Say When Collection Began | pass |
-
-### Actions — driven, not just present
-
-`E2EActionsUITests` — 8 tests, all passed
-
-| Test | Result |
-|---|---|
-| Confirming A Plan Happened | pass |
-| Saying A Plan Did Not Happen | pass |
-| Putting Points On A Plan | pass |
-| Cancelling Asks Why And Takes An Answer | pass |
-| Creating And Revoking A Plan Invite | pass |
-| Notification Switches Can Be Changed | pass |
-| Reporting In A Group Asks Who | pass |
-| The Feed Can Be Filtered | pass |
-
-### Roles — who may do what
-
-`ActionCoverageUITests` — 18 tests, all passed
-
-| Test | Result |
-|---|---|
-| Every Tab Reachable | pass |
-| Recipient Is Offered Every Response | pass |
-| Recipient Can Save For Later | pass |
-| Recipient Can Reach The Report Control | pass |
-| Recipient Can Accept And The Status Moves | pass |
-| Creator Is Offered No Responses | pass |
-| Creator Is Not Offered Save | pass |
-| Creator Can Also Report The Other Participant | pass |
-| Creator Can Cancel Their Own Plan | pass |
-| Creator Can Compose A New Plan | pass |
-| Group Plan Shows Who Is In And Who Is Owed | pass |
-| Composer Is Available Even When It Is Not Your Turn | pass |
-| Sending A Message Adds It To The Transcript | pass |
-| Asking A Question Does Not Unpick An Agreed Plan | pass |
-| Calendar Renders | pass |
-| Activities Show Progress | pass |
-| Account Deletion Is Reachable | pass |
-| Profile Shows Groups And Invite Code | pass |
-
-### Features — does each one render and work
-
-`FeatureCoverageUITests` — 26 tests, all passed
-
-| Test | Result |
-|---|---|
-| Activities: reliability And Progress Render | pass |
-| Activities: shows How Often Your Plans Happen | pass |
-| Availability: says What It Shares | pass |
-| Availability: shows When Someone Else Is Not Free | pass |
-| Availability: you Can Block Out A Day And Clear It | pass |
-| Booking: find A Table Is Offered On An Agreed Plan With A Place | pass |
-| Booking: is Absent On A Plan Nobody Has Agreed To | pass |
-| Calendar: shows A Plan With A Time | pass |
-| Chat: a Sent Message Joins An Existing Conversation | pass |
-| Chat: shows The Existing Conversation | pass |
-| Create: full Flow Reaches A Sendable State | pass |
-| Group: shows Who Is In And Who Is Owed | pass |
-| Plan Invite creator Can Open The Invite Row | pass |
-| Profile: shows Groups Invite Code And Notification Settings | pass |
-| Read Receipts seen By Line Is Shown | pass |
-| Requests: composer Offers To Attach A Time | pass |
-| Requests: decline Is Offered And Completes | pass |
-| Requests: reschedule Opens A Time Picker | pass |
-| Save For Later comes Back Off Again | pass |
-| Spontaneous: send Is Reachable And The Form Carries Everything | pass |
-| Stake: row Is Shown On A Staked Plan | pass |
-| The Suggest Button Says What It Does | pass |
-| Threads: reply Control Is Offered | pass |
-| Threads: reply Is Shown Under Its Parent | pass |
-| Typing: indicator Appears When Someone Is Typing | pass |
-| Typing: indicator Is Absent By Default | pass |
-
-### Smoke — the app runs at all
-
-`WalkthroughUITests` — 12 tests, all passed
-
-| Test | Result |
-|---|---|
-| Activities Tab Shows Gamification | pass |
-| All Four Tabs Exist | pass |
-| App Launches And Reaches Main U I | pass |
-| Calendar Tab Renders | pass |
-| Compose Sheet Opens | pass |
-| Creator Sees No Response Buttons On Their Own Request | pass |
-| Creator Sees Waiting State And Can Cancel | pass |
-| Large Text Does Not Break The Feed | pass |
-| Opening A Request Shows Its Detail | pass |
-| Profile Shows Account Deletion | pass |
-| Requests Feed Renders Seeded Requests | pass |
-| Saving Is Not Available To The Creator | pass |
-### Security rules — the emulator suite
-
-`CloudFunctions/test/rules.test.js` — 181 tests, all passed. The six covering report resolution
-had never run before: the emulator needs a JVM, and OpenJDK was installed but keg-only, so it was
-never on `PATH`.
-
-| Test | Proves |
-|---|---|
-| an admin can record a decision | the queue can actually be worked |
-| **an admin cannot alter the report itself** | **a complaint is not editable by the people it is about** |
-| an admin cannot sign somebody else's name to it | `resolvedBy` is the actor, not a claim |
-| only the two real outcomes are accepted | no arbitrary status strings |
-| an ordinary user cannot resolve a report | the tab is a convenience gate; the rules are enforcement |
-| a resolved report still cannot be deleted | matches what the privacy policy promises |
-
-## Four fixture bugs this run found
-
-Every one was in the test or the fixture, not the app — but each would have made the log lie:
-
-1. **The outcomes fixture had nine settled plans and the figure needs ten**, so the panel correctly
-   said "not enough yet" and my assertion failed. The app was right.
-2. **The attendance button says "Yes, it did", not "It happened"** — the test was looking for copy
-   that does not exist.
-3. **A plan code is revoked by "Cancel this plan code", not "Revoke".**
-4. **`switches.firstMatch` is the master push toggle**, which asks iOS for a permission the
-   simulator never grants — so it correctly stays off. Asserting it flips would have been
-   asserting the app ignores the OS. The test now drives a per-kind switch.
-
-## Deployed and verified live
-
-| Thing | State |
-|---|---|
-| Firestore ruleset | `8a899225-ba02-479b-9f54-440325ef3f24` (roll back to `d191f323`) |
-| seekmiddleground.com | `/`, `/changelog`, `/timeline`, `/privacy`, `/terms`, `/support` — all 200 |
-| Privacy policy | report-resolution wording live on **both** hosts, effective 4 August 2026 |
-
-## What a simulator cannot prove
-
-Stated so this log is not read as claiming more than it does:
-
-- **Push has never been delivered end to end.** The weekly-nudge deep link fixed this week is the
-  one change here a simulator cannot exercise. It needs a real device.
-- **Sign in with Apple and push registration have never run on hardware.**
-- **App Check enforcement is off.**
-- **The two-device settlement path** — one person confirms, the other collects on their next visit
-  — is covered by an idempotency unit test and by reasoning, not by two devices. `PairingE2ETests`
-  and `Scripts/two-device-e2e.sh` exist for this and need two simulators and a real backend.
-- Everything above runs against **mock repositories**. The Firestore implementations are exercised
-  by the rules suite and by `RealBackendUITests`, not by these 77.
-
-These are tracked in `docs/APP_REVIEW_NOTES.md` and are the substance of a 1.0.1 device pass.
+- **Push has never been delivered end to end.** The weekly-nudge deep link is the one fix this
+  week that cannot be exercised here at all.
+- Sign in with Apple and push registration have never run on hardware; App Check is off.
+- The two-device settlement path — one person confirms, the other collects on their next visit —
+  is covered by an idempotency unit test and by reasoning, not by two devices.
+- Everything photographed above runs against **mock repositories**. The Firestore implementations
+  are exercised by the rules suite, not by these frames.

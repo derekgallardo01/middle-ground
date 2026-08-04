@@ -22,7 +22,12 @@ final class FullTourUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = true   // a missed screen should not end the tour
         app = XCUIApplication()
-        app.launchArguments = ["-MGMockMode", "-MGSeedTyping"]
+        // `-MGAdmin` builds the operator tab; `-MGShowNotificationSettings` reveals switches
+        // iOS hides until push is granted, which a simulator never does. Neither is filmable
+        // otherwise. See AppConfiguration — both are mock-mode only.
+        app.launchArguments = [
+            "-MGMockMode", "-MGSeedTyping", "-MGAdmin", "-MGShowNotificationSettings"
+        ]
         app.launch()
     }
 
@@ -162,29 +167,14 @@ final class FullTourUITests: XCTestCase {
         tourAvailability()
         tourNewRequest()
         tourSpontaneous()
+        tourFollowThrough()
+        tourNotificationSettings()
+        tourPlanInvite()
+        tourFeedFilter()
+        tourAdminPanel()
     }
 
     /// The four tabs, untouched.
-    private func tourTheFourTabs() {
-        tab("Requests").tap()
-        shoot("feed")
-
-        tab("Calendar").tap()
-        shoot("calendar")
-
-        tab("Activities").tap()
-        shoot("activities")
-        app.swipeUp()
-        app.swipeUp()
-        shoot("activities-reliability")
-
-        tab("Profile").tap()
-        shoot("profile")
-        app.swipeUp()
-        shoot("profile-groups-and-code")
-    }
-
-    /// Accepting a request, and the celebration that follows.
     private func tourAccept() {
         guard open("Pizza on Thursday?") else { return }
         shoot("accept-detail-before")

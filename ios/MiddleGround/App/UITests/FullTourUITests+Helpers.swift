@@ -72,4 +72,122 @@ extension FullTourUITests {
             shoot("availability-blocked-out")
         }
     }
+
+    /// How often this group's plans actually happen — the number the app exists to change.
+    func tourFollowThrough() {
+        tab("Activities").tap()
+        settle(1.0)
+        _ = bringIntoView(text("this will show how many"))
+        shoot("follow-through")
+    }
+
+    /// Five kinds of alert, each with its own switch.
+    ///
+    /// Filmable only because of `-MGShowNotificationSettings`: iOS hides these until push
+    /// permission is granted and a simulator never grants it.
+    func tourNotificationSettings() {
+        tab("Profile").tap()
+        settle(1.0)
+        let toggle = app.switches.containing(
+            NSPredicate(format: "label CONTAINS[c] 'New requests'")
+        ).firstMatch
+        _ = bringIntoView(toggle)
+        shoot("notification-settings")
+        if toggle.exists && toggle.isHittable {
+            toggle.tap()
+            settle(1.0)
+            shoot("notification-switched-off")
+        }
+    }
+
+    /// A code that admits somebody to one plan and nothing else.
+    func tourPlanInvite() {
+        tab("Requests").tap()
+        settle(0.8)
+        guard open("Date night this Friday?") else { return }
+        let create = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Create a code for this plan'")
+        ).firstMatch
+        guard bringIntoView(create) else { return }
+        shoot("plan-invite-offered")
+        create.tap()
+        settle(1.6)
+        _ = bringIntoView(app.buttons["Cancel this plan code"])
+        shoot("plan-invite-code")
+        back()
+    }
+
+    /// Saved plans are findable again, which is the whole point of saving one.
+    func tourFeedFilter() {
+        tab("Requests").tap()
+        settle(0.8)
+        let filter = app.buttons.containing(
+            NSPredicate(format: "label BEGINSWITH[c] 'Filter requests'")
+        ).firstMatch
+        guard filter.waitForExistence(timeout: 6) else { return }
+        filter.tap()
+        settle(1.0)
+        shoot("feed-filter")
+        if app.buttons["All"].exists { app.buttons["All"].tap() }
+        settle(0.6)
+    }
+
+    /// The operator panel — every section, including the two built this week.
+    ///
+    /// Reachable only with `-MGAdmin`. The tab is a convenience gate; `firestore.rules` refuses
+    /// the underlying reads to anyone without a server-issued claim regardless.
+    func tourAdminPanel() {
+        guard app.tabBars.buttons["Admin"].waitForExistence(timeout: 8) else { return }
+        app.tabBars.buttons["Admin"].tap()
+        settle(1.2)
+        shoot("admin-overview")
+
+        for section in ["Users", "Requests", "Reports", "Outcomes"] {
+            let button = app.segmentedControls.buttons[section].exists
+                ? app.segmentedControls.buttons[section]
+                : app.buttons[section]
+            for _ in 0..<4 where !button.exists || !button.isHittable {
+                app.swipeLeft()
+                settle(0.4)
+            }
+            guard button.exists, button.isHittable else { continue }
+            button.tap()
+            settle(1.2)
+            shoot("admin-\(section.lowercased())")
+
+            // The two worth showing in motion rather than as a list.
+            if section == "Reports", app.buttons["Actioned"].exists {
+                app.buttons["Actioned"].tap()
+                settle(1.4)
+                shoot("admin-report-closed")
+            }
+            if section == "Outcomes" {
+                // Scroll to the caveat, not to the breakdown: the breakdown is already on screen,
+                // so that frame came out byte-identical to the one above it.
+                _ = bringIntoView(text("Collection began"))
+                shoot("admin-outcomes-caveat")
+            }
+        }
+    }
+
+    func tourTheFourTabs() {
+        tab("Requests").tap()
+        shoot("feed")
+
+        tab("Calendar").tap()
+        shoot("calendar")
+
+        tab("Activities").tap()
+        shoot("activities")
+        app.swipeUp()
+        app.swipeUp()
+        shoot("activities-reliability")
+
+        tab("Profile").tap()
+        shoot("profile")
+        app.swipeUp()
+        shoot("profile-groups-and-code")
+    }
+
+    /// Accepting a request, and the celebration that follows.
 }

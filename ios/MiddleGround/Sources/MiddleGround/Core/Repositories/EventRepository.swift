@@ -181,7 +181,30 @@ actor MockEventRepository: EventRepository {
         Array(audit.sorted { $0.at > $1.at }.prefix(limit))
     }
 
-    private var reports: [ContentReport] = []
+    /// One waiting and one already decided, so both halves of the queue can be driven.
+    private var reports: [ContentReport] = [
+        ContentReport(
+            id: "report_open",
+            reporterID: User.preview.id,
+            requestID: "req_0",
+            reportedUserID: User.preview2.id,
+            reason: .harassment,
+            note: "Kept messaging after I asked them to stop.",
+            at: Date().addingTimeInterval(-3600)
+        ),
+        ContentReport(
+            id: "report_done",
+            reporterID: User.preview2.id,
+            requestID: "req_1",
+            reportedUserID: User.preview3.id,
+            reason: .spam,
+            note: nil,
+            at: Date().addingTimeInterval(-86_400),
+            resolution: .dismissed,
+            resolvedBy: "root",
+            resolvedAt: Date().addingTimeInterval(-80_000)
+        )
+    ]
 
     func submitReport(_ report: ContentReport) async throws {
         reports.append(report)

@@ -47,6 +47,18 @@ enum AppConfiguration {
     static var forcesNotificationSettingsVisible: Bool =
         ProcessInfo.processInfo.arguments.contains("-MGShowNotificationSettings")
 
+    /// Grants the `admin` claim to the mock identity, so the operator panel can be driven.
+    ///
+    /// Without it the entire admin surface is unreachable on a simulator — `PreviewAuthService`
+    /// answers `isAdmin() == false`, so the tab is never built, so the reports queue and the
+    /// outcomes figures could not be verified end to end at all. Same shape and same narrowness
+    /// as `-MGShowNotificationSettings`: it decides who the *mock* says you are and nothing else.
+    ///
+    /// It cannot grant anything real. `firestore.rules` checks a server-issued claim, and mock
+    /// mode never reaches Firestore in the first place.
+    static var grantsMockAdmin: Bool =
+        ProcessInfo.processInfo.arguments.contains("-MGAdmin")
+
     /// Whether Firebase may be configured and used.
     ///
     /// Everything that touches Firebase must check this first; in mock mode there is no

@@ -16,112 +16,120 @@ struct SpontaneousRequestView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                VStack(spacing: 8) {
-                    ZStack {
-                        Circle()
-                            .fill(MGColors.sunshine.opacity(0.2))
-                            .frame(width: 80, height: 80)
-                        Text("⚡")
-                            .font(.system(size: 40))
-                    }
-
-                    Text("Spontaneous Mode")
-                        .mgFont(.h1)
-                    Text("One tap. Quick decisions. No overthinking.")
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.warm600)
-                        .multilineTextAlignment(.center)
-                }
-
-                TextField("What are you doing?", text: $viewModel.title, axis: .vertical)
-                    .mgFont(.h2)
-                    .multilineTextAlignment(.center)
-                    .padding()
-                    .background(MGColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
-
-                // Optional, and labelled as such. The model already carried `details` and sent it;
-                // there was simply no way to type one.
-                TextField("Anything else? (optional)", text: $viewModel.details, axis: .vertical)
-                    .mgFont(.body)
-                    .lineLimit(1...3)
-                    .padding()
-                    .background(MGColors.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
-                    .accessibilityLabel("Description, optional")
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Quick ideas")
-                        .mgFont(.h3)
-
-                    FlowLayout(spacing: 8) {
-                        ForEach(quickIdeas, id: \.self) { idea in
-                            Button {
-                                if !reduceMotion {
-                                    withAnimation(MGMotion.tap) {
-                                        viewModel.title = idea
-                                    }
-                                } else {
-                                    viewModel.title = idea
-                                }
-                                Haptics.shared.impact(.light)
-                            } label: {
-                                Text(idea)
-                                    .mgFont(.bodySmall)
-                                    .foregroundStyle(MGColors.slate)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(MGColors.warm100)
-                                    .clipShape(Capsule())
+            // The form outgrew the screen once it carried a description, a time and a list
+            // of people: Send Now ended up below the bottom edge with nothing to scroll, so
+            // it could not be reached at all. The button is pinned rather than scrolled —
+            // the primary action should not depend on having scrolled far enough.
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 24) {
+                        VStack(spacing: 8) {
+                            ZStack {
+                                Circle()
+                                    .fill(MGColors.sunshine.opacity(0.2))
+                                    .frame(width: 80, height: 80)
+                                Text("⚡")
+                                    .font(.system(size: 40))
                             }
-                            .buttonStyle(ScaleButtonStyle())
-                            .accessibilityLabel("Use idea: \(idea)")
+
+                            Text("Spontaneous Mode")
+                                .mgFont(.h1)
+                            Text("One tap. Quick decisions. No overthinking.")
+                                .mgFont(.body)
+                                .foregroundStyle(MGColors.warm600)
+                                .multilineTextAlignment(.center)
                         }
+
+                        TextField("What are you doing?", text: $viewModel.title, axis: .vertical)
+                            .mgFont(.h2)
+                            .multilineTextAlignment(.center)
+                            .padding()
+                            .background(MGColors.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+
+                        // Optional, and labelled as such. The model already carried `details` and sent it;
+                        // there was simply no way to type one.
+                        TextField("Anything else? (optional)", text: $viewModel.details, axis: .vertical)
+                            .mgFont(.body)
+                            .lineLimit(1...3)
+                            .padding()
+                            .background(MGColors.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+                            .accessibilityLabel("Description, optional")
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Quick ideas")
+                                .mgFont(.h3)
+
+                            FlowLayout(spacing: 8) {
+                                ForEach(quickIdeas, id: \.self) { idea in
+                                    Button {
+                                        if !reduceMotion {
+                                            withAnimation(MGMotion.tap) {
+                                                viewModel.title = idea
+                                            }
+                                        } else {
+                                            viewModel.title = idea
+                                        }
+                                        Haptics.shared.impact(.light)
+                                    } label: {
+                                        Text(idea)
+                                            .mgFont(.bodySmall)
+                                            .foregroundStyle(MGColors.slate)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(MGColors.warm100)
+                                            .clipShape(Capsule())
+                                    }
+                                    .buttonStyle(ScaleButtonStyle())
+                                    .accessibilityLabel("Use idea: \(idea)")
+                                }
+                            }
+                        }
+
+                        HStack {
+                            Text("Expires in")
+                                .mgFont(.body)
+                            Spacer()
+                            Picker("Expires in", selection: $viewModel.expiresInMinutes) {
+                                Text("15 min").tag(15)
+                                Text("30 min").tag(30)
+                                Text("1 hour").tag(60)
+                                Text("2 hours").tag(120)
+                            }
+                            .pickerStyle(.segmented)
+                            .frame(width: 220)
+                        }
+                        .padding()
+                        .background(MGColors.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+
+                        // Separate from "Expires in" on purpose. One is how long the invite stays open,
+                        // the other is when the thing happens; they were the same value before and
+                        // neither could be set on its own.
+                        VStack(alignment: .leading, spacing: 8) {
+                            Toggle("Set a time", isOn: $viewModel.hasEventTime)
+                                .mgFont(.body)
+                                .accessibilityIdentifier("setEventTime")
+
+                            if viewModel.hasEventTime {
+                                DatePicker(
+                                    "When",
+                                    selection: $viewModel.eventTime,
+                                    displayedComponents: [.date, .hourAndMinute]
+                                )
+                                .mgFont(.bodySmall)
+                            }
+                        }
+                        .padding()
+                        .background(MGColors.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+
+                        recipientSection
                     }
+                    .padding()
+                    .mgReadableWidth()
                 }
-
-                HStack {
-                    Text("Expires in")
-                        .mgFont(.body)
-                    Spacer()
-                    Picker("Expires in", selection: $viewModel.expiresInMinutes) {
-                        Text("15 min").tag(15)
-                        Text("30 min").tag(30)
-                        Text("1 hour").tag(60)
-                        Text("2 hours").tag(120)
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 220)
-                }
-                .padding()
-                .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
-
-                // Separate from "Expires in" on purpose. One is how long the invite stays open,
-                // the other is when the thing happens; they were the same value before and
-                // neither could be set on its own.
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Set a time", isOn: $viewModel.hasEventTime)
-                        .mgFont(.body)
-                        .accessibilityIdentifier("setEventTime")
-
-                    if viewModel.hasEventTime {
-                        DatePicker(
-                            "When",
-                            selection: $viewModel.eventTime,
-                            displayedComponents: [.date, .hourAndMinute]
-                        )
-                        .mgFont(.bodySmall)
-                    }
-                }
-                .padding()
-                .background(MGColors.surface)
-                .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
-
-                recipientSection
-
-                Spacer()
 
                 PrimaryButton(title: "Send Now", systemImage: "paperplane.fill") {
                     Task {
@@ -133,9 +141,9 @@ struct SpontaneousRequestView: View {
                 }
                 .disabled(!viewModel.canSubmit || viewModel.isLoading)
                 .accessibilityLabel("Send spontaneous request")
+                .padding()
+                .mgReadableWidth()
             }
-            .padding()
-            .mgReadableWidth()
             .background(MGColors.sand.ignoresSafeArea())
             .navigationTitle("Spontaneous")
             .navigationBarTitleDisplayMode(.inline)

@@ -127,6 +127,38 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------------------------------------------------------- availability
+    // Time somebody has said they are not free, shared with one group.
+    //
+    // Under the relationship rather than the user, because that is the only membership these
+    // rules can *prove*: reading one named document establishes who is in the group, whereas
+    // "everybody who shares any group with me" is not expressible here at all.
+    //
+    // `hasOnly` keeps the shape to times and nothing else. That is the enforcement behind the
+    // promise in the Privacy Policy that calendar events stay on the device: a block carries a
+    // start and an end and no title, location or event identifier, so even a modified client
+    // cannot use this collection to upload what somebody's calendar actually says.
+    match /relationships/{relationshipId}/availability/{userId} {
+      function group() {
+        return get(/databases/$(database)/documents/relationships/$(relationshipId)).data;
+      }
+
+      function inGroup() {
+        return signedIn() && uid() in group().participantIDs;
+      }
+
+      function isWellFormed() {
+        return request.resource.data.keys().hasOnly(['blocks', 'updatedAt'])
+          && request.resource.data.blocks is list
+          && request.resource.data.blocks.size() <= 200;
+      }
+
+      // Everyone in the group sees who is free; only you write your own.
+      allow get, list: if inGroup();
+      allow create, update: if inGroup() && uid() == userId && isWellFormed();
+      allow delete: if signedIn() && uid() == userId;
+    }
+
     // -------------------------------------------------------------- invites
     // Keyed by the invite code itself. `get` is allowed so a code you were told can be
     // redeemed; `list` is denied so codes cannot be enumerated.

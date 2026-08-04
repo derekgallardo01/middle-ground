@@ -84,6 +84,17 @@ extension Container {
         }
     }
 
+    var availabilityRepository: Factory<AvailabilityRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockAvailabilityRepository()
+            }
+            #endif
+            return FirestoreAvailabilityRepository()
+        }
+    }
+
     var planReadReceiptRepository: Factory<PlanReadReceiptRepository> {
         Factory(self) {
             #if DEBUG

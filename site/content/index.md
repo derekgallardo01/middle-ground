@@ -70,6 +70,11 @@ Group chats are great for talking. They're terrible for deciding.
 <p>It quietly checks your calendar and warns you if you're already busy. Your calendar never leaves your phone.</p>
 </div>
 <div class="card">
+<span class="ico">🚫</span>
+<h3>Say when you're not free</h3>
+<p>Block out a day and your group sees it. Only the days you block — never your actual calendar.</p>
+</div>
+<div class="card">
 <span class="ico">🎯</span>
 <h3>Make it count</h3>
 <p>Both of you can put points on a plan happening. Show up and you both win them back.</p>

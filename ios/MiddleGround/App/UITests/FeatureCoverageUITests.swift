@@ -150,6 +150,73 @@ final class FeatureCoverageUITests: XCTestCase {
         )
     }
 
+    // MARK: - Availability
+
+    /// Sam is seeded as away two days out, so the day has to be selected to see it said.
+    ///
+    /// The panel reports the *selected* day, and the calendar opens on today — the first version
+    /// of this test asserted on today and failed for that reason rather than any fault in the app.
+    /// The grid still marks the busy days without selecting them; this checks the sentence.
+    func test_availability_showsWhenSomeoneElseIsNotFree() throws {
+        launchApp()
+        tab("Calendar").tap()
+
+        let calendar = Calendar.current
+        guard let busyDay = calendar.date(byAdding: .day, value: 2, to: Date()) else {
+            return XCTFail("could not build the seeded busy day")
+        }
+        let dayNumber = String(calendar.component(.day, from: busyDay))
+        let cell = app.staticTexts[dayNumber]
+        guard cell.waitForExistence(timeout: 8), cell.isHittable else {
+            return XCTFail("day \(dayNumber) is not on screen")
+        }
+        cell.tap()
+
+        let notFree = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS[c] \"isn't free\" OR label CONTAINS[c] \"aren't free\"")
+        ).firstMatch
+        XCTAssertTrue(
+            scrollTo(notFree),
+            "selecting a day somebody blocked out should say who is unavailable"
+        )
+    }
+
+    /// The control is the whole feature: it has to be reachable and it has to toggle.
+    func test_availability_youCanBlockOutADayAndClearIt() throws {
+        launchApp()
+        tab("Calendar").tap()
+
+        let toggle = app.buttons["toggleUnavailable"]
+        guard scrollTo(toggle) else { return XCTFail("no way to mark yourself unavailable") }
+        XCTAssertTrue(toggle.label.localizedCaseInsensitiveContains("not free"))
+
+        toggle.tap()
+        let cleared = app.buttons["toggleUnavailable"]
+        XCTAssertTrue(
+            cleared.waitForExistence(timeout: 6)
+                && cleared.label.localizedCaseInsensitiveContains("free again"),
+            "blocking a day should offer a way back"
+        )
+
+        cleared.tap()
+        XCTAssertTrue(
+            app.buttons["toggleUnavailable"].label.localizedCaseInsensitiveContains("not free"),
+            "clearing it should return to the original state"
+        )
+    }
+
+    /// The promise on the screen, which the whole design exists to keep.
+    func test_availability_saysWhatItShares() throws {
+        launchApp()
+        tab("Calendar").tap()
+
+        let promise = text(containing: "calendar is never uploaded")
+        XCTAssertTrue(
+            scrollTo(promise),
+            "the screen should say that only blocked-out days are shared"
+        )
+    }
+
     // MARK: - Booking
 
     func test_booking_findATableIsOfferedOnAnAgreedPlanWithAPlace() throws {

@@ -37,6 +37,10 @@ struct CalendarView: View {
         .task {
             await viewModel.loadCurrentUser()
             await viewModel.loadEvents()
+            // Must come after loadCurrentUser: it needs an ID to know whose blocks are whose,
+            // and it returns silently without one. Missing it here left the panel empty until
+            // the user happened to pull to refresh.
+            await viewModel.loadAvailability()
         }
     }
 

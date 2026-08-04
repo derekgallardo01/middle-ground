@@ -24,7 +24,34 @@ protocol PlanOutcomeRepository: Sendable {
 // MARK: - Mock
 
 actor MockPlanOutcomeRepository: PlanOutcomeRepository {
-    private(set) var outcomes: [PlanOutcome] = []
+    /// Enough settled rows for the aggregate to have a figure rather than "not enough yet".
+    /// Party sizes and categories vary, because that is how the breakdowns get exercised.
+    private(set) var outcomes: [PlanOutcome] = MockPlanOutcomeRepository.samples
+
+    static let samples: [PlanOutcome] = {
+        let now = Date()
+        func row(_ type: PlanOutcomeType, _ size: Int, _ category: RequestCategory, _ hoursAgo: Int) -> PlanOutcome {
+            PlanOutcome(
+                outcome: type,
+                groupSize: size,
+                category: category,
+                hadProposedTime: true,
+                hoursBeforePlan: type == .cancelledLate ? 2 : nil,
+                at: now.addingTimeInterval(TimeInterval(-3600 * hoursAgo))
+            )
+        }
+        return [
+            row(.agreed, 2, .relationship, 200), row(.agreed, 3, .friends, 190),
+            row(.attended, 2, .relationship, 180), row(.attended, 2, .relationship, 170),
+            row(.attended, 3, .friends, 160), row(.attended, 4, .friends, 150),
+            row(.attended, 2, .dating, 140), row(.attended, 3, .friends, 130),
+            // Ten settled rows, not nine: below ten the summary reports "not enough yet",
+            // which is correct behaviour and useless as a fixture for the figure itself.
+            row(.attended, 2, .chill, 125),
+            row(.cancelledEarly, 2, .relationship, 120), row(.cancelledLate, 4, .friends, 110),
+            row(.noShowed, 2, .daily, 100), row(.disputed, 3, .travel, 90)
+        ]
+    }()
     private(set) var bookingIntents: [BookingIntent] = []
 
     func record(_ outcome: PlanOutcome) async {

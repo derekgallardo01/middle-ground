@@ -49,7 +49,9 @@ actor PreviewAuthService: AuthServiceProtocol {
     }
 
     /// Previews and mock mode are never admin: the panel must not appear by accident.
-    func isAdmin() async -> Bool { false }
+    /// False unless `-MGAdmin` was passed. See `AppConfiguration.grantsMockAdmin` — this is how
+    /// the operator panel gets driven on a simulator, and it confers nothing outside mock mode.
+    func isAdmin() async -> Bool { AppConfiguration.grantsMockAdmin }
 
     func deleteAccount(appleAuthorizationCode: String?) async throws {
         user = nil

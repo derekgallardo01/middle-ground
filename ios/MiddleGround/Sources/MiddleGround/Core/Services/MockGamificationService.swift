@@ -33,12 +33,22 @@ actor MockGamificationService: GamificationServiceProtocol {
         )
     }
 
-    /// Always pays, so previews and UI tests can show a settlement without staging one.
+    /// Pays only a plan that is actually settled, exactly as the real service does.
+    ///
+    /// The first version of this always paid. Settlement is attempted every time a plan is
+    /// opened, so in mock mode every plan threw a "You turned up!" celebration over the screen —
+    /// which is a full-screen overlay, so the next tap in three unrelated UI tests hit the
+    /// celebration instead of the control they were aiming at. A double that is more generous
+    /// than the real thing does not make tests pass, it makes them lie.
     @discardableResult
     func recordAttendance(of request: Request, for userID: String) async -> GamificationOutcome? {
-        GamificationOutcome(
+        guard request.allParticipantIDs.contains(userID), request.everyoneHasAnswered else {
+            return nil
+        }
+        let attended = request.isConfirmedComplete ? GamificationRules.attendedXP : 0
+        return GamificationOutcome(
             stats: await stats(for: userID),
-            xpAwarded: GamificationRules.attendedXP + request.stakeOutcome(for: userID),
+            xpAwarded: attended + request.stakeOutcome(for: userID),
             newlyUnlocked: [],
             streakExtended: false
         )

@@ -20,6 +20,11 @@ export PATH="$DEVELOPER_DIR/usr/bin:$PATH"
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../App" && pwd)"
 OUT="${1:-$HOME/Desktop/MiddleGround-Tour}"
+# `--public` records the shareable variant via PublicTourUITests: no operator claim, so no Admin
+# tab anywhere in the footage. Trimming the tail off the full recording leaves the tab on screen
+# in every other frame, so it is not a substitute.
+TOUR_CLASS="FullTourUITests"
+[ "${2:-}" = "--public" ] && TOUR_CLASS="PublicTourUITests"
 DEVICE="${MG_TOUR_DEVICE:-iPhone 17 Pro}"
 WORK="$(mktemp -d)"
 
@@ -63,7 +68,7 @@ xcodebuild \
   -project MiddleGround.xcodeproj \
   -scheme MiddleGroundApp \
   -destination "id=$udid" \
-  -only-testing:MiddleGroundUITests/FullTourUITests \
+  -only-testing:"MiddleGroundUITests/$TOUR_CLASS" \
   CODE_SIGNING_ALLOWED=NO \
   build-for-testing >"$WORK/build.log" 2>&1 || {
     echo "build failed — see $WORK/build.log"
@@ -83,7 +88,7 @@ xcodebuild \
   -project MiddleGround.xcodeproj \
   -scheme MiddleGroundApp \
   -destination "id=$udid" \
-  -only-testing:MiddleGroundUITests/FullTourUITests \
+  -only-testing:"MiddleGroundUITests/$TOUR_CLASS" \
   -resultBundlePath "$WORK/tour.xcresult" \
   CODE_SIGNING_ALLOWED=NO \
   test-without-building >"$WORK/test.log" 2>&1 &

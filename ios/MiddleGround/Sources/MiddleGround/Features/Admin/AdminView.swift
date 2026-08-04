@@ -284,17 +284,40 @@ struct AdminView: View {
                                 .formatted(date: .abbreviated, time: .shortened) ?? ""
                             row(resolution.displayName, "\(report.resolvedBy ?? "someone") · \(when)")
                         } else {
+                            // `Label`, not `Text`, and that is the whole fix.
+                            //
+                            // `.mgFont` sets `MGColors.slate` on whatever it wraps. On a `Text`
+                            // that lands on the leaf and beats any `.foregroundStyle` applied
+                            // outside it, so the label stayed slate on indigo — about 1.9:1, and
+                            // unreadable. A `Label` resolves its colour from the environment
+                            // instead, so the outer style wins. It is why Find a table and Share
+                            // my location render white with this exact ordering and this did not.
                             HStack(spacing: 8) {
-                                Button("Actioned") {
+                                Button {
                                     Task { await viewModel.resolve(report, as: .actioned) }
+                                } label: {
+                                    Label("Actioned", systemImage: "checkmark")
+                                        .mgFont(.bodySmall, color: MGColors.onAccent)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 7)
+                                        .background(MGColors.indigo)
+                                        .clipShape(Capsule())
                                 }
-                                .buttonStyle(.borderedProminent)
-                                Button("Dismiss") {
+                                .buttonStyle(.plain)
+
+                                Button {
                                     Task { await viewModel.resolve(report, as: .dismissed) }
+                                } label: {
+                                    // Faint fill, so slate is the readable choice here.
+                                    Label("Dismiss", systemImage: "xmark")
+                                        .mgFont(.bodySmall)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 7)
+                                        .background(MGColors.indigo.opacity(0.12))
+                                        .clipShape(Capsule())
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.plain)
                             }
-                            .mgFont(.bodySmall)
                             .padding(.top, 4)
                         }
                     }

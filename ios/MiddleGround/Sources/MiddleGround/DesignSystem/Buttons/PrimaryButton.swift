@@ -24,7 +24,7 @@ struct PrimaryButton: View {
                         .font(.system(size: iconSize, weight: .semibold))
                 }
                 Text(title)
-                    .mgFont(.body)
+                    .mgFont(.body, color: MGColors.onAccent)
                     .fontWeight(.semibold)
             }
             .foregroundStyle(MGColors.onAccent)

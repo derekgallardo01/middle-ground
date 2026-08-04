@@ -1,0 +1,13 @@
+{
+  "aps": {
+    "alert": {
+      "title": "Plan something?",
+      "body": "Nothing on the calendar for you and Sam in three weeks."
+    },
+    "sound": "default",
+    "badge": 0
+  },
+  "relationship_id": "rel_1",
+  "type": "weekly_nudge",
+  "Simulator Target Bundle": "app.middleground.MiddleGround"
+}

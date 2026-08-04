@@ -1,0 +1,13 @@
+{
+  "aps": {
+    "alert": {
+      "title": "Did it happen?",
+      "body": "Let us know how \"Coffee on Monday\" went."
+    },
+    "sound": "default",
+    "badge": 1
+  },
+  "request_id": "req_5",
+  "type": "confirm_plan",
+  "Simulator Target Bundle": "app.middleground.MiddleGround"
+}

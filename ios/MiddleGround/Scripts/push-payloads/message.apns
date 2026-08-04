@@ -1,0 +1,13 @@
+{
+  "aps": {
+    "alert": {
+      "title": "Sam on Sunday roast?",
+      "body": "Which entrance?"
+    },
+    "sound": "default",
+    "badge": 1
+  },
+  "request_id": "req_6",
+  "type": "plan_message",
+  "Simulator Target Bundle": "app.middleground.MiddleGround"
+}

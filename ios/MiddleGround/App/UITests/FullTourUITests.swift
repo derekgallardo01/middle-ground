@@ -159,6 +159,7 @@ final class FullTourUITests: XCTestCase {
         tourGroupPlanAndChat()
         tourCancelTwoWays()
         tourCalendar()
+        tourAvailability()
         tourNewRequest()
         tourSpontaneous()
     }
@@ -389,6 +390,7 @@ final class FullTourUITests: XCTestCase {
         }
     }
 
+    /// Marking yourself unavailable, and seeing who else is.
     /// Creating and sending a new request.
     private func tourNewRequest() {
         tab("Requests").tap()

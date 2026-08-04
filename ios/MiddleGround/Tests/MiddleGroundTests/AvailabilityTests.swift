@@ -31,15 +31,17 @@ final class AvailabilityTests: XCTestCase {
         )
     }
 
-    func testCoversADayEvenWhenTheBlockIsPartial() {
-        let noon = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: Date())!
+    func testCoversADayEvenWhenTheBlockIsPartial() throws {
+        let noon = try XCTUnwrap(calendar.date(bySettingHour: 12, minute: 0, second: 0, of: Date()))
+        let tomorrow = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: Date()))
         let block = UnavailableBlock(start: noon, end: noon.addingTimeInterval(3_600))
+
         XCTAssertTrue(block.covers(Date()))
-        XCTAssertFalse(block.covers(calendar.date(byAdding: .day, value: 1, to: Date())!))
+        XCTAssertFalse(block.covers(tomorrow))
     }
 
-    func testBusyIsAnswerableForAWindowAndForADay() {
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date())!
+    func testBusyIsAnswerableForAWindowAndForADay() throws {
+        let tomorrow = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: Date()))
         let availability = SharedAvailability(userID: "user_2", blocks: [.wholeDay(tomorrow)])
 
         XCTAssertTrue(availability.isBusy(on: tomorrow))

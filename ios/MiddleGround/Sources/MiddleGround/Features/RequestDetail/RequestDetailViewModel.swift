@@ -4,9 +4,13 @@ import Factory
 @MainActor
 @Observable
 final class RequestDetailViewModel {
-    private let requestService = Container.shared.requestService()
+    // Not private: the composer and settlement extensions live in their own files, and
+    // `private` is file-scoped.
+    let requestService = Container.shared.requestService()
     private let authService = Container.shared.authService()
-    private let gamificationService = Container.shared.gamificationService()
+    // Not private: the settlement extension lives in its own file, and `private` is
+    // file-scoped.
+    let gamificationService = Container.shared.gamificationService()
     private let userRepository = Container.shared.userRepository()
     let eventRepository = Container.shared.eventRepository()
     let analytics = Container.shared.analyticsService()
@@ -255,6 +259,7 @@ final class RequestDetailViewModel {
                 of: request, outcome: outcome, by: currentUserID
             )
             Haptics.shared.notification(.success)
+            await settleIfNeeded()
         } catch {
             errorMessage = error.localizedDescription
             Haptics.shared.notification(.error)
@@ -276,6 +281,7 @@ final class RequestDetailViewModel {
         markRead()
         await loadSharedLocations()
         await loadBookingLink()
+        await settleIfNeeded()
     }
 
     // MARK: - Location, for the hours around this plan
@@ -459,7 +465,9 @@ final class RequestDetailViewModel {
     var showCelebration = false
     var celebrationTitle = ""
 
-    private func presentCelebration(_ title: String) {
+    // Not private: the settlement extension lives in its own file, and `private` is
+    // file-scoped.
+    func presentCelebration(_ title: String) {
         celebrationTitle = title
         showCelebration = true
     }
@@ -468,6 +476,12 @@ final class RequestDetailViewModel {
 
     var showReportSheet = false
     var reportReason: ReportReason = .harassment
+    /// Who the report is against. Nil until the sheet opens, which is where it is defaulted.
+    ///
+    /// This used to be derived — the first participant who was not you — which was right while a
+    /// group was a pair and silently wrong afterwards: in a group of three, reporting the person
+    /// who harassed you filed it against the other one.
+    var reportedUserID: String?
     private var reportNoteStorage: String = ""
     var reportNote: String {
         get { reportNoteStorage }

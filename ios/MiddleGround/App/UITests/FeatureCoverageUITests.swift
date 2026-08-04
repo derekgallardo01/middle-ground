@@ -150,6 +150,48 @@ final class FeatureCoverageUITests: XCTestCase {
         )
     }
 
+    // MARK: - What the app promises on screen
+
+    /// The heart used to fill and never empty, paying 5 XP on every tap. Both halves checked.
+    func test_saveForLater_comesBackOffAgain() throws {
+        launchApp()
+        guard openPlan("Split the chores this week?") else { return }
+
+        let save = app.buttons["Save for later"]
+        guard save.waitForExistence(timeout: 8) else { return XCTFail("no save control") }
+        save.tap()
+
+        let saved = app.buttons["Remove from saved"]
+        XCTAssertTrue(saved.waitForExistence(timeout: 8), "saving should offer a way back")
+
+        saved.tap()
+        XCTAssertTrue(
+            app.buttons["Save for later"].waitForExistence(timeout: 8),
+            "un-saving should return the heart to its empty state"
+        )
+    }
+
+    /// It opens the composer rather than answering, so it must not say "Negotiate".
+    func test_theSuggestButtonSaysWhatItDoes() throws {
+        launchApp()
+        guard openPlan("Split the chores this week?") else { return }
+        XCTAssertTrue(
+            app.buttons["Suggest request"].waitForExistence(timeout: 8),
+            "the button that opens the composer should be labelled for what it does"
+        )
+    }
+
+    /// The app's premise, said back to the people it is about.
+    func test_activities_showsHowOftenYourPlansHappen() throws {
+        launchApp()
+        tab("Activities").tap()
+        let predicate = NSPredicate(
+            format: "label CONTAINS[c] 'happened' OR label CONTAINS[c] 'this will show how many'"
+        )
+        let followThrough = app.staticTexts.containing(predicate).firstMatch
+        XCTAssertTrue(scrollTo(followThrough, swipes: 8), "a group should say how many plans happen")
+    }
+
     // MARK: - Availability
 
     // MARK: - Spontaneous invites

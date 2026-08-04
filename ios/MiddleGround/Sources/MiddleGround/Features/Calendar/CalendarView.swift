@@ -41,6 +41,8 @@ struct CalendarView: View {
             // and it returns silently without one. Missing it here left the panel empty until
             // the user happened to pull to refresh.
             await viewModel.loadAvailability()
+            // Last, and on purpose: it never returns. SwiftUI cancels it when the tab goes away.
+            await viewModel.observeAvailability()
         }
     }
 

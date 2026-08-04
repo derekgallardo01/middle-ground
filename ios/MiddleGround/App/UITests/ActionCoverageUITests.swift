@@ -112,7 +112,9 @@ final class ActionCoverageUITests: XCTestCase {
     func test_10_recipientIsOfferedEveryResponse() throws {
         guard openPlan("Split the chores this week?") else { return }
 
-        for label in ["Accept", "Negotiate", "Reschedule", "Decline"] {
+        // "Suggest", not "Negotiate": the button opens the composer rather than sending a
+        // response, and now says so.
+        for label in ["Accept", "Suggest", "Reschedule", "Decline"] {
             XCTAssertTrue(
                 responseButton(label).waitForExistence(timeout: 6),
                 "the recipient must be offered \(label)"

@@ -19,12 +19,14 @@ final class AdminViewModel {
     private let authService = Container.shared.authService()
     private let adminRepository = Container.shared.adminRepository()
     private let venueRepository = Container.shared.venueRepository()
+    private let planOutcomeRepository = Container.shared.planOutcomeRepository()
 
     enum Section: String, CaseIterable, Identifiable {
         case overview = "Overview"
         case users = "Users"
         case requests = "Requests"
         case reports = "Reports"
+        case outcomes = "Outcomes"
         case events = "Events"
         case venues = "Venues"
         case audit = "Audit"
@@ -47,6 +49,12 @@ final class AdminViewModel {
     var auditEntries: [AdminAuditEntry] = []
     var reports: [ContentReport] = []
     var venues: [Venue] = []
+    /// The follow-through record, and what it adds up to. Collection began 2 August 2026 — there
+    /// is no history before that and it cannot be reconstructed.
+    var outcomes: [PlanOutcome] = []
+    var outcomeSummary = OutcomeSummary(
+        agreed: 0, attended: 0, cancelledEarly: 0, cancelledLate: 0, noShowed: 0, disputed: 0
+    )
     var statsByUser: [String: GamificationStats] = [:]
 
     // Detail
@@ -70,6 +78,22 @@ final class AdminViewModel {
         }
     }
 
+    /// Records what was decided about a report.
+    ///
+    /// The queue quoted a 24-hour review promise over a list nothing could be marked done on, so
+    /// a hundred unread reports and a hundred handled ones looked identical. Optimistic, then
+    /// reloaded: the rules are the enforcement, and a refused write must not leave the screen
+    /// claiming otherwise.
+    func resolve(_ report: ContentReport, as resolution: ReportResolution) async {
+        guard let adminID = authService.currentUserID else { return }
+        do {
+            try await eventRepository.resolveReport(id: report.id, as: resolution, by: adminID)
+            reports = try await eventRepository.recentReports(limit: 200)
+        } catch {
+            errorMessage = "Couldn't record that: \(error.localizedDescription)"
+        }
+    }
+
     func load() async {
         isLoading = true
         errorMessage = nil
@@ -86,6 +110,9 @@ final class AdminViewModel {
                 requests = try await adminRepository.allRequests(limit: 200)
             case .reports:
                 reports = try await eventRepository.recentReports(limit: 200)
+            case .outcomes:
+                outcomes = try await planOutcomeRepository.recentOutcomes(limit: 500)
+                outcomeSummary = OutcomeSummary.from(outcomes)
             case .events:
                 events = try await eventRepository.recentEvents(limit: 200)
             case .venues:

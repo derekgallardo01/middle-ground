@@ -49,8 +49,23 @@ extension RequestDetailViewModel {
         counterProposedTime = nil
     }
 
-    func saveForLater() async {
-        await respond(with: .save)
+    /// Saves a plan to come back to, or takes it back off the list.
+    ///
+    /// A toggle, not a one-way door. Saving is a response and earns its XP once; un-saving is
+    /// not a response and earns nothing, which is what stops the heart being a tap-for-points
+    /// button.
+    func toggleSaved() async {
+        guard let currentUserID else { return }
+        if request.status == .saved {
+            do {
+                request = try await requestService.unsave(request, by: currentUserID)
+                Haptics.shared.impact(.light)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        } else {
+            await respond(with: .save)
+        }
     }
 
     /// Sends a line of conversation.

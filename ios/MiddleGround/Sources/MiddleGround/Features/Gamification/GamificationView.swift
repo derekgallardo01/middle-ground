@@ -28,6 +28,11 @@ struct GamificationView: View {
                         if let reliability = viewModel.reliability {
                             ReliabilityCard(score: reliability)
                         }
+                        // "Do we make things happen" sits under "do I turn up". Every group,
+                        // couples included — see `GroupFollowThrough`.
+                        ForEach(viewModel.followThrough, id: \.group.id) { entry in
+                            FollowThroughCard(groupName: entry.group.label, followThrough: entry.rate)
+                        }
                         ForEach(viewModel.scoreboards, id: \.group.id) { entry in
                             ScoreboardCard(
                                 groupName: entry.group.label,
@@ -81,15 +86,31 @@ struct GamificationView: View {
                 .mgFont(.h3)
 
             Text("""
-            Responding to each other earns XP. Accepting is worth the most, and finding a \
-            middle ground counts too — the point is turning up for each other, not agreeing \
-            with everything.
+            Answering each other earns XP, and actually turning up earns the most — the point \
+            is showing up for each other, not agreeing with everything. Put points on a plan \
+            and you get them back when it happens.
             """)
                 .mgFont(.bodySmall)
                 .foregroundStyle(MGColors.warm600)
 
             HStack(spacing: 16) {
-                ForEach([ResponseType.accept, .negotiate, .reschedule], id: \.self) { type in
+                // Turning up leads, because it pays the most and because the sentence above
+                // says it does. It is not a `ResponseType` — it is what happens afterwards.
+                HStack(spacing: 5) {
+                    Text("🙌")
+                    Text("+\(GamificationRules.attendedXP)")
+                        .mgFont(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(MGColors.warm600)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Turning up earns \(GamificationRules.attendedXP) XP")
+
+                // `.negotiate` is not in this list because it is not a response: the
+                // button by that name opens the composer rather than answering, so it
+                // earns nothing. Advertising +15 for it was the primer's own promise
+                // to break.
+                ForEach([ResponseType.accept, .reschedule], id: \.self) { type in
                     HStack(spacing: 5) {
                         Text(type.emoji)
                         Text("+\(GamificationRules.xp(for: type))")

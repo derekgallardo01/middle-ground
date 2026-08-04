@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Files an abuse report against the other participant's content.
+/// Files an abuse report against a named participant's content.
 ///
 /// Required by App Review guideline 1.2, which asks for three things on any app carrying
 /// user-generated content: a way to report it, a way to block the person, and published
@@ -13,6 +13,24 @@ struct ReportSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                // Only asked when there is a question. On a plan between two people the answer
+                // is forced and `beginReport()` has already made it.
+                if viewModel.reportableParticipants.count > 1 {
+                    Section {
+                        Picker("Who", selection: $viewModel.reportedUserID) {
+                            Text("Choose someone").tag(String?.none)
+                            ForEach(viewModel.reportableParticipants, id: \.id) { person in
+                                Text(person.name).tag(String?.some(person.id))
+                            }
+                        }
+                        .pickerStyle(.inline)
+                        .labelsHidden()
+                        .accessibilityIdentifier("reportSubject")
+                    } header: {
+                        Text("Who is this about?")
+                    }
+                }
+
                 Section {
                     Picker("Reason", selection: $viewModel.reportReason) {
                         ForEach(ReportReason.allCases) { reason in
@@ -55,7 +73,7 @@ struct ReportSheet: View {
                     Button("Send") {
                         Task { await viewModel.submitReport() }
                     }
-                    .disabled(viewModel.isSending)
+                    .disabled(viewModel.isSending || viewModel.reportedUserID == nil)
                     .accessibilityLabel("Send report")
                 }
             }

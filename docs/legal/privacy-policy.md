@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective date:** 2 August 2026
+**Effective date:** 4 August 2026
 
 **Applies to:** the Middle Ground iOS app
 
@@ -44,7 +44,7 @@ actually does — every item below corresponds to real behaviour in the app.
 | **A location you choose to share** — one coordinate, the time you shared it, and the time it expires | `requests/{id}/locations/{your-id}` | Lets the other people on an agreed plan see you are on your way. Written only when you tap **Share my location**, and only while that plan is live. Deleted automatically when it expires |
 | **Progress data** — XP, streak, achievements | On your device, and mirrored to `gamification/{your-id}` | Powers the Activities tab, and means your progress survives changing phone |
 | **Usage events** — that you signed up, paired, created a request, or responded, with a timestamp | `events` | Lets us understand how the product is actually used and where people get stuck. Records the *action*, not the words you wrote |
-| **Reports you file** — which request you reported, who sent it, the reason, and your optional note | `reports/{id}` | So we can act on harassment and abuse. Readable only by staff |
+| **Reports you file** — which request you reported, who you reported, the reason, and your optional note | `reports/{id}` | So we can act on harassment and abuse. Readable only by staff. Once a report has been reviewed, the record also carries **what was decided, who decided it and when** — so that a report cannot quietly go unread. Staff can add that decision and nothing else: the report itself cannot be edited by anyone, including us, because it is a record of somebody's conduct and an editable complaint is not evidence |
 | **Crash diagnostics** — stack trace, device model, OS version, and the app version at the time of a crash | Firebase Crashlytics | So we can find and fix crashes. Contains no request content and no message text |
 | **What became of a plan** — that a plan was agreed, happened, was called off, or did not happen, with the party size and the kind of plan | `plan_outcomes` | So we can tell how often plans people agree to actually happen. **These records contain no name, no account identifier, and no link to the plan or the people on it** — they cannot be traced back to you, which is why they are kept rather than deleted with your account |
 | **That someone looked for a table** — that a booking link was opened, with the party size and the kind of plan | `booking_intents` | So we can tell how often people want to book somewhere. Recorded only when you tap the link, never when it is merely shown. **Contains no name, no account identifier and no link to the plan**, on the same basis as the row above |

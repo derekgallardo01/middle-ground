@@ -146,16 +146,29 @@ extension NotificationService: UNUserNotificationCenterDelegate {
     }
 
     private func handleNotification(userInfo: [AnyHashable: Any]) {
-        guard let requestID = userInfo["request_id"] as? String else { return }
-        // Post a notification that AppState/Coordinator can observe to navigate
-        NotificationCenter.default.post(
-            name: .didReceiveRequestNotification,
-            object: nil,
-            userInfo: ["request_id": requestID]
-        )
+        if let requestID = userInfo["request_id"] as? String {
+            // Post a notification that AppState/Coordinator can observe to navigate
+            NotificationCenter.default.post(
+                name: .didReceiveRequestNotification,
+                object: nil,
+                userInfo: ["request_id": requestID]
+            )
+            return
+        }
+
+        // The weekly nudge names a group rather than a plan, because its whole point is that
+        // there is no plan. It was the only push that did nothing when tapped: this handler
+        // required a `request_id` and returned early, so the app opened on whatever tab you
+        // happened to leave it on. There is nothing to open, so it lands on the feed — where
+        // making a plan starts.
+        if userInfo["relationship_id"] is String {
+            NotificationCenter.default.post(name: .didReceiveNudgeNotification, object: nil)
+        }
     }
 }
 
 extension Notification.Name {
     static let didReceiveRequestNotification = Notification.Name("didReceiveRequestNotification")
+    /// A nudge to plan something, which points at the feed rather than at any one plan.
+    static let didReceiveNudgeNotification = Notification.Name("didReceiveNudgeNotification")
 }

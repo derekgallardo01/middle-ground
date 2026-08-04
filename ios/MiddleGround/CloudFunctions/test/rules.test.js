@@ -941,6 +941,61 @@ describe('abuse reports', () => {
     await assertFails(updateDoc(doc(asBob(), 'reports/rep1'), { reason: 'spam' }));
     await assertFails(deleteDoc(doc(asBob(), 'reports/rep1')));
   });
+
+  describe('resolving one', () => {
+    // An operator has to be able to say "I have looked at this", or the 24-hour review promise
+    // on the reports screen is a sentence with nothing behind it. What they must never be able
+    // to do is edit the complaint itself.
+    const asRoot = () => testEnv.authenticatedContext('root', { admin: true }).firestore();
+
+    beforeEach(() => seed((db) => setDoc(doc(db, 'reports/rep1'), report())));
+
+    test('an admin can record a decision', async () => {
+      await assertSucceeds(updateDoc(doc(asRoot(), 'reports/rep1'), {
+        resolution: 'dismissed',
+        resolvedBy: 'root',
+        resolvedAt: new Date(),
+      }));
+    });
+
+    test('an admin cannot alter the report itself', async () => {
+      await assertFails(updateDoc(doc(asRoot(), 'reports/rep1'), {
+        resolution: 'dismissed',
+        resolvedBy: 'root',
+        resolvedAt: new Date(),
+        reason: 'spam',
+      }));
+      await assertFails(updateDoc(doc(asRoot(), 'reports/rep1'), { reportedUserID: BOB }));
+    });
+
+    test('an admin cannot sign somebody else name to the decision', async () => {
+      await assertFails(updateDoc(doc(asRoot(), 'reports/rep1'), {
+        resolution: 'actioned',
+        resolvedBy: 'someone-else',
+        resolvedAt: new Date(),
+      }));
+    });
+
+    test('only the two real outcomes are accepted', async () => {
+      await assertFails(updateDoc(doc(asRoot(), 'reports/rep1'), {
+        resolution: 'banned-forever',
+        resolvedBy: 'root',
+        resolvedAt: new Date(),
+      }));
+    });
+
+    test('an ordinary user cannot resolve a report', async () => {
+      await assertFails(updateDoc(doc(asBob(), 'reports/rep1'), {
+        resolution: 'dismissed',
+        resolvedBy: BOB,
+        resolvedAt: new Date(),
+      }));
+    });
+
+    test('a resolved report still cannot be deleted', async () => {
+      await assertFails(deleteDoc(doc(asRoot(), 'reports/rep1')));
+    });
+  });
 });
 
 describe('events are self-readable and self-erasable', () => {

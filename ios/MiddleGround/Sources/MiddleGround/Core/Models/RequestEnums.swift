@@ -92,7 +92,7 @@ enum ResponseType: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .accept: return "Accept"
         case .decline: return "Decline"
-        case .negotiate: return "Negotiate"
+        case .negotiate: return "Suggest"
         case .reschedule: return "Reschedule"
         case .counter: return "Counter"
         case .save: return "Save"

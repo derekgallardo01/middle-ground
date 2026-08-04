@@ -18,6 +18,9 @@ final class GamificationViewModel {
     /// `GroupScoreboard` for why that rule is in the type rather than in this screen.
     private(set) var scoreboards: [(group: Relationship, board: GroupScoreboard)] = []
 
+    /// How often each group's plans happen. Every group, couples included — it ranks nobody.
+    private(set) var followThrough: [(group: Relationship, rate: GroupFollowThrough)] = []
+
     var currentUser: User?
     var stats: GamificationStats = GamificationStats(streakDays: 0, relationshipXP: 0, level: 1, growthScore: 0, nextLevelXP: 500)
     var achievements: [Achievement] = []
@@ -86,8 +89,14 @@ final class GamificationViewModel {
     /// Names are fetched only for members of eligible groups, so a couple costs no reads at all.
     private func loadScoreboards(from requests: [Request]) async {
         guard let currentUser else { return }
-        let groups = (try? await relationshipRepository.fetchRelationships(for: currentUser.id))?
-            .filter(GroupScoreboard.isEligible) ?? []
+        let allGroups = (try? await relationshipRepository.fetchRelationships(for: currentUser.id)) ?? []
+
+        // Follow-through covers every group; the scoreboard does not. One fetch answers both.
+        followThrough = allGroups.map { group in
+            (group, GroupFollowThrough.from(relationship: group, requests: requests))
+        }
+
+        let groups = allGroups.filter(GroupScoreboard.isEligible)
         guard !groups.isEmpty else {
             scoreboards = []
             return

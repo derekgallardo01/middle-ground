@@ -59,6 +59,11 @@ struct AdminView: View {
                     case .requests: requestsSection
                     case .reports: reportsSection
                     case .events: eventsSection
+                    case .outcomes:
+                        AdminOutcomesSection(
+                            summary: viewModel.outcomeSummary,
+                            outcomes: viewModel.outcomes
+                        )
                     case .venues: AdminVenuesSection(viewModel: viewModel)
                     case .audit: auditSection
                     }
@@ -246,7 +251,7 @@ struct AdminView: View {
     /// guideline 1.2 asks for reports to be acted on, not merely collected.
     private var reportsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Reported content. Newest first — review within 24 hours.")
+            Text("Reported content. Newest first — review within 24 hours. Mark each one done.")
                 .mgFont(.caption)
                 .foregroundStyle(MGColors.warm600)
 
@@ -273,6 +278,25 @@ struct AdminView: View {
                         row("Reported user", report.reportedUserID)
                         row("Reported by", report.reporterID)
                         row("Request", report.requestID)
+
+                        if let resolution = report.resolution {
+                            let when = report.resolvedAt?
+                                .formatted(date: .abbreviated, time: .shortened) ?? ""
+                            row(resolution.displayName, "\(report.resolvedBy ?? "someone") · \(when)")
+                        } else {
+                            HStack(spacing: 8) {
+                                Button("Actioned") {
+                                    Task { await viewModel.resolve(report, as: .actioned) }
+                                }
+                                .buttonStyle(.borderedProminent)
+                                Button("Dismiss") {
+                                    Task { await viewModel.resolve(report, as: .dismissed) }
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                            .mgFont(.bodySmall)
+                            .padding(.top, 4)
+                        }
                     }
                 }
             }

@@ -83,6 +83,27 @@ final class RequestService {
     /// firestore.rules. The status advances to `.completed` only when *everyone* has said it
     /// happened: one person cannot record the other as absent, and a disagreement stays
     /// unresolved rather than being decided in someone's favour.
+    /// Takes a plan back off your saved list.
+    ///
+    /// The heart had no way back: `saveForLater` always sent `.save`, and because `.save` is
+    /// filtered out of the answered set, `canRespond` stayed true forever — so tapping an
+    /// already-filled heart appended another `.save` and quietly awarded another 5 XP, with
+    /// nothing on screen changing.
+    ///
+    /// This reverts the status rather than removing the `.save` from the chain. The chain is
+    /// append-only and written inside a transaction on the server; that somebody saved a plan and
+    /// then unsaved it is true, and turn-taking already ignores `.save` entries either way.
+    func unsave(_ request: Request, by userID: String) async throws -> Request {
+        guard request.isParticipant(userID) else { throw RequestError.notAllowedToRespond }
+        guard request.status == .saved else { return request }
+
+        var updated = request
+        updated.status = .pending
+        updated.updatedAt = Date()
+        try await repository.updateRequest(updated)
+        return updated
+    }
+
     func confirmAttendance(
         of request: Request,
         outcome: ConfirmationOutcome,

@@ -14,13 +14,24 @@ struct LocationRow: View {
     let onShare: () -> Void
     let onStop: () -> Void
 
+    /// Firestore's TTL is only promised within 24 hours, so a lapsed point is still in the
+    /// document long after it stopped meaning anything. `SharedLocation.hasExpired` exists for
+    /// exactly this and was never called: an hours-old pin stayed on screen and still opened
+    /// Maps at the old coordinate. A stale pin is worse than none.
+    private var liveMine: SharedLocation? {
+        guard let mine, !mine.hasExpired else { return nil }
+        return mine
+    }
+
+    private var liveOthers: [SharedLocation] { others.filter { !$0.hasExpired } }
+
     var body: some View {
         VStack(alignment: .leading, spacing: MGSpacing.sm) {
             Text("Where you are")
                 .mgFont(.h3)
 
-            if let mine {
-                shared(mine)
+            if let liveMine {
+                shared(liveMine)
             } else {
                 Text("""
                      Share your location with \(partnerName) until this plan is over. \
@@ -42,7 +53,7 @@ struct LocationRow: View {
                 .disabled(isBusy)
             }
 
-            ForEach(others) { point in
+            ForEach(liveOthers) { point in
                 Divider()
                 theirs(point)
             }

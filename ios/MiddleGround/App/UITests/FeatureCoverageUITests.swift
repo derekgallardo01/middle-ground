@@ -73,6 +73,33 @@ final class FeatureCoverageUITests: XCTestCase {
         XCTAssertTrue(scrollTo(message), "a message on the plan must appear in the transcript")
     }
 
+    /// Sending into a conversation that already has messages in it.
+    ///
+    /// The existing send test runs on a plan with an empty transcript, so this path — a live
+    /// listener already delivering messages, then a new one arriving — was never exercised.
+    func test_chat_aSentMessageJoinsAnExistingConversation() throws {
+        launchApp()
+        guard openPlan("Sunday roast?") else { return }
+
+        let field = app.textViews.firstMatch.exists
+            ? app.textViews.firstMatch : app.textFields.firstMatch
+        guard scrollTo(field) else { return XCTFail("no composer") }
+        field.tap()
+        let text = "Shall I book it?"
+        field.typeText(text)
+
+        let send = app.buttons["sendMessage"]
+        guard send.waitForExistence(timeout: 4), send.isEnabled else {
+            return XCTFail("Send never became available")
+        }
+        send.tap()
+
+        XCTAssertTrue(
+            app.staticTexts[text].waitForExistence(timeout: 10),
+            "a message sent into an existing conversation must appear in it"
+        )
+    }
+
     /// A reply is nested under its parent rather than shown as its own entry in the timeline.
     func test_threads_replyIsShownUnderItsParent() throws {
         launchApp()

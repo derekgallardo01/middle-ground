@@ -41,6 +41,16 @@ struct SpontaneousRequestView: View {
                     .background(MGColors.surface)
                     .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
 
+                // Optional, and labelled as such. The model already carried `details` and sent it;
+                // there was simply no way to type one.
+                TextField("Anything else? (optional)", text: $viewModel.details, axis: .vertical)
+                    .mgFont(.body)
+                    .lineLimit(1...3)
+                    .padding()
+                    .background(MGColors.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+                    .accessibilityLabel("Description, optional")
+
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Quick ideas")
                         .mgFont(.h3)
@@ -83,6 +93,27 @@ struct SpontaneousRequestView: View {
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 220)
+                }
+                .padding()
+                .background(MGColors.surface)
+                .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+
+                // Separate from "Expires in" on purpose. One is how long the invite stays open,
+                // the other is when the thing happens; they were the same value before and
+                // neither could be set on its own.
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Set a time", isOn: $viewModel.hasEventTime)
+                        .mgFont(.body)
+                        .accessibilityIdentifier("setEventTime")
+
+                    if viewModel.hasEventTime {
+                        DatePicker(
+                            "When",
+                            selection: $viewModel.eventTime,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .mgFont(.bodySmall)
+                    }
                 }
                 .padding()
                 .background(MGColors.surface)
@@ -144,14 +175,50 @@ struct SpontaneousRequestView: View {
                 // also offers the share sheet, rather than naming a tab it cannot open.
                 InvitePrompt(code: viewModel.inviteCode, compact: true)
             } else {
-                Picker("Recipient", selection: $viewModel.recipientID) {
-                    ForEach(viewModel.relationships) { relationship in
-                        Text(viewModel.label(for: relationship))
-                            .tag(partnerID(from: relationship) ?? "")
+                // Multi-select, not a single choice. "Who's about?" is the whole point of a
+                // spontaneous invite, and a segmented picker could only ever ask one person.
+                FlowLayout(spacing: 8) {
+                    ForEach(viewModel.everyone, id: \.id) { person in
+                        let isChosen = viewModel.recipientIDs.contains(person.id)
+                        Button {
+                            if isChosen {
+                                viewModel.recipientIDs.remove(person.id)
+                            } else {
+                                viewModel.recipientIDs.insert(person.id)
+                            }
+                            Haptics.shared.impact(.light)
+                        } label: {
+                            HStack(spacing: 6) {
+                                if isChosen {
+                                    Image(systemName: "checkmark.circle.fill")
+                                }
+                                Text(person.name)
+                            }
+                            .mgFont(.bodySmall)
+                            .foregroundStyle(isChosen ? MGColors.onAccent : MGColors.slate)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(isChosen ? MGColors.indigo : MGColors.warm100)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(ScaleButtonStyle())
+                        .accessibilityLabel("\(isChosen ? "Remove" : "Add") \(person.name)")
                     }
                 }
-                .pickerStyle(.segmented)
             }
+
+            // Somebody who is not on Middle Ground at all. Reuses the single-plan invite, so
+            // they get this one plan and nothing else — not the group, and nothing after it.
+            Toggle(isOn: $viewModel.invitesSomeoneOutside) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Invite someone not on Middle Ground")
+                        .mgFont(.bodySmall)
+                    Text("They get a code for this plan only.")
+                        .mgFont(.caption)
+                        .foregroundStyle(MGColors.warm600)
+                }
+            }
+            .accessibilityIdentifier("inviteOutsider")
         }
         .padding()
         .background(MGColors.surface)

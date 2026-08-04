@@ -41,6 +41,112 @@ extension Request {
         updatedAt: Date().addingTimeInterval(-1_800)
     )
 
+    // MARK: - One plan per destructive action
+    //
+    // Accepting, declining, negotiating and countering all *settle* the plan they act on, so they
+    // cannot be demonstrated on the same fixture — the first one filmed removes the response row
+    // the rest need. Confirming attendance is the same: "yes it happened" and "no it didn't" are
+    // two answers to one question and need a plan each. These exist so the recorded tour can show
+    // every action rather than the first one and four empty screens.
+
+    /// For accepting. Awaiting the preview user's answer.
+    static let previewToAccept = Request(
+        id: "req_10",
+        creatorID: User.preview2.id,
+        recipientIDs: [User.preview.id],
+        category: .friends,
+        title: "Pizza on Thursday?",
+        details: "That place by the park.",
+        proposedTime: Date().addingTimeInterval(86_400 * 4),
+        status: .pending,
+        createdAt: Date().addingTimeInterval(-1_700),
+        updatedAt: Date().addingTimeInterval(-1_700)
+    )
+
+    /// For declining.
+    static let previewToDecline = Request(
+        id: "req_11",
+        creatorID: User.preview2.id,
+        recipientIDs: [User.preview.id],
+        category: .daily,
+        title: "Early gym tomorrow?",
+        details: "6am start.",
+        proposedTime: Date().addingTimeInterval(86_400),
+        status: .pending,
+        createdAt: Date().addingTimeInterval(-1_600),
+        updatedAt: Date().addingTimeInterval(-1_600)
+    )
+
+    /// For negotiating.
+    static let previewToNegotiate = Request(
+        id: "req_12",
+        creatorID: User.preview2.id,
+        recipientIDs: [User.preview.id],
+        category: .travel,
+        title: "Weekend in the mountains?",
+        details: "Thinking two nights.",
+        proposedTime: Date().addingTimeInterval(86_400 * 9),
+        status: .pending,
+        createdAt: Date().addingTimeInterval(-1_500),
+        updatedAt: Date().addingTimeInterval(-1_500)
+    )
+
+    /// For countering with a different time.
+    static let previewToCounter = Request(
+        id: "req_13",
+        creatorID: User.preview2.id,
+        recipientIDs: [User.preview.id],
+        category: .chill,
+        title: "Film night Saturday?",
+        details: "Your pick.",
+        proposedTime: Date().addingTimeInterval(86_400 * 2),
+        status: .pending,
+        createdAt: Date().addingTimeInterval(-1_400),
+        updatedAt: Date().addingTimeInterval(-1_400)
+    )
+
+    /// For answering "Yes, it did". Agreed, and its time has passed.
+    static let previewToConfirmHappened = Request(
+        id: "req_14",
+        creatorID: User.preview2.id,
+        recipientIDs: [User.preview.id],
+        category: .friends,
+        title: "Coffee on Monday",
+        proposedTime: Date().addingTimeInterval(-7_200),
+        location: "Prospect Park",
+        status: .accepted,
+        createdAt: Date().addingTimeInterval(-90_000),
+        updatedAt: Date().addingTimeInterval(-7_200)
+    )
+
+    /// For answering "No, it didn't".
+    static let previewToConfirmMissed = Request(
+        id: "req_15",
+        creatorID: User.preview2.id,
+        recipientIDs: [User.preview.id],
+        category: .daily,
+        title: "Market run",
+        proposedTime: Date().addingTimeInterval(-10_800),
+        location: "The Anchor",
+        status: .accepted,
+        createdAt: Date().addingTimeInterval(-95_000),
+        updatedAt: Date().addingTimeInterval(-10_800)
+    )
+
+    /// A second cancellable plan, so two different cancellation reasons can be shown.
+    static let previewToCancel = Request(
+        id: "req_16",
+        creatorID: User.preview.id,
+        recipientIDs: [User.preview2.id],
+        category: .dating,
+        title: "Drinks on Wednesday?",
+        details: "That wine bar.",
+        proposedTime: Date().addingTimeInterval(86_400 * 5),
+        status: .pending,
+        createdAt: Date().addingTimeInterval(-1_300),
+        updatedAt: Date().addingTimeInterval(-1_300)
+    )
+
     /// Mid-conversation, with the turn back on the preview user.
     ///
     /// The chain deliberately ends on a counter from the other person: that is the state that

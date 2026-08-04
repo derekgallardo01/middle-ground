@@ -16,7 +16,7 @@ import XCTest
 /// - Actions that settle a plan (accept, decline) come last, since they remove the response row
 ///   the earlier frames are meant to show.
 final class FullTourUITests: XCTestCase {
-    private var app: XCUIApplication!
+    var app: XCUIApplication!
     private var frame = 0
 
     override func setUpWithError() throws {
@@ -30,7 +30,7 @@ final class FullTourUITests: XCTestCase {
 
     /// Numbered in capture order, so the filenames sort into the order they were taken and the
     /// contact sheet reads as a walkthrough.
-    private func shoot(_ name: String) {
+    func shoot(_ name: String) {
         frame += 1
         settle(0.9)
         let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
@@ -39,14 +39,14 @@ final class FullTourUITests: XCTestCase {
         add(shot)
     }
 
-    private func settle(_ seconds: TimeInterval = 1.2) {
+    func settle(_ seconds: TimeInterval = 1.2) {
         Thread.sleep(forTimeInterval: seconds)
     }
 
-    private func tab(_ name: String) -> XCUIElement { app.tabBars.buttons[name] }
+    func tab(_ name: String) -> XCUIElement { app.tabBars.buttons[name] }
 
     @discardableResult
-    private func open(_ title: String) -> Bool {
+    func open(_ title: String) -> Bool {
         tab("Requests").tap()
         settle(0.6)
         let cell = app.staticTexts[title]
@@ -57,13 +57,13 @@ final class FullTourUITests: XCTestCase {
         return true
     }
 
-    private func back() {
+    func back() {
         let button = app.navigationBars.buttons.firstMatch
         if button.exists && button.isHittable { button.tap() }
         settle(0.6)
     }
 
-    private func scrollTo(_ element: XCUIElement, swipes: Int = 5) -> Bool {
+    func scrollTo(_ element: XCUIElement, swipes: Int = 5) -> Bool {
         for _ in 0..<swipes {
             if element.exists && element.isHittable { return true }
             app.swipeUp()
@@ -78,7 +78,7 @@ final class FullTourUITests: XCTestCase {
     /// of this silently skipped half the tour: it swiped *down* to reach rows further down the
     /// feed, which scrolls the list the other way.
     @discardableResult
-    private func bringIntoView(_ element: XCUIElement, swipes: Int = 6) -> Bool {
+    func bringIntoView(_ element: XCUIElement, swipes: Int = 6) -> Bool {
         if element.exists && element.isHittable { return true }
         for _ in 0..<swipes {
             app.swipeUp()
@@ -103,7 +103,7 @@ final class FullTourUITests: XCTestCase {
     /// The sheet's own navigation bar is the honest signal — not a button label, which may exist
     /// in several places at once.
     @discardableResult
-    private func dismissSheet(titled title: String) -> Bool {
+    func dismissSheet(titled title: String) -> Bool {
         let bar = app.navigationBars[title]
         for _ in 0..<4 {
             guard bar.exists else { return true }
@@ -133,7 +133,7 @@ final class FullTourUITests: XCTestCase {
         return !bar.exists
     }
 
-    private func text(_ fragment: String) -> XCUIElement {
+    func text(_ fragment: String) -> XCUIElement {
         app.staticTexts.containing(
             NSPredicate(format: "label CONTAINS[c] %@", fragment)
         ).firstMatch
@@ -142,36 +142,37 @@ final class FullTourUITests: XCTestCase {
     // MARK: - The tour
 
     /// Split into one method per section: as a single function this ran to a cyclomatic
-    /// complexity of 18, which is both a lint failure and a fair description of how hard it
-    /// had become to see the order of the tour — the thing that matters most here.
+    /// complexity well past the limit, which is both a lint failure and a fair description of how
+    /// hard it had become to see the order of the tour — the thing that matters most here.
+    ///
+    /// Order is chosen so nothing destroys what a later step needs. Each settling action gets its
+    /// own fixture, because accepting and declining cannot both be shown on one plan.
     func testFullTour() throws {
         tourTheFourTabs()
-        tourGroupPlan()
-        tourStakedPlan()
-        tourPlanHappeningNow()
-        tourCreatorsOwnPlan()
-        tourResponding()
-        tourCompose()
+        tourAccept()
+        tourDecline()
+        tourNegotiate()
+        tourCounterWithATime()
+        tourConfirmItHappened()
+        tourConfirmItDidNot()
+        tourStakePoints()
+        tourGroupPlanAndChat()
+        tourCancelTwoWays()
+        tourCalendar()
+        tourNewRequest()
+        tourSpontaneous()
     }
 
     /// The four tabs, untouched.
     private func tourTheFourTabs() {
-        // ---- The four tabs, untouched -------------------------------------------------
         tab("Requests").tap()
-        shoot("requests-feed")
+        shoot("feed")
 
         tab("Calendar").tap()
         shoot("calendar")
 
         tab("Activities").tap()
-        shoot("activities-progress")
-        // Scrolled unconditionally. `bringIntoView` returns true the moment an element is even
-        // partly on screen, so asking it to reach a card already peeking at the bottom moved
-        // nothing and photographed the same frame twice under two names.
-        // Two frames, not three. Swiping past the end of a short screen changes nothing, and the
-        // third shot was the second one again under a different name.
-        // One scrolled frame. A second was the same picture: the screen ends, so swiping past
-        // the bottom changes nothing the camera can see.
+        shoot("activities")
         app.swipeUp()
         app.swipeUp()
         shoot("activities-reliability")
@@ -180,153 +181,318 @@ final class FullTourUITests: XCTestCase {
         shoot("profile")
         app.swipeUp()
         shoot("profile-groups-and-code")
-
     }
 
-    /// A group plan: the densest screen in the app.
-    private func tourGroupPlan() {
-        // ---- A group plan: the densest screen in the app ------------------------------
-        if open("Sunday roast?") {
-            shoot("group-plan-top")
-
-            _ = scrollTo(text("are in"))
-            shoot("group-who-is-in")
-
-            _ = scrollTo(app.buttons.containing(
-                NSPredicate(format: "label CONTAINS[c] 'Find a table'")
-            ).firstMatch)
-            shoot("booking-find-a-table")
-
-            _ = scrollTo(text("Which entrance"))
-            shoot("chat-and-threads")
-
-            _ = scrollTo(text("Seen by"))
-            shoot("read-receipt-seen-by")
-
-            _ = scrollTo(text("is typing"))
-            shoot("typing-indicator")
-
-            // Compose with text in it, so the send button is in its enabled state.
-            let field = app.textViews.firstMatch.exists
-                ? app.textViews.firstMatch : app.textFields.firstMatch
-            if scrollTo(field) {
-                field.tap()
-                field.typeText("Shall I book it?")
-                shoot("composer-with-a-message")
-            }
-            back()
+    /// Accepting a request, and the celebration that follows.
+    private func tourAccept() {
+        guard open("Pizza on Thursday?") else { return }
+        shoot("accept-detail-before")
+        if tapResponse("Accept") {
+            settle(1.6)
+            shoot("accept-confirmed")
+            dismissCelebration()
         }
-
+        back()
     }
 
-    /// A staked plan.
-    private func tourStakedPlan() {
-        // ---- A staked plan -----------------------------------------------------------
-        // One frame, not two: the stake row sits above the fold on this plan, so a second
-        // "scrolled" shot was the same picture under a different name.
-        if open("Climbing on Saturday") {
-            shoot("staked-plan-with-points")
-            back()
+    /// Declining a request.
+    private func tourDecline() {
+        guard open("Early gym tomorrow?") else { return }
+        shoot("decline-detail-before")
+        if tapResponse("Decline") {
+            settle(1.4)
+            shoot("decline-confirmed")
+            dismissCelebration()
         }
-
+        back()
     }
 
-    /// A plan happening now.
-    private func tourPlanHappeningNow() {
-        // ---- A plan happening now ----------------------------------------------------
-        if open("Dinner at Lucia's") {
-            shoot("plan-happening-now")
-            back()
-        }
+    /// Negotiating — which opens the composer and waits for you to say something.
+    ///
+    /// The button itself only focuses the field, so a tour that tapped it and moved on filmed an
+    /// empty keyboard and no action at all. Typing and sending is what the button is *for*.
+    private func tourNegotiate() {
+        guard open("Weekend in the mountains?") else { return }
+        shoot("negotiate-detail-before")
+        guard tapResponse("Negotiate") else { return back() }
+        settle(1.0)
+        shoot("negotiate-composer-open")
 
-    }
+        let field = app.textViews.firstMatch.exists
+            ? app.textViews.firstMatch : app.textFields.firstMatch
+        if field.waitForExistence(timeout: 4) {
+            field.tap()
+            field.typeText("Could we make it two nights instead?")
+            shoot("negotiate-typed")
 
-    /// The creator's own plan.
-    private func tourCreatorsOwnPlan() {
-        // ---- The creator's own plan --------------------------------------------------
-        if open("Date night this Friday?") {
-            shoot("creator-waiting")
-
-            // The cancel alert, then straight back out — an alert left open would photograph
-            // itself over everything after it.
-            let cancel = app.buttons["Cancel request"]
-            if bringIntoView(cancel) {
-                cancel.tap()
-                settle(0.8)
-                shoot("cancel-reasons")
-                let alert = app.alerts.firstMatch
-                if alert.waitForExistence(timeout: 4), alert.buttons["Keep it"].exists {
-                    alert.buttons["Keep it"].tap()
+            let send = app.buttons["sendMessage"]
+            if send.waitForExistence(timeout: 4), send.isEnabled {
+                send.tap()
+                settle(1.6)
+                if !app.keyboards.allElementsBoundByIndex.isEmpty {
+                    app.tap()
+                    settle(0.6)
                 }
-                settle(0.6)
+                _ = bringIntoView(text("two nights instead"))
+                shoot("negotiate-sent-and-showing")
             }
-            back()
         }
-
+        back()
     }
 
-    /// Responding.
-    private func tourResponding() {
-        // ---- Responding ---------------------------------------------------------------
-        //
-        // Before compose, not after. Compose is the one modal that has broken this tour
-        // repeatedly, and a step that cannot be photographed because an earlier sheet stayed
-        // open is worse than a step that runs in a slightly odd order. The feed frame that needs
-        // this plan unanswered was taken at the very top of the tour.
-        if open("Split the chores this week?") {
-            shoot("recipient-can-answer")
+    /// Countering with a different time, and confirming the plan moved to it.
+    private func tourCounterWithATime() {
+        guard open("Film night Saturday?") else { return }
+        shoot("counter-detail-before")
 
-            let reschedule = app.buttons.containing(
-                NSPredicate(format: "label CONTAINS[c] 'Reschedule'")
+        // Reschedule is the response that carries a new time.
+        if tapResponse("Reschedule") {
+            settle(1.2)
+            shoot("counter-time-picker")
+            let send = app.navigationBars["Reschedule"].buttons.containing(
+                NSPredicate(format: "label BEGINSWITH[c] 'Send'")
             ).firstMatch
-            if reschedule.waitForExistence(timeout: 6), bringIntoView(reschedule) {
-                reschedule.tap()
-                settle(1.0)
-                shoot("reschedule-picker")
+            if send.exists && send.isHittable {
+                send.tap()
+                settle(1.6)
+                shoot("counter-sent-plan-moved")
+                dismissCelebration()
+            } else {
                 dismissSheet(titled: "Reschedule")
             }
-
-            let accept = app.buttons.containing(
-                NSPredicate(format: "label CONTAINS[c] 'Accept'")
-            ).firstMatch
-            if accept.waitForExistence(timeout: 6), bringIntoView(accept) {
-                accept.tap()
-                settle(1.6)
-                shoot("after-accepting")
-            }
         }
-
+        back()
     }
 
-    /// Compose.
-    private func tourCompose() {
-        // ---- Compose -----------------------------------------------------------------
+    /// "Did this happen?" — yes.
+    private func tourConfirmItHappened() {
+        guard open("Coffee on Monday") else { return }
+        _ = bringIntoView(text("Did this happen"))
+        shoot("did-it-happen-asked")
+        let yes = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Yes, it did'")
+        ).firstMatch
+        if bringIntoView(yes) {
+            yes.tap()
+            settle(1.6)
+            shoot("confirmed-it-happened")
+            dismissCelebration()
+        }
+        back()
+    }
+
+    /// "Did this happen?" — no.
+    private func tourConfirmItDidNot() {
+        guard open("Market run") else { return }
+        _ = bringIntoView(text("Did this happen"))
+        let no = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] \"didn't\"")
+        ).firstMatch
+        if bringIntoView(no) {
+            no.tap()
+            settle(1.6)
+            shoot("confirmed-it-did-not-happen")
+            dismissCelebration()
+        }
+        back()
+    }
+
+    /// Putting points on a plan.
+    private func tourStakePoints() {
+        guard open("Climbing on Saturday") else { return }
+        _ = bringIntoView(text("point"))
+        shoot("points-on-the-plan")
+        back()
+    }
+
+    /// The group plan: who is in, booking, conversation, a message actually sent, and seen-by.
+    private func tourGroupPlanAndChat() {
+        guard open("Sunday roast?") else { return }
+        shoot("group-plan")
+
+        _ = bringIntoView(text("are in"))
+        shoot("group-who-is-in")
+
+        _ = bringIntoView(app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Find a table'")
+        ).firstMatch)
+        shoot("booking-find-a-table")
+
+        _ = bringIntoView(text("Which entrance"))
+        shoot("chat-with-a-thread")
+
+        _ = bringIntoView(text("Seen by"))
+        shoot("seen-by")
+
+        let field = app.textViews.firstMatch.exists
+            ? app.textViews.firstMatch : app.textFields.firstMatch
+        if bringIntoView(field) {
+            field.tap()
+            field.typeText("Shall I book it?")
+            shoot("message-typed")
+
+            let send = app.buttons["sendMessage"]
+            if send.waitForExistence(timeout: 4), send.isEnabled {
+                send.tap()
+                settle(1.6)
+                // Keyboard away first: it covers half the transcript, which is the thing the
+                // frame exists to show.
+                if !app.keyboards.allElementsBoundByIndex.isEmpty {
+                    app.tap()
+                    settle(0.6)
+                }
+                _ = bringIntoView(text("Shall I book it?"))
+                shoot("message-sent-and-showing")
+            }
+        }
+        back()
+    }
+
+    /// Cancelling, shown with two different reasons on two different plans.
+    private func tourCancelTwoWays() {
+        cancel(plan: "Date night this Friday?", reason: "Something came up", name: "cancel-something-came-up")
+        cancel(plan: "Drinks on Wednesday?", reason: "Our plans changed", name: "cancel-plans-changed")
+    }
+
+    private func cancel(plan: String, reason: String, name: String) {
+        guard open(plan) else { return }
+        let button = app.buttons["Cancel request"]
+        if bringIntoView(button) {
+            button.tap()
+            settle(0.9)
+            shoot("\(name)-reasons")
+            let alert = app.alerts.firstMatch
+            if alert.waitForExistence(timeout: 4), alert.buttons[reason].exists {
+                alert.buttons[reason].tap()
+                settle(1.4)
+                shoot("\(name)-done")
+            } else if alert.exists, alert.buttons["Keep it"].exists {
+                alert.buttons["Keep it"].tap()
+            }
+        }
+        back()
+    }
+
+    /// A plan on the calendar.
+    private func tourCalendar() {
+        tab("Calendar").tap()
+        settle(1.0)
+        shoot("calendar-with-plans")
+        let entry = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Lucia'")
+        ).firstMatch
+        if entry.waitForExistence(timeout: 5), entry.isHittable {
+            entry.tap()
+            settle(1.0)
+            shoot("calendar-plan-detail")
+            back()
+        }
+    }
+
+    /// Creating and sending a new request.
+    private func tourNewRequest() {
         tab("Requests").tap()
         let fab = app.buttons["Create new request or spontaneous invite"]
-        if fab.waitForExistence(timeout: 8) {
-            fab.tap()
-            settle(0.6)
-            shoot("compose-menu")
-            let newRequest = app.buttons["New Request"]
-            if newRequest.waitForExistence(timeout: 4) {
-                newRequest.tap()
-                settle(1.0)
-                shoot("compose-sheet")
+        guard fab.waitForExistence(timeout: 8) else { return }
+        fab.tap()
+        settle(0.7)
+        shoot("compose-menu")
 
-                let field = app.textFields.firstMatch
-                if field.waitForExistence(timeout: 6) {
-                    field.tap()
-                    field.typeText("Coffee tomorrow?")
-                    shoot("compose-filled")
-                }
-                dismissSheet(titled: "New Request")
+        let newRequest = app.buttons["New Request"]
+        guard newRequest.waitForExistence(timeout: 4) else { return }
+        newRequest.tap()
+        settle(1.0)
+        shoot("new-request-sheet")
+
+        let field = app.textFields.firstMatch
+        if field.waitForExistence(timeout: 6) {
+            field.tap()
+            field.typeText("Coffee tomorrow?")
+            shoot("new-request-filled")
+
+            let send = app.navigationBars["New Request"].buttons.containing(
+                NSPredicate(format: "label BEGINSWITH[c] 'Send'")
+            ).firstMatch
+            if send.exists && send.isHittable {
+                send.tap()
+                settle(1.8)
+                shoot("new-request-sent")
+                dismissCelebration()
             }
         }
-
+        dismissSheet(titled: "New Request")
         tab("Requests").tap()
         settle(0.8)
-        shoot("back-at-the-feed")
-
+        shoot("feed-with-the-new-request")
     }
 
+    /// A spontaneous invite, all the way through to it appearing in the feed.
+    ///
+    /// The first version stopped at the sheet, so the video showed the screen and never which
+    /// idea was chosen, how long it lasted, or that anything was sent.
+    private func tourSpontaneous() {
+        tab("Requests").tap()
+        let fab = app.buttons["Create new request or spontaneous invite"]
+        guard fab.waitForExistence(timeout: 8) else { return }
+        fab.tap()
+        settle(0.7)
+        let spontaneous = app.buttons["Spontaneous"]
+        guard spontaneous.waitForExistence(timeout: 4) else { return }
+        spontaneous.tap()
+        settle(1.2)
+        shoot("spontaneous-sheet")
+
+        // Pick one of the quick ideas, so the recording shows *which* invite is being sent.
+        //
+        // `matching`, not `containing`: the idea buttons carry an accessibilityLabel, which
+        // collapses each one into a single element and hides the Text inside it — and
+        // `containing` matches *descendants*, so it found nothing at all. The frame was
+        // byte-identical to the one before it, which is how this was caught.
+        let idea = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH[c] 'Use idea:'")
+        ).firstMatch
+        if idea.waitForExistence(timeout: 5), idea.isHittable {
+            idea.tap()
+            settle(0.9)
+            shoot("spontaneous-idea-chosen")
+        }
+
+        // Expiry and recipient are both segmented pickers, so their options are segment buttons
+        // rather than plain ones. The recipient starts unselected, and Send Now stays disabled
+        // until it is chosen — which is why the send silently never happened.
+        let hour = app.segmentedControls.buttons["1 hour"].exists
+            ? app.segmentedControls.buttons["1 hour"]
+            : app.buttons["1 hour"]
+        if hour.exists && hour.isHittable {
+            hour.tap()
+            settle(0.5)
+        }
+        if app.segmentedControls.count > 1 {
+            let recipients = app.segmentedControls.element(boundBy: 1)
+            let first = recipients.buttons.element(boundBy: 0)
+            if first.exists && first.isHittable {
+                first.tap()
+                settle(0.5)
+            }
+        }
+        _ = bringIntoView(text("Expires in"))
+        shoot("spontaneous-expiry-and-who")
+
+        let send = app.buttons["Send spontaneous request"]
+        XCTAssertTrue(bringIntoView(send), "Send Now should be reachable")
+        XCTAssertTrue(
+            send.isEnabled,
+            "Send Now is disabled — an idea and a recipient must both be chosen, and the tour has to choose them"
+        )
+        send.tap()
+        settle(2.2)
+        shoot("spontaneous-sent")
+        dismissCelebration()
+
+        dismissAnySheet()
+
+        tab("Requests").tap()
+        settle(1.2)
+        shoot("feed-with-the-spontaneous-invite")
+    }
 }

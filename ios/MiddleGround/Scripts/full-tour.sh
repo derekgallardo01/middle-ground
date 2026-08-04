@@ -46,6 +46,12 @@ xcrun simctl erase "$udid"
 xcrun simctl boot "$udid"
 xcrun simctl bootstatus "$udid" -b >/dev/null 2>&1 || true
 
+# Silence the "slide your finger to type" tutorial. It is shown once per fresh simulator, on the
+# first keyboard use, and lands as a full-width card over whatever is being photographed — it
+# covered the negotiate frame on the previous run.
+xcrun simctl spawn "$udid" defaults write com.apple.keyboard.preferences \
+  DidShowContinuousPathIntroduction -bool true 2>/dev/null || true
+
 # Build BEFORE recording starts.
 #
 # `xcodebuild test` compiles, installs and only then runs, and the recorder started first was

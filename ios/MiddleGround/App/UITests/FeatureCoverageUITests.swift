@@ -152,6 +152,59 @@ final class FeatureCoverageUITests: XCTestCase {
 
     // MARK: - Availability
 
+    // MARK: - Spontaneous invites
+
+    /// Send Now has to be reachable, whatever the form has grown to carry.
+    ///
+    /// Nothing covered this flow, which is how it shipped with the button below the bottom edge
+    /// of the screen and no scroll view to reach it: the form gained a description, a time and a
+    /// list of people, and the layout was never re-checked. The tour caught it; a test should.
+    func test_spontaneous_sendIsReachableAndTheFormCarriesEverything() throws {
+        launchApp()
+        tab("Requests").tap()
+
+        let fab = app.buttons["Create new request or spontaneous invite"]
+        XCTAssertTrue(fab.waitForExistence(timeout: 10), "the compose button should be on the feed")
+        fab.tap()
+
+        let spontaneous = app.buttons["Spontaneous"]
+        XCTAssertTrue(spontaneous.waitForExistence(timeout: 6), "Spontaneous should be offered")
+        spontaneous.tap()
+
+        // `matching`, not `containing`: each idea carries an accessibilityLabel, which collapses
+        // it into one element and hides the Text that `containing` would look for.
+        let idea = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH[c] 'Use idea:'")
+        ).firstMatch
+        XCTAssertTrue(idea.waitForExistence(timeout: 8), "the quick ideas should be offered")
+        idea.tap()
+
+        // A Toggle is a switch, not a button — querying `buttons` here found nothing and said
+        // the feature was missing when it was on screen.
+        let setTime = app.switches["setEventTime"]
+        XCTAssertTrue(
+            setTime.exists || scrollTo(setTime),
+            "a spontaneous invite should be able to carry a time"
+        )
+
+        if app.segmentedControls.count > 1 {
+            let recipients = app.segmentedControls.element(boundBy: 1)
+            let first = recipients.buttons.element(boundBy: 0)
+            if first.exists && first.isHittable { first.tap() }
+        }
+
+        let send = app.buttons["Send spontaneous request"]
+        XCTAssertTrue(scrollTo(send, swipes: 6), "Send Now must be reachable")
+        XCTAssertTrue(send.isHittable, "Send Now must be tappable, not just present off-screen")
+        XCTAssertTrue(send.isEnabled, "Send Now should be enabled once an idea and a person are chosen")
+
+        send.tap()
+        XCTAssertTrue(
+            tab("Requests").waitForExistence(timeout: 10),
+            "sending should return to the feed"
+        )
+    }
+
     /// Sam is seeded as away two days out, so the day has to be selected to see it said.
     ///
     /// The panel reports the *selected* day, and the calendar opens on today — the first version

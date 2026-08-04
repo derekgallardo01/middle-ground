@@ -488,7 +488,7 @@ final class FullTourUITests: XCTestCase {
         )
         send.tap()
         settle(2.2)
-        shoot("spontaneous-sent")
+        // No frame here: the sheet dismisses itself, so this and the feed shot were identical.
         dismissCelebration()
 
         dismissAnySheet()

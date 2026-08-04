@@ -1,0 +1,13 @@
+{
+  "aps": {
+    "alert": {
+      "title": "New request from Sam",
+      "body": "Dinner on Thursday?"
+    },
+    "sound": "default",
+    "badge": 3
+  },
+  "request_id": "req_0",
+  "type": "new_request",
+  "Simulator Target Bundle": "app.middleground.MiddleGround"
+}

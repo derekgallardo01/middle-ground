@@ -86,4 +86,19 @@ extension View {
     func mgFont(_ style: MGTextStyle) -> some View {
         modifier(MGScaledFont(style: style))
     }
+
+    /// The same, in a colour that is not the brand slate.
+    ///
+    /// This exists because the obvious spelling is silently wrong. `MGScaledFont` sets
+    /// `foregroundStyle(MGColors.slate)` on whatever it wraps, and SwiftUI resolves the
+    /// *innermost* foreground style — so
+    ///
+    ///     Text("Send").mgFont(.body).foregroundStyle(MGColors.onAccent)
+    ///
+    /// leaves the text slate. On the indigo fill that is about 1.9:1: unreadable, and it was
+    /// shipped that way on every filled button in the app because the wrong order reads
+    /// perfectly naturally. Applying the colour first is what works, so this does it for you.
+    func mgFont(_ style: MGTextStyle, color: Color) -> some View {
+        foregroundStyle(color).modifier(MGScaledFont(style: style))
+    }
 }

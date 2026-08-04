@@ -40,8 +40,7 @@ struct BookingRow: View {
                 openURL(url)
             } label: {
                 Label("Find a table", systemImage: "fork.knife")
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.onAccent)
+                    .mgFont(.body, color: MGColors.onAccent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, MGSpacing.sm)
                     .background(MGColors.indigo)

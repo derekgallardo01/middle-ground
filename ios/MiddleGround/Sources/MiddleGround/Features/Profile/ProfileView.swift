@@ -125,10 +125,10 @@ struct ProfileView: View {
                         Task { await viewModel.createGroup() }
                     } label: {
                         Text("Create a group")
-                            .mgFont(.body)
-                            // Required: .mgFont forces MGColors.slate, which over an indigo
-                            // fill is ~1.9:1 — unreadable, and unreadable in dark mode too.
-                            .foregroundStyle(MGColors.onAccent)
+                            // .mgFont forces MGColors.slate, which over an indigo fill is
+                            // ~1.9:1. Setting the colour afterwards does not help — SwiftUI
+                            // resolves the innermost one — so this passes it in.
+                            .mgFont(.body, color: MGColors.onAccent)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -207,8 +207,7 @@ struct ProfileView: View {
                         """)
                     ) {
                         Label("Share invite", systemImage: "square.and.arrow.up")
-                            .mgFont(.body)
-                            .foregroundStyle(MGColors.onAccent)
+                            .mgFont(.body, color: MGColors.onAccent)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)

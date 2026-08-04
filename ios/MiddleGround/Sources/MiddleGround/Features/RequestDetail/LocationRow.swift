@@ -42,8 +42,7 @@ struct LocationRow: View {
 
                 Button(action: onShare) {
                     Label("Share my location", systemImage: "location.fill")
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.onAccent)
+                        .mgFont(.body, color: MGColors.onAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, MGSpacing.sm)
                         .background(MGColors.indigo)

@@ -59,8 +59,7 @@ struct InvitePrompt: View {
                     """)
                 ) {
                     Label("Share invite", systemImage: "square.and.arrow.up")
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.onAccent)
+                        .mgFont(.body, color: MGColors.onAccent)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -68,8 +67,7 @@ struct InvitePrompt: View {
             } else if let onSetUp {
                 Button(action: onSetUp) {
                     Text("Set up pairing")
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.onAccent)
+                        .mgFont(.body, color: MGColors.onAccent)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)

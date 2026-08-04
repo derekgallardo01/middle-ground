@@ -196,8 +196,7 @@ struct RequestDetailView: View {
                     Task { await viewModel.confirmAttendance(.happened) }
                 } label: {
                     Label("Yes, it did", systemImage: "checkmark.circle.fill")
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.onAccent)
+                        .mgFont(.body, color: MGColors.onAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, MGSpacing.md)
                         .background(MGColors.teal)

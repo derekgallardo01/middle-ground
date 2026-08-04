@@ -1,0 +1,13 @@
+{
+  "aps": {
+    "alert": {
+      "title": "Sam responded",
+      "body": "Sunday instead?"
+    },
+    "sound": "default",
+    "badge": 2
+  },
+  "request_id": "req_1",
+  "type": "request_response",
+  "Simulator Target Bundle": "app.middleground.MiddleGround"
+}

@@ -96,8 +96,7 @@ struct StakeRow: View {
                 onAccept()
             } label: {
                 Text("Match \(points)")
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.onAccent)
+                    .mgFont(.body, color: MGColors.onAccent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, MGSpacing.sm)
                     .background(MGColors.indigo)

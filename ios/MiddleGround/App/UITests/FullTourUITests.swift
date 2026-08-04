@@ -15,7 +15,10 @@ import XCTest
 ///   caught by tiling them into a contact sheet and looking.
 /// - Actions that settle a plan (accept, decline) come last, since they remove the response row
 ///   the earlier frames are meant to show.
-final class FullTourUITests: XCTestCase {
+class FullTourUITests: XCTestCase {
+    /// Overridden by `PublicTourUITests`. See `setUpWithError`.
+    var isPublicTour: Bool { false }
+
     var app: XCUIApplication!
     private var frame = 0
 
@@ -25,9 +28,16 @@ final class FullTourUITests: XCTestCase {
         // `-MGAdmin` builds the operator tab; `-MGShowNotificationSettings` reveals switches
         // iOS hides until push is granted, which a simulator never does. Neither is filmable
         // otherwise. See AppConfiguration — both are mock-mode only.
-        app.launchArguments = [
-            "-MGMockMode", "-MGSeedTyping", "-MGAdmin", "-MGShowNotificationSettings"
-        ]
+        // The public variant drops the operator claim, so there is no Admin tab to film — and
+        // none in the tab bar of every other frame either, which is why trimming the tail off
+        // the full recording does not produce a shareable video.
+        //
+        // Decided by subclass rather than by environment variable. `TEST_RUNNER_`-prefixed
+        // settings did not reach the runner under `test-without-building`, and the tour ran a
+        // full seven minutes before the Admin tab in the footage showed it had been ignored.
+        var arguments = ["-MGMockMode", "-MGSeedTyping", "-MGShowNotificationSettings"]
+        if !isPublicTour { arguments.append("-MGAdmin") }
+        app.launchArguments = arguments
         app.launch()
     }
 
@@ -161,6 +171,7 @@ final class FullTourUITests: XCTestCase {
         tourConfirmItHappened()
         tourConfirmItDidNot()
         tourStakePoints()
+        tourPlanInvite()
         tourGroupPlanAndChat()
         tourCancelTwoWays()
         tourCalendar()
@@ -169,7 +180,6 @@ final class FullTourUITests: XCTestCase {
         tourSpontaneous()
         tourFollowThrough()
         tourNotificationSettings()
-        tourPlanInvite()
         tourFeedFilter()
         tourAdminPanel()
     }

@@ -18,6 +18,7 @@ struct CalendarView: View {
                     } else {
                         monthHeader
                         calendarGrid
+                        availabilityPanel
                         upcomingEvents
                     }
                 }
@@ -30,6 +31,7 @@ struct CalendarView: View {
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
                 await viewModel.loadEvents()
+                await viewModel.loadAvailability()
             }
         }
         .task {
@@ -92,7 +94,9 @@ struct CalendarView: View {
                         date: date,
                         isSelected: Calendar.current.isDate(date, inSameDayAs: viewModel.selectedDate),
                         hasEvents: !viewModel.events(for: date).isEmpty,
-                        isCurrentMonth: Calendar.current.isDate(date, equalTo: viewModel.currentMonth, toGranularity: .month)
+                        isCurrentMonth: Calendar.current.isDate(date, equalTo: viewModel.currentMonth, toGranularity: .month),
+                        someoneIsBusy: viewModel.someoneIsBusy(on: date),
+                        youAreBusy: viewModel.isMarkedUnavailable(on: date)
                     )
                     .onTapGesture {
                         withAnimation(reduceMotion ? nil : MGMotion.tap) {
@@ -107,6 +111,50 @@ struct CalendarView: View {
         .background(MGColors.surface)
         .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
         .mgShadow(MGShadow.md)
+    }
+
+    /// Who is not free on the selected day, and a way to say you are not either.
+    ///
+    /// Nothing here comes from anybody's calendar — see `UnavailableBlock`. It shows only what
+    /// people deliberately blocked out, which is why it can be shown to a group at all.
+    private var availabilityPanel: some View {
+        VStack(alignment: .leading, spacing: MGSpacing.sm) {
+            let busy = viewModel.busyNames(on: viewModel.selectedDate)
+            let youAreBusy = viewModel.isMarkedUnavailable(on: viewModel.selectedDate)
+
+            if !busy.isEmpty {
+                Label {
+                    // The verb has to agree, or the ordinary case in a group reads as broken.
+                    Text(busy.count == 1
+                         ? "\(busy[0]) isn't free"
+                         : "\(busy.formatted(.list(type: .and))) aren't free")
+                        .mgFont(.bodySmall)
+                } icon: {
+                    Image(systemName: "person.crop.circle.badge.exclamationmark")
+                        .foregroundStyle(MGColors.warm600)
+                }
+                .foregroundStyle(MGColors.warm600)
+            }
+
+            Button {
+                Task { await viewModel.toggleUnavailable(on: viewModel.selectedDate) }
+            } label: {
+                Label(
+                    youAreBusy ? "I'm free again this day" : "I'm not free this day",
+                    systemImage: youAreBusy ? "arrow.uturn.backward" : "nosign"
+                )
+                .mgFont(.bodySmall)
+                .foregroundStyle(youAreBusy ? MGColors.warm600 : MGColors.indigo)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("toggleUnavailable")
+
+            Text("Only the days you block out are shared. Your calendar is never uploaded.")
+                .mgFont(.caption)
+                .foregroundStyle(MGColors.warm400)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .mgSurfaceCard()
     }
 
     private var upcomingEvents: some View {
@@ -185,6 +233,10 @@ struct DayCell: View {
     let isSelected: Bool
     let hasEvents: Bool
     let isCurrentMonth: Bool
+    /// Somebody in one of your groups has blocked this day out.
+    var someoneIsBusy: Bool = false
+    /// You have blocked it out yourself.
+    var youAreBusy: Bool = false
 
     var body: some View {
         ZStack {
@@ -197,11 +249,26 @@ struct DayCell: View {
                 .fontWeight(.semibold)
                 .foregroundStyle(isSelected ? MGColors.onAccent : (isCurrentMonth ? MGColors.slate : MGColors.warm600))
 
-            if hasEvents && !isSelected {
+            // Two different facts, so two different marks rather than one ambiguous dot:
+            // coral means something is planned, warm means somebody is not free.
+            if !isSelected {
+                HStack(spacing: 3) {
+                    if hasEvents {
+                        Circle().fill(MGColors.coral).frame(width: 5, height: 5)
+                    }
+                    if someoneIsBusy || youAreBusy {
+                        Circle().fill(MGColors.warm400).frame(width: 5, height: 5)
+                    }
+                }
+                .offset(y: 10)
+            }
+
+            // A ring, not a fill: being unavailable marks the day without competing with the
+            // selection, which already owns the filled circle.
+            if youAreBusy {
                 Circle()
-                    .fill(MGColors.coral)
-                    .frame(width: 5, height: 5)
-                    .offset(y: 10)
+                    .stroke(MGColors.warm400, lineWidth: 1.5)
+                    .frame(width: selectionSize, height: selectionSize)
             }
         }
         .frame(height: rowHeight)

@@ -6,8 +6,22 @@ import Factory
 final class CalendarViewModel {
     private let requestService = Container.shared.requestService()
     private let authService = Container.shared.authService()
+    // Not private: the availability extension lives in its own file, and `private` is
+    // file-scoped. See CalendarViewModel+Availability.swift.
+    let availabilityRepository = Container.shared.availabilityRepository()
+    let relationshipRepository = Container.shared.relationshipRepository()
+    let userRepository = Container.shared.userRepository()
 
     var currentUser: User?
+
+    // MARK: - Availability (behaviour in CalendarViewModel+Availability.swift)
+
+    /// Your own blocked-out time.
+    var myBlocks: [UnavailableBlock] = []
+    /// Everyone's blocked time, across every group — yours included.
+    var othersAvailability: [SharedAvailability] = []
+    var groups: [Relationship] = []
+    var participantNames: [String: String] = [:]
     var selectedDate: Date = Date()
     var events: [Request] = []
     var isLoading = false

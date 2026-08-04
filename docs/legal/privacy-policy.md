@@ -39,6 +39,7 @@ actually does — every item below corresponds to real behaviour in the app.
 | **Messages you send on a plan** — what you write, and which message it replies to | `requests/{id}/messages` | So the people on a plan can talk about it. Readable by them, **and by authorised Middle Ground staff** — the same access, and the same audit log, as the plans themselves. Without it a reported message could not be looked at, and we could not act on abuse |
 | **That you are typing** — a flag with no content, lasting about eight seconds | `requests/{id}/presence` | So the others on a plan can see a reply is coming. It contains no text, expires by itself, and is deleted by the server |
 | **That you opened a plan** — the time you last had it open | `requests/{id}/reads` | So people can tell their message was seen. Recorded **per plan, not per message** — there is no record of which individual messages you read |
+| **Days you mark yourself unavailable** — a start and an end, and nothing else | `relationships/{id}/availability/{your-id}` | So the people in your group can see when you are not free. **Only what you deliberately block out.** It carries no title, no place and no link to any calendar entry — your calendar is never read for this, and never uploaded |
 | **Notification preferences** — which kinds of alert you want | `notification_settings/{your-id}` | So we only send the kinds you left switched on. Readable only by you |
 | **A location you choose to share** — one coordinate, the time you shared it, and the time it expires | `requests/{id}/locations/{your-id}` | Lets the other people on an agreed plan see you are on your way. Written only when you tap **Share my location**, and only while that plan is live. Deleted automatically when it expires |
 | **Progress data** — XP, streak, achievements | On your device, and mirrored to `gamification/{your-id}` | Powers the Activities tab, and means your progress survives changing phone |
@@ -152,6 +153,15 @@ clash, if you tell them. Access is **read-only**: the app does not create, chang
 anything in your calendar.
 
 Declining calendar access does not limit anything else. You simply do not get the clash warning.
+
+**Blocking out time is a separate thing, and it is the only part anyone else sees.** You can mark
+days you are not free, and the people in your groups can see those. They are typed by you — the
+app never reads your calendar to fill them in, and what your group sees is a start and an end with
+no title, no place and no connection to anything in your calendar.
+
+The app reads **every calendar your phone already has**, whether that is iCloud, Google, Exchange
+or anything else you have added in iOS Settings. It does not connect to those services itself and
+holds no account of yours.
 
 ## Deleting your account and data
 

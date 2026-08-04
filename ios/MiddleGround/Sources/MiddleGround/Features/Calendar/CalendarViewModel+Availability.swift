@@ -53,6 +53,35 @@ extension CalendarViewModel {
         }
     }
 
+    /// Keeps the calendar current while it is open.
+    ///
+    /// `observeAvailability(forGroup:)` was written against a Firestore snapshot listener and
+    /// never subscribed to, so someone blocking out Saturday while you had the tab open stayed
+    /// invisible until you relaunched. One stream per group, merged: they arrive independently,
+    /// so each group's last delivery is held separately rather than overwriting the union.
+    ///
+    /// Never returns. Call it last in a `.task`, which cancels it when the screen goes away.
+    func observeAvailability() async {
+        await withTaskGroup(of: Void.self) { tasks in
+            for group in groups {
+                tasks.addTask { [weak self] in
+                    guard let self else { return }
+                    for await shared in await self.availabilityRepository.observeAvailability(forGroup: group.id) {
+                        await self.apply(shared, forGroup: group.id)
+                    }
+                }
+            }
+        }
+    }
+
+    private func apply(_ shared: [SharedAvailability], forGroup groupID: String) {
+        availabilityByGroup[groupID] = shared
+        othersAvailability = availabilityByGroup.values.flatMap { $0 }
+        if let currentUserID = currentUser?.id {
+            myBlocks = othersAvailability.first { $0.userID == currentUserID }?.blocks ?? myBlocks
+        }
+    }
+
     /// Loads the groups, everyone's blocked time, and the names to show it against.
     func loadAvailability() async {
         guard let currentUserID = currentUser?.id else { return }
@@ -61,6 +90,7 @@ extension CalendarViewModel {
         var everyone: [SharedAvailability] = []
         for group in groups {
             let shared = (try? await availabilityRepository.availability(forGroup: group.id)) ?? []
+            availabilityByGroup[group.id] = shared
             everyone.append(contentsOf: shared)
         }
         othersAvailability = everyone

@@ -88,6 +88,11 @@ struct HomeView: View {
             appState.pendingRequestID = requestID
             openPendingRequestIfPossible()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .didReceiveNudgeNotification)) { _ in
+            // Same reason the handler above switches tabs: it lives on Home, so without this a
+            // tap from Calendar or Profile does nothing visible.
+            appState.selectedTab = .home
+        }
         // The feed usually has not loaded when a cold-launch push arrives, so resolution is
         // retried every time the requests change rather than attempted once and abandoned.
         .onChange(of: viewModel.requests) { _, _ in

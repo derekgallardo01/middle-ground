@@ -4,7 +4,9 @@ import Factory
 @MainActor
 @Observable
 final class RequestDetailViewModel {
-    private let requestService = Container.shared.requestService()
+    // Not private: the composer and settlement extensions live in their own files, and
+    // `private` is file-scoped.
+    let requestService = Container.shared.requestService()
     private let authService = Container.shared.authService()
     // Not private: the settlement extension lives in its own file, and `private` is
     // file-scoped.

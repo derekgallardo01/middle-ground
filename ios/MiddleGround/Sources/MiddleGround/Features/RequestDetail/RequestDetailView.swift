@@ -122,15 +122,17 @@ struct RequestDetailView: View {
         .toolbar {
             // Saving is a response, so it follows the same rule as the others — it used to
             // be ungated, which let anyone flip an already-accepted request to `.saved`.
-            if viewModel.canRespond {
+            // Un-saving stays reachable on an already-saved plan, or the heart fills once and
+            // never empties.
+            if viewModel.canRespond || viewModel.request.status == .saved {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        Task { await viewModel.saveForLater() }
+                        Task { await viewModel.toggleSaved() }
                     } label: {
                         Image(systemName: viewModel.request.status == .saved ? "heart.fill" : "heart")
                             .foregroundStyle(MGColors.coral)
                     }
-                    .accessibilityLabel(viewModel.request.status == .saved ? "Saved for later" : "Save for later")
+                    .accessibilityLabel(viewModel.request.status == .saved ? "Remove from saved" : "Save for later")
                 }
             }
             // Reporting content is required of any app carrying user-generated content

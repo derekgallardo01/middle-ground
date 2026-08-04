@@ -283,7 +283,9 @@ exports.weeklyNudge = onSchedule(
     relationships.forEach((doc) => {
       const group = doc.data();
       const members = group.participantIDs || [];
-      if (members.length !== 2) return; // Unpaired: there is nobody to plan with yet.
+      // Was `!== 2`, which silently exempted every group of three or more from the one
+      // message aimed at quiet groups — while the setting that turns it on says "a group".
+      if (members.length < 2) return; // Unpaired: there is nobody to plan with yet.
       members.forEach((id) => {
         if (!groupsByUser.has(id)) groupsByUser.set(id, []);
         groupsByUser.get(id).push({ id: doc.id, ...group });
@@ -317,15 +319,20 @@ async function nudgeIfQuiet(userId, groups) {
 
   const quiet = groups
     .map((group) => {
-      const partnerId = group.participantIDs.find((id) => id !== userId);
-      const shared = plans.filter((plan) => (plan.allParticipantIDs || []).includes(partnerId));
+      const others = group.participantIDs.filter((id) => id !== userId);
+      // Anyone else in the group counts. Testing one nominated partner was fine while a group
+      // was a pair and would have called a busy group of four quiet.
+      const shared = plans.filter((plan) => {
+        const participants = plan.allParticipantIDs || [];
+        return others.some((id) => participants.includes(id));
+      });
       const upcoming = shared.some((plan) => toMillis(plan.proposedTime) > now);
       if (upcoming) return null;
 
       // No plan ever means measuring from when the group was created, so a pair who have never
       // used it are not silently exempt from the one message aimed squarely at them.
       const last = shared[0] ? toMillis(shared[0].proposedTime) : toMillis(group.createdAt);
-      return { group, partnerId, since: last, ever: shared.length > 0 };
+      return { group, others, since: last, ever: shared.length > 0 };
     })
     .filter(Boolean)
     .sort((a, b) => a.since - b.since);
@@ -333,8 +340,13 @@ async function nudgeIfQuiet(userId, groups) {
   if (quiet.length === 0) return false;
 
   const quietest = quiet[0];
-  const partnerName = await getUserName(quietest.partnerId);
-  const who = quietest.group.name || `you and ${partnerName}`;
+  // A named group says its own name. A pair has no name, so it borrows the other person's.
+  let who = quietest.group.name;
+  if (!who) {
+    who = quietest.others.length === 1
+      ? `you and ${await getUserName(quietest.others[0])}`
+      : 'your group';
+  }
   const gap = describeGap(now - quietest.since);
 
   await notifyUsers([userId], {

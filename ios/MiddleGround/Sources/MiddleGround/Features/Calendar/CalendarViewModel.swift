@@ -20,6 +20,8 @@ final class CalendarViewModel {
     var myBlocks: [UnavailableBlock] = []
     /// Everyone's blocked time, across every group — yours included.
     var othersAvailability: [SharedAvailability] = []
+    /// Kept per group so a delivery for one group cannot drop what another group said.
+    var availabilityByGroup: [String: [SharedAvailability]] = [:]
     var groups: [Relationship] = []
     var participantNames: [String: String] = [:]
     var selectedDate: Date = Date()

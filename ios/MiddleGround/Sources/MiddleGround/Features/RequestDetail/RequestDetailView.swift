@@ -140,7 +140,7 @@ struct RequestDetailView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button(role: .destructive) {
-                            viewModel.showReportSheet = true
+                            viewModel.beginReport()
                         } label: {
                             Label("Report this", systemImage: "flag")
                         }

@@ -17,6 +17,13 @@ protocol GamificationServiceProtocol: Sendable {
     @discardableResult
     func recordResponse(_ response: ResponseType, to request: Request, for userID: String) async -> GamificationOutcome
 
+    /// Pays out a plan whose outcome is settled: XP for turning up, and the stake either way.
+    ///
+    /// Returns nil when there is nothing to pay — the plan is not settled yet, this user is not
+    /// on it, or it has already been paid. Safe to call as often as a screen likes.
+    @discardableResult
+    func recordAttendance(of request: Request, for userID: String) async -> GamificationOutcome?
+
     /// Day-by-day completion flags for the current week, for the streak strip.
     func weeklyCompletion(for userID: String) async -> [Bool]
 }
@@ -42,6 +49,18 @@ struct GamificationStats: Codable, Equatable, Sendable {
     var weekendAcceptedCount: Int
     var lastResponseDate: Date?
 
+    /// Plans that actually happened. The number the product is really about, and until now the
+    /// only thing the reward loop did not count.
+    var attendedCount: Int
+
+    /// Plans whose outcome has already been paid, so it cannot be paid twice.
+    ///
+    /// Settlement is not triggered by one event on one device: the stake resolves for everybody
+    /// when the last confirmation lands, but each phone can only award its own user, and whoever
+    /// answered first is not there when that happens. So the award is attempted again whenever a
+    /// settled plan is opened, and this is what makes attempting it twice free.
+    var settledPlanIDs: [String]
+
     /// XP earned per request category, keyed by `RequestCategory.rawValue`.
     ///
     /// Progression was entirely global: one XP total, one level, one streak. That says nothing
@@ -60,6 +79,8 @@ struct GamificationStats: Codable, Equatable, Sendable {
         negotiatedCount: Int = 0,
         weekendAcceptedCount: Int = 0,
         lastResponseDate: Date? = nil,
+        attendedCount: Int = 0,
+        settledPlanIDs: [String] = [],
         categoryXP: [String: Int] = [:]
     ) {
         self.streakDays = streakDays
@@ -71,6 +92,8 @@ struct GamificationStats: Codable, Equatable, Sendable {
         self.negotiatedCount = negotiatedCount
         self.weekendAcceptedCount = weekendAcceptedCount
         self.lastResponseDate = lastResponseDate
+        self.attendedCount = attendedCount
+        self.settledPlanIDs = settledPlanIDs
         self.categoryXP = categoryXP
     }
 
@@ -102,6 +125,8 @@ struct GamificationStats: Codable, Equatable, Sendable {
         negotiatedCount = try container.decodeIfPresent(Int.self, forKey: .negotiatedCount) ?? 0
         weekendAcceptedCount = try container.decodeIfPresent(Int.self, forKey: .weekendAcceptedCount) ?? 0
         lastResponseDate = try container.decodeIfPresent(Date.self, forKey: .lastResponseDate)
+        attendedCount = try container.decodeIfPresent(Int.self, forKey: .attendedCount) ?? 0
+        settledPlanIDs = try container.decodeIfPresent([String].self, forKey: .settledPlanIDs) ?? []
         categoryXP = try container.decodeIfPresent([String: Int].self, forKey: .categoryXP) ?? [:]
     }
 }
@@ -118,6 +143,13 @@ enum GamificationRules {
         case .decline, .save: return 5
         }
     }
+
+    /// What turning up is worth — deliberately more than agreeing to turn up.
+    ///
+    /// The Activities tab tells people "the point is turning up for each other, not agreeing with
+    /// everything", and until now accepting paid 25, declining paid 5, and actually going paid
+    /// nothing at all. This is the number that makes the loop say what the product says.
+    static let attendedXP = 40
 
     static func level(forXP xp: Int) -> Int { max(1, xp / xpPerLevel + 1) }
 
@@ -342,7 +374,7 @@ actor GamificationService: GamificationServiceProtocol {
         await appendActivities(
             FeedEntry(
                 xpAwarded: xpAwarded,
-                response: response,
+                subtitle: response.activityDescription,
                 stats: stats,
                 streakExtended: streakExtended,
                 newlyUnlocked: newlyUnlocked
@@ -378,7 +410,7 @@ actor GamificationService: GamificationServiceProtocol {
     }
 
     /// Marks achievements unlocked once their counter reaches `requiredValue`.
-    private func unlockAchievements(with stats: GamificationStats, for userID: String) async -> [Achievement] {
+    func unlockAchievements(with stats: GamificationStats, for userID: String) async -> [Achievement] {
         var achievements = await achievements(for: userID)
         var newlyUnlocked: [Achievement] = []
 
@@ -400,17 +432,19 @@ actor GamificationService: GamificationServiceProtocol {
         return newlyUnlocked
     }
 
-    private struct FeedEntry {
+    // Not private: the attendance extension is its own file, and `private` is file-scoped.
+    struct FeedEntry {
         let xpAwarded: Int
-        let response: ResponseType
+        /// A string, not a `ResponseType`: settling a plan earns XP and answers nothing.
+        let subtitle: String
         let stats: GamificationStats
         let streakExtended: Bool
         let newlyUnlocked: [Achievement]
     }
 
-    private func appendActivities(_ entry: FeedEntry, for userID: String) async {
+    func appendActivities(_ entry: FeedEntry, for userID: String) async {
         let xpAwarded = entry.xpAwarded
-        let response = entry.response
+        let subtitle = entry.subtitle
         let stats = entry.stats
         let streakExtended = entry.streakExtended
         let newlyUnlocked = entry.newlyUnlocked
@@ -422,7 +456,7 @@ actor GamificationService: GamificationServiceProtocol {
                 userID: userID,
                 type: .xpEarned,
                 title: "+\(xpAwarded) XP",
-                subtitle: response.activityDescription,
+                subtitle: subtitle,
                 value: xpAwarded
             )
         )

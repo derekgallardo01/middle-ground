@@ -33,6 +33,17 @@ actor MockGamificationService: GamificationServiceProtocol {
         )
     }
 
+    /// Always pays, so previews and UI tests can show a settlement without staging one.
+    @discardableResult
+    func recordAttendance(of request: Request, for userID: String) async -> GamificationOutcome? {
+        GamificationOutcome(
+            stats: await stats(for: userID),
+            xpAwarded: GamificationRules.attendedXP + request.stakeOutcome(for: userID),
+            newlyUnlocked: [],
+            streakExtended: false
+        )
+    }
+
     func weeklyCompletion(for userID: String) async -> [Bool] {
         [true, true, true, true, false, true, true]
     }

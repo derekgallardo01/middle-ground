@@ -256,9 +256,10 @@ struct NegotiationBubble: View {
 
             VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: MGSpacing.xs) {
                 if let text = message.text, !text.isEmpty {
+                    // Into `mgFont`, not after it — see `mgFont(_:color:)`. Applied afterwards
+                    // it is dropped, and your own messages sit on an indigo fill.
                     Text(text)
-                        .mgFont(.body)
-                        .foregroundStyle(isCurrentUser ? MGColors.onAccent : MGColors.slate)
+                        .mgFont(.body, color: isCurrentUser ? MGColors.onAccent : MGColors.slate)
                         .padding(.vertical, MGSpacing.md)
                         .padding(.horizontal, MGSpacing.lg)
                         .background(isCurrentUser ? MGColors.indigo : MGColors.warm100)

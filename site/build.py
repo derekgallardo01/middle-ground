@@ -198,7 +198,7 @@ TEMPLATE = """<!doctype html>
       <a href="/support">Support</a>
       <a href="mailto:support@middleground.app">Contact</a>
     </nav>
-    <p class="copyright">© {year} Middle Ground. Made with care.</p>
+    <p class="copyright">© {year} Middle Ground. Made with care. · <a href="https://kinetichelix.io" target="_blank" rel="noopener">Built by Kinetic Helix</a></p>
   </div>
 </footer>
 </body>

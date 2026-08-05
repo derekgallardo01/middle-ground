@@ -5,6 +5,7 @@ import Factory
 @MainActor
 @Observable
 final class ProfileViewModel {
+    private let analytics = Container.shared.analyticsService()
     private let authService = Container.shared.authService()
     private let gamificationService = Container.shared.gamificationService()
     private let notificationService = NotificationService.shared
@@ -33,6 +34,23 @@ final class ProfileViewModel {
 
     /// The other member's reliability, keyed by relationship ID. Empty for couples.
     private(set) var memberReliability: [String: ReliabilityScore] = [:]
+
+    /// Records that somebody reached for the share sheet on an invite code.
+    ///
+    /// `ShareLink` reports nothing back, so this is the tap and not a completed share — which is
+    /// what the event is named for. It is still the only denominator available: without it the
+    /// only invite signal is the ones that worked.
+    func noteInviteShared(relationshipID: String?) {
+        guard let user else { return }
+        Task {
+            await analytics.track(
+                .inviteShared,
+                userID: user.id,
+                relationshipID: relationshipID,
+                metadata: ["kind": "group"]
+            )
+        }
+    }
 
     func canSeeReliability(in relationship: Relationship) -> Bool {
         relationship.type != .couple && relationship.isPaired

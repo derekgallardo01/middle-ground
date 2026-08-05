@@ -41,6 +41,18 @@ enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
     case onboardingCompleted = "onboarding_completed"
     case relationshipCreated = "relationship_created"
     case relationshipLeft = "relationship_left"
+    /// A code was minted for somebody to use — the denominator redemption had none.
+    ///
+    /// Without it there is no way to ask what share of invites turn into a paired user, because
+    /// only the successes were ever recorded. `metadata["kind"]` matches `inviteRedeemed`.
+    case inviteCreated = "invite_created"
+    /// The share sheet was opened on an invite code.
+    ///
+    /// Named for what is actually observable. `ShareLink` reports nothing back, so this records
+    /// somebody reaching for the share sheet, not a message arriving with anybody. It is the
+    /// closest honest denominator: a code that was never shared cannot become a paired user, and
+    /// counting group creations instead would count every code that was never sent.
+    case inviteShared = "invite_shared"
     case inviteRedeemed = "invite_redeemed"
     case contentReported = "content_reported"
     case requestCreated = "request_created"
@@ -58,6 +70,8 @@ enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
         case .onboardingCompleted: return "Finished onboarding"
         case .relationshipCreated: return "Created a group"
         case .relationshipLeft: return "Left a group"
+        case .inviteCreated: return "Made an invite"
+        case .inviteShared: return "Opened the share sheet"
         case .inviteRedeemed: return "Redeemed an invite"
         case .contentReported: return "Reported content"
         case .requestCreated: return "Created a request"
@@ -74,6 +88,8 @@ enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
         case .onboardingCompleted: return "checkmark.seal"
         case .relationshipCreated: return "person.2.badge.plus"
         case .relationshipLeft: return "person.2.slash"
+        case .inviteCreated: return "ticket.fill"
+        case .inviteShared: return "square.and.arrow.up"
         case .inviteRedeemed: return "ticket"
         case .contentReported: return "flag"
         case .requestCreated: return "square.and.pencil"

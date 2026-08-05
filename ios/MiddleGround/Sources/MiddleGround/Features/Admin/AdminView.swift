@@ -120,6 +120,10 @@ struct AdminView: View {
             adminCard {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Funnel").mgFont(.h3)
+                    // Said plainly rather than left to be inferred from a bar that goes back up.
+                    Text("Events, not people — one person can count more than once.")
+                        .mgFont(.caption)
+                        .foregroundStyle(MGColors.warm600)
 
                     let top = max(viewModel.overview.funnel.first?.count ?? 0, 1)
                     ForEach(viewModel.overview.funnel) { step in

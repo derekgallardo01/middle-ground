@@ -78,7 +78,16 @@ actor RelationshipService {
         guard let relationship = joined.first(where: { $0.id == invite.relationshipID }) else {
             throw PairingError.codeNotFound
         }
-        await analytics.track(.inviteRedeemed, userID: userID, relationshipID: relationship.id)
+        // `kind` because this event means two different things: joining a group, and joining one
+        // plan. They were indistinguishable, so the operator funnel's "Paired" step counted both.
+        // `invitedBy` because the edge back to whoever sent the code was in hand and thrown away,
+        // which is why "of the invites we sent, how many became a paired user?" had no answer.
+        await analytics.track(
+            .inviteRedeemed,
+            userID: userID,
+            relationshipID: relationship.id,
+            metadata: ["kind": "group", "invitedBy": invite.ownerID]
+        )
         return relationship
     }
 
@@ -122,6 +131,14 @@ actor RelationshipService {
             from: relationship.inviteCode,
             relationshipID: relationship.id,
             ownerID: userID
+        )
+        // Only the re-issue. A group gets a code the moment it is created, so tracking that too
+        // would just be `relationshipCreated` counted twice under another name.
+        await analytics.track(
+            .inviteCreated,
+            userID: userID,
+            relationshipID: relationship.id,
+            metadata: ["kind": "group"]
         )
         return newCode
     }

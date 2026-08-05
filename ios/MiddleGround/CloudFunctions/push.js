@@ -29,6 +29,26 @@ async function getUserTokens(userId) {
   }
 }
 
+/**
+ * Which clock this person reads, written by the client alongside their FCM token.
+ *
+ * Falls back to Eastern, which is right for the stated market and was the only behaviour before
+ * this existed. Anybody on a build that predates it, or who has never granted notifications, has
+ * no value here — and for them the fallback is exactly what they were already getting.
+ */
+async function getUserTimeZone(userId) {
+  try {
+    const doc = await db().collection('user_tokens').doc(userId).get();
+    return doc.exists ? doc.data().timeZone || DEFAULT_TIME_ZONE : DEFAULT_TIME_ZONE;
+  } catch (error) {
+    console.error('Error fetching user time zone:', error);
+    return DEFAULT_TIME_ZONE;
+  }
+}
+
+/** Miami, and the fallback for anybody whose zone is unknown. */
+const DEFAULT_TIME_ZONE = 'America/New_York';
+
 // A request nobody has settled: someone still owes an answer on it.
 const OPEN_STATUSES = ['pending', 'negotiated', 'rescheduled', 'countered', 'saved'];
 
@@ -185,4 +205,6 @@ async function pruneDeadTokens(userId, tokens, responses) {
   }
 }
 
-module.exports = { getUserName, notifyUsers, NotificationType };
+module.exports = {
+  getUserTimeZone,
+  DEFAULT_TIME_ZONE, getUserName, notifyUsers, NotificationType };

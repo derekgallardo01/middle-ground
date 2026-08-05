@@ -88,6 +88,7 @@ struct NegotiationMessageDTO: Codable, Identifiable {
     var senderID: String
     var responseType: String
     var text: String?
+    var proposedTime: Timestamp?
     var timestamp: Timestamp
 
     init(from message: NegotiationMessage) {
@@ -95,6 +96,7 @@ struct NegotiationMessageDTO: Codable, Identifiable {
         self.senderID = message.senderID
         self.responseType = message.responseType.rawValue
         self.text = message.text
+        self.proposedTime = message.proposedTime.map { Timestamp(date: $0) }
         self.timestamp = Timestamp(date: message.timestamp)
     }
 
@@ -105,6 +107,7 @@ struct NegotiationMessageDTO: Codable, Identifiable {
             senderID: senderID,
             responseType: responseEnum,
             text: text,
+            proposedTime: proposedTime?.dateValue(),
             timestamp: timestamp.dateValue()
         )
     }

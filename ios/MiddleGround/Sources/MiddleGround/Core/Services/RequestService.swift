@@ -51,7 +51,11 @@ final class RequestService {
         let message = NegotiationMessage(
             senderID: userID,
             responseType: response,
-            text: text
+            text: text,
+            // Carried on the message as well as applied to the request, so a reader can render
+            // the suggestion on their own clock rather than reading the sender's, and so the
+            // history keeps each suggestion rather than only the latest.
+            proposedTime: proposedTime
         )
         // Appended inside a transaction rather than written from this copy: in a group several
         // people can owe an answer at once, and anyone may comment at any time, so two writes

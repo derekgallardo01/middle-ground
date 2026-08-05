@@ -7,6 +7,7 @@ final class CreateRequestViewModel {
     private let requestService = Container.shared.requestService()
     private let authService = Container.shared.authService()
     private let relationshipService = Container.shared.relationshipService()
+    private let userRepository = Container.shared.userRepository()
     private let venueRepository = Container.shared.venueRepository()
 
     var currentUser: User?
@@ -91,6 +92,55 @@ final class CreateRequestViewModel {
     func enableCalendarChecks() async {
         await clashChecker.requestAccess(then: includeTime ? proposedTime : nil)
     }
+    // MARK: - Who else is already busy
+
+    private let availabilityRepository = Container.shared.availabilityRepository()
+
+    /// Blocked-out days for the group the plan is going to, keyed by user.
+    private var groupAvailability: [SharedAvailability] = []
+    private var groupMembers: [String] = []
+    private var groupNames: [String: String] = [:]
+
+    /// Who in that group has said they are not free on the chosen day.
+    ///
+    /// The app has stored this since shared availability shipped and never showed it where a time
+    /// is chosen — it lived on the Calendar tab, a screen away from the decision it bears on.
+    var busyDay: GroupBusyDay? {
+        guard includeTime, let viewerID = currentUser?.id, !groupMembers.isEmpty else { return nil }
+        let result = GroupBusyDay.on(
+            proposedTime,
+            availability: groupAvailability,
+            members: groupMembers,
+            viewerID: viewerID,
+            names: groupNames
+        )
+        return result.warning == nil ? nil : result
+    }
+
+    /// Loads the availability of whichever group the chosen recipient belongs to.
+    ///
+    /// Best-effort throughout: a failure here costs the warning, never the ability to make a plan.
+    func loadGroupAvailability() async {
+        guard let viewerID = currentUser?.id, !recipientID.isEmpty else {
+            groupAvailability = []
+            groupMembers = []
+            return
+        }
+        guard let group = relationships.first(where: { $0.participantIDs.contains(recipientID) }) else {
+            groupAvailability = []
+            groupMembers = []
+            return
+        }
+        groupMembers = group.participantIDs
+        groupAvailability = (try? await availabilityRepository.availability(forGroup: group.id)) ?? []
+
+        var names: [String: String] = [:]
+        for id in group.participantIDs where id != viewerID {
+            if let user = try? await userRepository.user(id: id) { names[id] = user.name }
+        }
+        groupNames = names
+    }
+
     var recipientID: String = ""
 
     var isLoading = false

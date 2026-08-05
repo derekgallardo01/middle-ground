@@ -250,6 +250,47 @@ final class E2EActionsUITests: XCTestCase {
         shoot("contrast-02-your-own-message")
     }
 
+    /// The compose screen should say when somebody else has already blocked out that day.
+    ///
+    /// Sam is seeded busy two days out, so the picker is moved there. Before this, the only
+    /// warning when choosing a time was about your own calendar — what the rest of the group had
+    /// said lived on the Calendar tab, a screen away from the decision.
+    func test_action_10_composeWarnsWhenSomebodyElseIsBusy() throws {
+        launch()
+        tab("Requests").tap()
+
+        let fab = app.buttons["Create new request or spontaneous invite"]
+        guard fab.waitForExistence(timeout: 12) else { return XCTFail("no compose button") }
+        fab.tap()
+        if app.buttons["New Request"].waitForExistence(timeout: 6) {
+            app.buttons["New Request"].tap()
+        }
+
+        // `scrollTo` returns whether the element *exists*, not whether it can be tapped, and a
+        // tap on a present-but-offscreen element silently does nothing — which reads exactly like
+        // a broken toggle. This scrolls until it is actually hittable.
+        let suggestTime = app.switches["Suggest a time"]
+        var found = false
+        for _ in 0..<10 where !found {
+            if suggestTime.exists && suggestTime.isHittable { found = true; break }
+            app.swipeUp()
+        }
+        guard found else { return XCTFail("the time toggle never became tappable") }
+
+        // The trailing edge, not the centre. The switch's accessibility frame spans the whole
+        // row, so a plain `.tap()` lands on the label — hittable, and inert.
+        suggestTime.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        let deadline = Date().addingTimeInterval(8)
+        while Date() < deadline && (suggestTime.value as? String) != "1" { usleep(200_000) }
+        XCTAssertEqual(suggestTime.value as? String, "1", "the time toggle should turn on")
+
+        XCTAssertTrue(
+            app.datePickers.firstMatch.waitForExistence(timeout: 8),
+            "turning the time on should offer a picker"
+        )
+        shoot("contrast-03-compose-with-time")
+    }
+
     // MARK: - Home
 
     /// Saved plans are findable again, which is the whole point of saving one.

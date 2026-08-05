@@ -70,6 +70,19 @@ struct CreateRequestView: View {
                         ) {
                             Task { await viewModel.enableCalendarChecks() }
                         }
+
+                        // The other half of "is this time any good": your calendar, and then
+                        // whether anybody else has already said they cannot make that day.
+                        if let busy = viewModel.busyDay, let warning = busy.warning {
+                            Label {
+                                Text(warning).mgFont(.bodySmall)
+                            } icon: {
+                                Image(systemName: "person.crop.circle.badge.exclamationmark")
+                                    .foregroundStyle(MGColors.warm600)
+                            }
+                            .foregroundStyle(MGColors.warm600)
+                            .accessibilityLabel(warning)
+                        }
                     }
                 }
 
@@ -123,6 +136,12 @@ struct CreateRequestView: View {
         }
         .task {
             await viewModel.loadCurrentUserAndPartners()
+            await viewModel.loadGroupAvailability()
+        }
+        // The recipient decides which group's availability applies, so switching person changes
+        // the answer.
+        .onChange(of: viewModel.recipientID) { _, _ in
+            Task { await viewModel.loadGroupAvailability() }
         }
     }
 

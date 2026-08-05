@@ -1,0 +1,13 @@
+{
+  "aps": {
+    "alert": {
+      "title": "Still on?",
+      "body": "\"Sunday roast?\" is tomorrow at 1:00 PM."
+    },
+    "sound": "default",
+    "badge": 1
+  },
+  "request_id": "req_6",
+  "type": "plan_reminder",
+  "Simulator Target Bundle": "app.middleground.MiddleGround"
+}

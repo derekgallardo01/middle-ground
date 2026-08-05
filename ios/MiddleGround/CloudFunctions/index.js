@@ -288,6 +288,114 @@ exports.promptForAttendance = onSchedule(
   }
 );
 
+// -------------------------------------------------------- the evening before
+
+/**
+ * Reminds everyone on an agreed plan, the evening before it happens.
+ *
+ * Nothing used to occupy the gap between somebody accepting a plan and the plan itself.
+ * `promptForAttendance` arrives four hours *after*, and `weeklyNudge` deliberately skips anyone
+ * with something coming up — so the interval in which a plan quietly dies was the one interval
+ * with nothing in it. Plans falling through is the number the product is judged on.
+ *
+ * Sixteen hours ahead, floored to the hour, which puts an evening plan into the previous evening
+ * and a morning plan into the night before. Close enough to be about tomorrow; far enough that
+ * calling it off is still a courtesy rather than an ambush.
+ *
+ * The same windowing trick as `promptForAttendance` and for the same reason: an exactly-one-hour
+ * band walked forward each run, rather than a flag on the request. A flag would be dropped the
+ * next time the client wrote the document back, because the Swift model does not know about it.
+ *
+ * This is not a nag. It asks whether anything has changed, and the honest answer is often "no" —
+ * which is why it says nothing further and never asks twice.
+ */
+const REMIND_BEFORE_HOURS = 16;
+
+/** Every schedule in this file is New York; the copy has to agree with them. */
+const PLAN_TIME_ZONE = 'America/New_York';
+
+exports.remindBeforePlan = onSchedule(
+  { schedule: '0 * * * *', timeZone: 'America/New_York' },
+  async () => {
+    const hourStart = new Date(Math.floor(Date.now() / HOUR) * HOUR);
+    const since = new Date(hourStart.getTime() + REMIND_BEFORE_HOURS * HOUR);
+    const until = new Date(since.getTime() + HOUR);
+
+    const snapshot = await db()
+      .collection('requests')
+      .where('status', '==', 'accepted')
+      .where('proposedTime', '>=', since)
+      .where('proposedTime', '<', until)
+      .get();
+
+    if (snapshot.empty) return;
+    console.log(`Reminding about ${snapshot.size} plan(s) due between ${since} and ${until}`);
+
+    await Promise.all(
+      snapshot.docs.map(async (doc) => {
+        const request = doc.data();
+        const everyone = request.allParticipantIDs || [];
+        if (everyone.length === 0) return;
+
+        const when = formatPlanTime(request.proposedTime);
+
+        await notifyUsers(everyone, {
+          notification: {
+            title: 'Still on?',
+            body: when
+              ? `"${request.title}" is ${when}.`
+              : `"${request.title}" is coming up.`,
+          },
+          data: {
+            request_id: doc.id,
+            type: 'plan_reminder',
+          },
+        }, NotificationType.planReminder);
+      })
+    );
+  }
+);
+
+/**
+ * "tomorrow at 7:30 PM", "tonight at 8:00 PM", or "Friday at 1:00 PM". Null with no usable time.
+ *
+ * The day is compared rather than assumed. Sixteen hours ahead is *usually* tomorrow, but a plan
+ * late tonight is reminded this morning — calling that "tomorrow" would send people to the wrong
+ * evening, which is a worse failure than not reminding them at all.
+ */
+function formatPlanTime(value, now = new Date()) {
+  const millis = toMillis(value);
+  if (!millis) return null;
+  const when = new Date(millis);
+
+  const time = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: PLAN_TIME_ZONE,
+  }).format(when);
+
+  const day = (date) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: PLAN_TIME_ZONE }).format(date);
+  const dayDiff = Math.round(
+    (Date.parse(`${day(when)}T00:00:00Z`) - Date.parse(`${day(now)}T00:00:00Z`)) / (24 * HOUR)
+  );
+
+  if (dayDiff === 0) {
+    const hour = Number(
+      new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: PLAN_TIME_ZONE })
+        .format(when)
+    );
+    return `${hour >= 17 ? 'tonight' : 'today'} at ${time}`;
+  }
+  if (dayDiff === 1) return `tomorrow at ${time}`;
+
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    timeZone: PLAN_TIME_ZONE,
+  }).format(when);
+  return `${weekday} at ${time}`;
+}
+
 // -------------------------------------------------------- weekly nudge
 
 /**

@@ -141,7 +141,13 @@ extension Relationship {
     /// Ambiguous characters (0/O, 1/I/L) are excluded so codes can be read aloud.
     private static let inviteCodeAlphabet = Array("ABCDEFGHJKMNPQRSTUVWXYZ23456789")
 
-    static func generateInviteCode(length: Int = 6) -> String {
+    /// Codes are exactly this long, which is what makes `==` the right check on input rather
+    /// than `>=`. A floor accepted a pasted message body — the alphabet filter reduces it to a
+    /// long run of letters — so the client waved it through and the server rejected it with a
+    /// raw error in an alert titled "Oops".
+    static let inviteCodeLength = 6
+
+    static func generateInviteCode(length: Int = inviteCodeLength) -> String {
         String((0..<length).compactMap { _ in inviteCodeAlphabet.randomElement() })
     }
 

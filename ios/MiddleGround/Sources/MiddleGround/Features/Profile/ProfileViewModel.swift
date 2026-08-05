@@ -99,7 +99,7 @@ final class ProfileViewModel {
     var selectedRelationshipType: RelationshipType = .couple
 
     var canJoin: Bool {
-        Relationship.normalizeInviteCode(joinCodeInput).count >= 6
+        Relationship.normalizeInviteCode(joinCodeInput).count == Relationship.inviteCodeLength
     }
 
     /// Creates a group so the user has something to share a code for.

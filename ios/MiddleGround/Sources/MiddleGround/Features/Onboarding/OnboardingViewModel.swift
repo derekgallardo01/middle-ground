@@ -9,6 +9,7 @@ final class OnboardingViewModel {
     private let signInManager = Container.shared.signInWithAppleManager()
     private let userRepository = Container.shared.userRepository()
     private let relationshipService = Container.shared.relationshipService()
+    private let requestService = Container.shared.requestService()
     private let notificationService = NotificationService.shared
 
     var currentStep: Step = .welcome
@@ -71,7 +72,9 @@ final class OnboardingViewModel {
             // Creating a group needs nothing extra; joining needs a plausible code.
             switch pairingMode {
             case .create: return true
-            case .join: return Relationship.normalizeInviteCode(inviteCodeInput).count >= 6
+            case .join:
+                return Relationship.normalizeInviteCode(inviteCodeInput).count
+                    == Relationship.inviteCodeLength
             }
         case .done: return true
         }
@@ -165,7 +168,15 @@ final class OnboardingViewModel {
                 createdInviteCode = relationship.inviteCode
 
             case .join:
-                _ = try await relationshipService.join(inviteCode: inviteCodeInput, userID: user.id)
+                // A group code first, then a plan code — the same fallback Profile has always
+                // had. The two codes look identical and nobody is told which they were handed,
+                // so a plan code typed here used to fail with a raw error message while the very
+                // same code worked one screen away.
+                do {
+                    _ = try await relationshipService.join(inviteCode: inviteCodeInput, userID: user.id)
+                } catch {
+                    try await requestService.joinPlan(inviteCode: inviteCodeInput, userID: user.id)
+                }
                 createdInviteCode = nil
             }
 

@@ -52,8 +52,10 @@ final class ProfileViewModel {
         }
     }
 
+    /// Defers to `ReliabilityScore.canBeSeen` — the rule belongs with the score, not with one
+    /// screen that happens to show it.
     func canSeeReliability(in relationship: Relationship) -> Bool {
-        relationship.type != .couple && relationship.isPaired
+        ReliabilityScore.canBeSeen(in: relationship)
     }
 
     private func loadMemberReliability() async {

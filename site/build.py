@@ -602,10 +602,54 @@ def render(md: str) -> str:
 
 # ---------------------------------------------------------------- output
 
+# The one email address on the site, and the reason it has to be fenced off.
+SUPPORT_EMAIL = "support@middleground.app"
+
+
+def protect_emails(page_html: str) -> str:
+    """Stops Cloudflare rewriting the support address into something unreadable.
+
+    Cloudflare's Email Address Obfuscation replaces any address it finds — in text *and* in a
+    `mailto:` href — with a `/cdn-cgi/l/email-protection` link reading "[email protected]", and
+    injects a script to decode it on load. This site's CSP is `default-src 'none'` with no
+    `script-src`, so that script is blocked, and the result was that the address appeared
+    **nowhere** in the served HTML: every page showed "[email protected]" and the footer's
+    Contact link pointed at a cdn-cgi URL that goes nowhere without the script.
+
+    So the support page had no way to reach support, and the privacy policy's "contact us" for
+    data rights had nothing behind it. None of it was visible from the repo, because the rewrite
+    happens at the edge — the committed HTML is correct and what users receive is not.
+
+    `<!--email_off-->` is Cloudflare's documented opt-out, and it has to enclose the whole
+    anchor, not just the address, because the href is rewritten as well as the text. Fixing it
+    here rather than by adding `script-src` to the CSP: the address is static text that needs no
+    JavaScript, and loosening a content policy to admit somebody else's script — to solve a
+    problem they introduced — is the wrong trade.
+    """
+    fence = lambda inner: f"<!--email_off-->{inner}<!--/email_off-->"
+
+    # Whole anchors first, so the href travels inside the fence rather than being rewritten.
+    page_html = re.sub(
+        r'<a href="mailto:[^"]*"[^>]*>.*?</a>',
+        lambda m: fence(m.group(0)),
+        page_html,
+    )
+
+    # Then any address left in plain text, skipping the ones already fenced above.
+    parts = page_html.split("<!--email_off-->")
+    for index, part in enumerate(parts):
+        if index == 0:
+            parts[index] = part.replace(SUPPORT_EMAIL, fence(SUPPORT_EMAIL))
+            continue
+        head, sep, tail = part.partition("<!--/email_off-->")
+        parts[index] = head + sep + tail.replace(SUPPORT_EMAIL, fence(SUPPORT_EMAIL))
+    return "<!--email_off-->".join(parts)
+
+
 def build_page(page: Page) -> str:
     md = page.source.read_text(encoding="utf-8")
     current = ' aria-current="page"'
-    return TEMPLATE.format(
+    return protect_emails(TEMPLATE.format(
         head_title=page.title if page.slug == "index" else f"{page.title} — {SITE_NAME}",
         og_title=page.title if page.slug == "index" else f"{page.title} — {SITE_NAME}",
         description=html.escape(page.description, quote=True),
@@ -623,7 +667,7 @@ def build_page(page: Page) -> str:
         nav_timeline=current if page.nav == "timeline" else "",
         body=render(md),
         year=date.today().year,
-    )
+    ))
 
 
 # Pages that exist to be arrived at, not found. `/join` without a code in the path helps

@@ -110,6 +110,16 @@ private struct EventDTO: Codable {
     var relationshipID: String?
     var metadata: [String: String]
     var at: Timestamp
+    /// When Firestore may delete this row: ninety days after it was written.
+    ///
+    /// A separate field because a TTL policy deletes a document as soon as the timestamp it points
+    /// at is in the past — there is no offset. The policy used to point at `at`, which is the
+    /// moment the event happened and is therefore *already* past on write, so every event was
+    /// collected within about a day. Six users, twelve requests and five groups had produced an
+    /// entirely empty `events` collection.
+    ///
+    /// `locations` and `presence` already had the right shape; this brings events into line.
+    var expiresAt: Timestamp
 
     init(from event: AnalyticsEvent) {
         self.id = event.id
@@ -119,7 +129,11 @@ private struct EventDTO: Codable {
         self.relationshipID = event.relationshipID
         self.metadata = event.metadata
         self.at = Timestamp(date: event.at)
+        self.expiresAt = Timestamp(date: event.at.addingTimeInterval(EventDTO.retention))
     }
+
+    /// The ninety days the privacy policy promises.
+    static let retention: TimeInterval = 90 * 24 * 60 * 60
 
     func toModel() -> AnalyticsEvent? {
         guard let id, let eventType = EventType(rawValue: type) else { return nil }

@@ -209,6 +209,44 @@ exports.notifyPlanCancelled = onDocumentUpdated('requests/{requestId}', async (e
  * Four hours of grace, because the stored time is when a plan *starts*. Asking whether dinner
  * happened while people are still at dinner would train them to ignore the question.
  */
+/**
+ * Deletes usage events older than ninety days.
+ *
+ * Belt to the TTL policy's braces, and not redundant. Firestore expires a document by reading a
+ * timestamp field on it, so a document written *without* that field is never collected — and every
+ * build shipped before `expiresAt` existed writes exactly such documents. Those would live forever
+ * while the privacy policy promises ninety days.
+ *
+ * The TTL is still what does the work for current builds; this catches what it cannot see, and
+ * costs one query a week against a collection that should nearly always be empty of matches.
+ *
+ * Deliberately keyed on `at`, not `expiresAt`: the whole point is the rows that have no
+ * `expiresAt`, and a `where` on a missing field matches nothing.
+ */
+const EVENT_RETENTION_DAYS = 90;
+
+exports.purgeStaleEvents = onSchedule(
+  { schedule: '0 4 * * 0', timeZone: 'America/New_York' },
+  async () => {
+    const cutoff = new Date(Date.now() - EVENT_RETENTION_DAYS * 24 * HOUR);
+    const snapshot = await db()
+      .collection('events')
+      .where('at', '<', cutoff)
+      .limit(500)
+      .get();
+
+    if (snapshot.empty) return;
+
+    // Batched, and capped at 500 a run: this is a safety net for documents the TTL cannot reach,
+    // not a bulk deletion tool. If it ever finds a full batch every week, something is writing
+    // events without an expiry and that is the thing to fix.
+    const batch = db().batch();
+    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    console.log(`Purged ${snapshot.size} event(s) older than ${EVENT_RETENTION_DAYS} days`);
+  }
+);
+
 const CONFIRM_AFTER_HOURS = 4;
 
 exports.promptForAttendance = onSchedule(

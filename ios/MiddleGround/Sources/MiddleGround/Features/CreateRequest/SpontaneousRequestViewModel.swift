@@ -14,9 +14,7 @@ final class SpontaneousRequestViewModel {
     var displayLabels: [String: String] = [:]
 
     /// True when the user has groups but nobody has joined any of them yet.
-    var needsPartner: Bool {
-        !relationships.isEmpty && relationships.allSatisfy { !$0.isPaired }
-    }
+    var needsPartner: Bool { relationships.awaitingSomebody }
 
     /// The code to share when nobody has joined yet, so the empty state can offer the share
     /// sheet inline instead of naming the Profile tab it cannot open.

@@ -172,7 +172,12 @@ struct CalendarView: View {
 
             let upcoming = viewModel.listedEvents
 
-            if upcoming.isEmpty {
+            if upcoming.isEmpty && viewModel.groups.hasNobodyToPlanWith {
+                // "No upcoming plans" is true and useless to somebody who has nobody to make one
+                // with. Until then the whole app is inert, and this screen used to say nothing
+                // about the one action that changes that.
+                InvitePrompt(code: viewModel.soleInviteCode)
+            } else if upcoming.isEmpty {
                 ContentUnavailableView {
                     Label("No upcoming plans", systemImage: "calendar.badge.clock")
                 } description: {

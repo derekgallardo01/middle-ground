@@ -176,6 +176,23 @@ extension Relationship {
     }
 }
 
+extension Array where Element == Relationship {
+    /// True when there are groups but nobody has joined any of them.
+    ///
+    /// The distinction that matters: having no groups is a person who has not started, and
+    /// having only unpaired ones is a person who is waiting. Both leave the app inert, and both
+    /// need the same thing — somebody to accept the invite.
+    ///
+    /// Defined once because it was written out twice, in CreateRequestViewModel and
+    /// SpontaneousRequestViewModel, and a rule duplicated verbatim is a rule that drifts.
+    var awaitingSomebody: Bool {
+        !isEmpty && allSatisfy { !$0.isPaired }
+    }
+
+    /// Nothing to plan with: no groups at all, or none anybody has joined.
+    var hasNobodyToPlanWith: Bool { isEmpty || awaitingSomebody }
+}
+
 extension Relationship {
     static let preview = Relationship(
         id: "rel_1",

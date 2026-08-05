@@ -16,9 +16,7 @@ final class CreateRequestViewModel {
     var displayLabels: [String: String] = [:]
 
     /// True when the user has relationships but nobody has joined any of them yet.
-    var needsPartner: Bool {
-        !relationships.isEmpty && relationships.allSatisfy { !$0.isPaired }
-    }
+    var needsPartner: Bool { relationships.awaitingSomebody }
 
     /// Prefills from a template. Nothing is sent — the user still reviews, adds a time if they
     /// want one, and picks who it goes to.

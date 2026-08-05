@@ -23,6 +23,16 @@ final class CalendarViewModel {
     /// Kept per group so a delivery for one group cannot drop what another group said.
     var availabilityByGroup: [String: [SharedAvailability]] = [:]
     var groups: [Relationship] = []
+
+    /// The code to show when there is nobody to plan with, or nil when it would be ambiguous.
+    ///
+    /// Nil with several unpaired groups, for the same reason Home does it: one big code on screen
+    /// cannot say which group it joins, and picking one arbitrarily is how somebody ends up
+    /// invited into the wrong one.
+    var soleInviteCode: String? {
+        let unpaired = groups.filter { !$0.isPaired }
+        return unpaired.count == 1 ? unpaired.first?.inviteCode : nil
+    }
     var participantNames: [String: String] = [:]
     var selectedDate: Date = Date()
     var events: [Request] = []

@@ -21,6 +21,16 @@ final class GamificationViewModel {
     /// How often each group's plans happen. Every group, couples included — it ranks nobody.
     private(set) var followThrough: [(group: Relationship, rate: GroupFollowThrough)] = []
 
+    /// Every group, so the screen can tell "nothing earned yet" from "nobody to earn it with".
+    private(set) var groups: [Relationship] = []
+
+    /// The code to show when there is nobody to plan with, or nil when it would be ambiguous —
+    /// the same rule Home and Calendar use.
+    var soleInviteCode: String? {
+        let unpaired = groups.filter { !$0.isPaired }
+        return unpaired.count == 1 ? unpaired.first?.inviteCode : nil
+    }
+
     var currentUser: User?
     var stats: GamificationStats = GamificationStats(streakDays: 0, relationshipXP: 0, level: 1, growthScore: 0, nextLevelXP: 500)
     var achievements: [Achievement] = []
@@ -90,6 +100,7 @@ final class GamificationViewModel {
     private func loadScoreboards(from requests: [Request]) async {
         guard let currentUser else { return }
         let allGroups = (try? await relationshipRepository.fetchRelationships(for: currentUser.id)) ?? []
+        groups = allGroups
 
         // Follow-through covers every group; the scoreboard does not. One fetch answers both.
         followThrough = allGroups.map { group in

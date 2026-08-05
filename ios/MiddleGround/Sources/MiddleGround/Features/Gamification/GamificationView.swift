@@ -20,7 +20,14 @@ struct GamificationView: View {
                             Task { await viewModel.loadGamificationData() }
                         }
                     } else {
-                        if hasNoProgressYet { primer }
+                        // A level-1 scoreboard is an honest answer to the wrong question when
+                        // nobody has joined: none of it can move until somebody does. The
+                        // primer explains the zeroes; this explains why they cannot change.
+                        if hasNoProgressYet && viewModel.groups.hasNobodyToPlanWith {
+                            InvitePrompt(code: viewModel.soleInviteCode)
+                        } else if hasNoProgressYet {
+                            primer
+                        }
                         levelHeader
                         statsRow
                         StreakView(days: viewModel.stats.streakDays, weekDays: viewModel.weeklyCompletion)

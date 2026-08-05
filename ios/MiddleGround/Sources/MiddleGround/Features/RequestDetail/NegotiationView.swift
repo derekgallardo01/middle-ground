@@ -267,7 +267,7 @@ struct NegotiationBubble: View {
             if isCurrentUser { Spacer(minLength: 40) }
 
             VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: MGSpacing.xs) {
-                if let text = message.text, !text.isEmpty {
+                if let text = message.displayText, !text.isEmpty {
                     // Into `mgFont`, not after it — see `mgFont(_:color:)`. Applied afterwards
                     // it is dropped, and your own messages sit on an indigo fill.
                     Text(text)

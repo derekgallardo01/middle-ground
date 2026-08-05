@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective date:** 6 August 2026
+**Effective date:** 7 August 2026
 
 **Applies to:** the Middle Ground iOS app
 
@@ -35,7 +35,7 @@ actually does — every item below corresponds to real behaviour in the app.
 | **Email address** | Firebase Authentication | Only if you sign in with a method that provides one. With Sign in with Apple, you may choose Apple's private relay address and we never see your real one |
 | **Requests you create** — title, optional note, optional proposed time, and the responses exchanged | `requests/{id}` in Firebase Firestore | This is the product: it is the content you and the people you plan with are deciding on |
 | **Group membership** — who you are paired with, and your invite code | `relationships/{id}` and `invites/{code}` | Connects a group so its members can send each other requests |
-| **Notification token** | `user_tokens/{your-id}` | Lets us send a push notification when someone sends or answers a request. Only if you grant notification permission |
+| **Notification token, and your time zone** | `user_tokens/{your-id}` | Lets us send a push notification when someone sends or answers a request. Only if you grant notification permission. The time zone is the name of the one your phone is set to — "America/New_York" — so a notification about an 8pm plan says 8pm to you and not to somebody else's clock. It is not a location, and it is only ever read to write that sentence |
 | **Messages you send on a plan** — what you write, and which message it replies to | `requests/{id}/messages` | So the people on a plan can talk about it. Readable by them, **and by authorised Middle Ground staff** — the same access, and the same audit log, as the plans themselves. Without it a reported message could not be looked at, and we could not act on abuse |
 | **That you are typing** — a flag with no content, lasting about eight seconds | `requests/{id}/presence` | So the others on a plan can see a reply is coming. It contains no text, expires by itself, and is deleted by the server |
 | **That you opened a plan** — the time you last had it open | `requests/{id}/reads` | So people can tell their message was seen. Recorded **per plan, not per message** — there is no record of which individual messages you read |

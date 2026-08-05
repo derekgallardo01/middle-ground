@@ -74,13 +74,27 @@ extension NotificationService {
 
     /// Cloud Functions read `user_tokens/{uid}.tokens` to target devices, so a token that is
     /// never written here means push silently never arrives.
+    ///
+    /// The time zone rides along because this is the one document the send path already reads.
+    /// Without it every push formats its clock time in New York: a plan the app shows as 10pm
+    /// arrived as "tomorrow at 1:00 AM" for anybody outside Eastern, contradicting the screen
+    /// beside it. It is written on every token refresh, so it follows somebody who moves.
+    ///
+    /// The identifier only — "America/Los_Angeles", not a location. It says which clock to read,
+    /// which is all the server needs and less than the plans it is formatting already reveal.
     static func persist(token: String) async {
         guard AppConfiguration.isBackendEnabled, let uid = Auth.auth().currentUser?.uid else { return }
         do {
             try await Firestore.firestore()
                 .collection(tokenCollection)
                 .document(uid)
-                .setData(["tokens": FieldValue.arrayUnion([token])], merge: true)
+                .setData(
+                    [
+                        "tokens": FieldValue.arrayUnion([token]),
+                        "timeZone": TimeZone.current.identifier
+                    ],
+                    merge: true
+                )
         } catch {
             MGLog.notifications.error("Failed to persist FCM token: \(error.localizedDescription, privacy: .public)")
         }

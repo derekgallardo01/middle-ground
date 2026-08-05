@@ -81,7 +81,7 @@
   </a>
 </header>
 <h1>Privacy Policy</h1>
-<p><strong>Effective date:</strong> 6 August 2026</p>
+<p><strong>Effective date:</strong> 7 August 2026</p>
 <p><strong>Applies to:</strong> the Middle Ground iOS app</p>
 <p>Middle Ground helps a small group of people make shared decisions together. This policy describes exactly what the app collects, why, where it goes, and how to delete it. It describes what the software actually does — every item below corresponds to real behaviour in the app.</p>
 <h2>The short version</h2>
@@ -93,7 +93,7 @@
 <tr><td><strong>Email address</strong></td><td>Firebase Authentication</td><td>Only if you sign in with a method that provides one. With Sign in with Apple, you may choose Apple's private relay address and we never see your real one</td></tr>
 <tr><td><strong>Requests you create</strong> — title, optional note, optional proposed time, and the responses exchanged</td><td><code>requests/{id}</code> in Firebase Firestore</td><td>This is the product: it is the content you and the people you plan with are deciding on</td></tr>
 <tr><td><strong>Group membership</strong> — who you are paired with, and your invite code</td><td><code>relationships/{id}</code> and <code>invites/{code}</code></td><td>Connects a group so its members can send each other requests</td></tr>
-<tr><td><strong>Notification token</strong></td><td><code>user_tokens/{your-id}</code></td><td>Lets us send a push notification when someone sends or answers a request. Only if you grant notification permission</td></tr>
+<tr><td><strong>Notification token, and your time zone</strong></td><td><code>user_tokens/{your-id}</code></td><td>Lets us send a push notification when someone sends or answers a request. Only if you grant notification permission. The time zone is the name of the one your phone is set to — "America/New_York" — so a notification about an 8pm plan says 8pm to you and not to somebody else's clock. It is not a location, and it is only ever read to write that sentence</td></tr>
 <tr><td><strong>Messages you send on a plan</strong> — what you write, and which message it replies to</td><td><code>requests/{id}/messages</code></td><td>So the people on a plan can talk about it. Readable by them, <strong>and by authorised Middle Ground staff</strong> — the same access, and the same audit log, as the plans themselves. Without it a reported message could not be looked at, and we could not act on abuse</td></tr>
 <tr><td><strong>That you are typing</strong> — a flag with no content, lasting about eight seconds</td><td><code>requests/{id}/presence</code></td><td>So the others on a plan can see a reply is coming. It contains no text, expires by itself, and is deleted by the server</td></tr>
 <tr><td><strong>That you opened a plan</strong> — the time you last had it open</td><td><code>requests/{id}/reads</code></td><td>So people can tell their message was seen. Recorded <strong>per plan, not per message</strong> — there is no record of which individual messages you read</td></tr>

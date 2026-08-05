@@ -25,7 +25,9 @@ const { defineSecret } = require('firebase-functions/params');
 // 1st-gen, for the auth trigger only. See the note above.
 const functionsV1 = require('firebase-functions/v1');
 
-const { getUserName, notifyUsers, NotificationType } = require('./push');
+const { getUserName, notifyUsers, getUserTimeZone, DEFAULT_TIME_ZONE, NotificationType } =
+  require('./push');
+const { formatPlanTime } = require('./time');
 const { purgeUserData } = require('./purge');
 const { sendAlert, when } = require('./alerts');
 
@@ -141,16 +143,31 @@ exports.notifyRequestResponse = onDocumentUpdated('requests/{requestId}', async 
     (id) => id !== latestMessage.senderID
   );
 
-  return notifyUsers(notifyUserIds, {
-    notification: {
-      title: `${responderName} responded`,
-      body: latestMessage.text || latestMessage.responseType,
-    },
-    data: {
-      request_id: event.params.requestId,
-      type: 'request_response',
-    },
-  }, NotificationType.response);
+  // Per recipient, because a suggested time has to read on their clock. `text` for a reschedule
+  // was written by the sender's device, so shipping it verbatim named the sender's hour to
+  // everybody — the same fault the reminder had. The message now carries the instant; when it
+  // does, it is re-rendered per person, and anything somebody actually typed is left alone.
+  return Promise.all(
+    notifyUserIds.map(async (userId) => {
+      let body = latestMessage.text || latestMessage.responseType;
+      if (latestMessage.responseType === 'reschedule' && latestMessage.proposedTime) {
+        const zone = await getUserTimeZone(userId);
+        const when = formatPlanTime(latestMessage.proposedTime, new Date(), zone);
+        if (when) body = `How about ${when}?`;
+      }
+
+      return notifyUsers([userId], {
+        notification: {
+          title: `${responderName} responded`,
+          body,
+        },
+        data: {
+          request_id: event.params.requestId,
+          type: 'request_response',
+        },
+      }, NotificationType.response);
+    })
+  );
 });
 
 /**
@@ -311,9 +328,6 @@ exports.promptForAttendance = onSchedule(
  */
 const REMIND_BEFORE_HOURS = 16;
 
-/** Every schedule in this file is New York; the copy has to agree with them. */
-const PLAN_TIME_ZONE = 'America/New_York';
-
 exports.remindBeforePlan = onSchedule(
   { schedule: '0 * * * *', timeZone: 'America/New_York' },
   async () => {
@@ -337,64 +351,36 @@ exports.remindBeforePlan = onSchedule(
         const everyone = request.allParticipantIDs || [];
         if (everyone.length === 0) return;
 
-        const when = formatPlanTime(request.proposedTime);
+        // One at a time, because the body differs per person.
+        //
+        // A plan is a single instant; what people read off a clock is not. Sending everyone the
+        // same string meant formatting in New York for all of them, so somebody in Los Angeles
+        // was told "tomorrow at 1:00 AM" about the dinner their own screen showed as 10pm the
+        // same evening. Whose clock it is has to be part of the message.
+        await Promise.all(
+          everyone.map(async (userId) => {
+            const zone = await getUserTimeZone(userId);
+            const when = formatPlanTime(request.proposedTime, new Date(), zone);
 
-        await notifyUsers(everyone, {
-          notification: {
-            title: 'Still on?',
-            body: when
-              ? `"${request.title}" is ${when}.`
-              : `"${request.title}" is coming up.`,
-          },
-          data: {
-            request_id: doc.id,
-            type: 'plan_reminder',
-          },
-        }, NotificationType.planReminder);
+            await notifyUsers([userId], {
+              notification: {
+                title: 'Still on?',
+                body: when
+                  ? `"${request.title}" is ${when}.`
+                  : `"${request.title}" is coming up.`,
+              },
+              data: {
+                request_id: doc.id,
+                type: 'plan_reminder',
+              },
+            }, NotificationType.planReminder);
+          })
+        );
       })
     );
   }
 );
 
-/**
- * "tomorrow at 7:30 PM", "tonight at 8:00 PM", or "Friday at 1:00 PM". Null with no usable time.
- *
- * The day is compared rather than assumed. Sixteen hours ahead is *usually* tomorrow, but a plan
- * late tonight is reminded this morning — calling that "tomorrow" would send people to the wrong
- * evening, which is a worse failure than not reminding them at all.
- */
-function formatPlanTime(value, now = new Date()) {
-  const millis = toMillis(value);
-  if (!millis) return null;
-  const when = new Date(millis);
-
-  const time = new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: PLAN_TIME_ZONE,
-  }).format(when);
-
-  const day = (date) =>
-    new Intl.DateTimeFormat('en-CA', { timeZone: PLAN_TIME_ZONE }).format(date);
-  const dayDiff = Math.round(
-    (Date.parse(`${day(when)}T00:00:00Z`) - Date.parse(`${day(now)}T00:00:00Z`)) / (24 * HOUR)
-  );
-
-  if (dayDiff === 0) {
-    const hour = Number(
-      new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: PLAN_TIME_ZONE })
-        .format(when)
-    );
-    return `${hour >= 17 ? 'tonight' : 'today'} at ${time}`;
-  }
-  if (dayDiff === 1) return `tomorrow at ${time}`;
-
-  const weekday = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    timeZone: PLAN_TIME_ZONE,
-  }).format(when);
-  return `${weekday} at ${time}`;
-}
 
 // -------------------------------------------------------- weekly nudge
 

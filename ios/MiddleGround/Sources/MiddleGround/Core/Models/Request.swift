@@ -5,19 +5,48 @@ struct NegotiationMessage: Identifiable, Hashable, Codable {
     let senderID: String
     let responseType: ResponseType
     let text: String?
+    /// The instant this message is suggesting, when it suggests one.
+    ///
+    /// The time used to exist only inside `text`, baked by the sender's device in the sender's
+    /// zone — "How about Aug 6 at 7:30 PM?" — and that string is shown to the reader and shipped
+    /// verbatim as a push body. Between two zones it named an hour neither of them agreed on.
+    /// Carrying the instant lets every reader see it on their own clock.
+    ///
+    /// Optional because messages that suggest nothing have none, and because everything written
+    /// before this field existed has none either.
+    let proposedTime: Date?
     let timestamp: Date
 
     init(id: String = UUID().uuidString,
          senderID: String,
          responseType: ResponseType,
          text: String? = nil,
+         proposedTime: Date? = nil,
          timestamp: Date = Date()) {
         self.id = id
         self.senderID = senderID
         self.responseType = responseType
         self.text = text
+        self.proposedTime = proposedTime
         self.timestamp = timestamp
     }
+    /// What to show, on the reader's clock rather than the sender's.
+    ///
+    /// `text` for a suggestion was written by the sender's device — "How about Aug 6 at 7:30 PM?"
+    /// — so it named the sender's hour to everybody who read it, including in the push body. When
+    /// the message carries the instant, it is re-rendered here instead. Messages written before
+    /// `proposedTime` existed fall back to the stored string, which is the best that can be done
+    /// for them.
+    var displayText: String? {
+        // Only `.reschedule`, which is always the app's own sentence. A `.counter` may carry a
+        // time *and* words somebody typed, and rewriting those would be far worse than showing
+        // an hour in the sender's zone — so a counter is left exactly as written. That leaves
+        // the auto-generated counter (a time attached with nothing said) still reading in the
+        // sender's zone; it is the one case left and it is not worth risking the other for.
+        guard responseType == .reschedule, let proposedTime else { return text }
+        return "How about \(proposedTime.formatted(date: .abbreviated, time: .shortened))?"
+    }
+
 }
 
 enum RequestError: LocalizedError, Equatable {

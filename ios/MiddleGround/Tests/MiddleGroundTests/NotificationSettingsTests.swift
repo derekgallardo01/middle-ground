@@ -62,7 +62,10 @@ final class NotificationSettingsTests: XCTestCase {
     func testRawValuesMatchTheBackend() {
         XCTAssertEqual(
             Set(NotificationKind.allCases.map(\.rawValue)),
-            ["newRequest", "response", "confirmPlan", "planCancelled", "weeklyNudge", "message"]
+            [
+                "newRequest", "response", "confirmPlan", "planCancelled",
+                "weeklyNudge", "planReminder", "message"
+            ]
         )
     }
 }

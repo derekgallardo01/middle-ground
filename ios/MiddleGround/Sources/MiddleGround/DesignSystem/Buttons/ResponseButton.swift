@@ -58,8 +58,7 @@ struct ResponseButton: View {
                         .font(.system(size: emojiSize))
                 }
                 Text(type.displayName)
-                    .mgFont(.caption)
-                    .foregroundStyle(foreground)
+                    .mgFont(.caption, color: foreground)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)

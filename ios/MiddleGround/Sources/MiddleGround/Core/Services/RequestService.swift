@@ -167,6 +167,12 @@ final class RequestService {
         updated.updatedAt = Date()
         try await repository.updateRequest(updated)
         try await repository.publishPlanInvite(code: code, requestID: request.id, ownerID: userID)
+        await analytics.track(
+            .inviteCreated,
+            userID: userID,
+            requestID: request.id,
+            metadata: ["kind": "plan"]
+        )
         return updated
     }
 
@@ -194,7 +200,14 @@ final class RequestService {
             throw RequestError.inviteNotFound
         }
         try await repository.addParticipant(userID, to: requestID)
-        await analytics.track(.inviteRedeemed, userID: userID, requestID: requestID)
+        // Deliberately no `invitedBy`: a plan code admits whoever holds it, and the plan's creator
+        // is not necessarily the person who passed it on. Claiming otherwise would be a guess.
+        await analytics.track(
+            .inviteRedeemed,
+            userID: userID,
+            requestID: requestID,
+            metadata: ["kind": "plan"]
+        )
     }
 
     /// Puts points on the plan happening. The other person must agree before it is live.

@@ -64,7 +64,25 @@ struct CreateRequestView: View {
                     Toggle("Suggest a time", isOn: $viewModel.includeTime)
                     if viewModel.includeTime {
                         DatePicker("Proposed time", selection: $viewModel.proposedTime)
-                        calendarClashRow
+                        CalendarClashRow(
+                            availability: viewModel.availability,
+                            accessGranted: viewModel.calendarAccessGranted
+                        ) {
+                            Task { await viewModel.enableCalendarChecks() }
+                        }
+
+                        // The other half of "is this time any good": your calendar, and then
+                        // whether anybody else has already said they cannot make that day.
+                        if let busy = viewModel.busyDay, let warning = busy.warning {
+                            Label {
+                                Text(warning).mgFont(.bodySmall)
+                            } icon: {
+                                Image(systemName: "person.crop.circle.badge.exclamationmark")
+                                    .foregroundStyle(MGColors.warm600)
+                            }
+                            .foregroundStyle(MGColors.warm600)
+                            .accessibilityLabel(warning)
+                        }
                     }
                 }
 
@@ -118,6 +136,12 @@ struct CreateRequestView: View {
         }
         .task {
             await viewModel.loadCurrentUserAndPartners()
+            await viewModel.loadGroupAvailability()
+        }
+        // The recipient decides which group's availability applies, so switching person changes
+        // the answer.
+        .onChange(of: viewModel.recipientID) { _, _ in
+            Task { await viewModel.loadGroupAvailability() }
         }
     }
 
@@ -190,41 +214,6 @@ struct CreateRequestView: View {
     ///
     /// Silent when the app cannot see the calendar. "I could not look" must never be shown as
     /// "you are free" — that is exactly how a plan gets double-booked.
-    @ViewBuilder
-    private var calendarClashRow: some View {
-        switch viewModel.availability {
-        case .busy(let title):
-            Label {
-                Text(title.map { "You're busy — \($0)" } ?? "You already have something then")
-                    .mgFont(.bodySmall)
-            } icon: {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(MGColors.sunshine)
-            }
-            .accessibilityLabel(
-                title.map { "Warning: your calendar already has \($0) at this time" }
-                    ?? "Warning: your calendar is already busy at this time"
-            )
-
-        case .free:
-            Label("Your calendar is free then", systemImage: "checkmark.circle")
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
-
-        case .unknown where !viewModel.calendarAccessGranted:
-            Button {
-                Task { await viewModel.enableCalendarChecks() }
-            } label: {
-                Label("Check my calendar for clashes", systemImage: "calendar")
-                    .mgFont(.bodySmall)
-            }
-            .accessibilityHint("Asks permission to read your calendar, on this device only")
-
-        case .unknown:
-            EmptyView()
-        }
-    }
-
     /// Prefills title and category, then leaves the user in the normal compose flow — the sheet
     /// stays open so they can add a note or a time before sending.
     private var templateRow: some View {

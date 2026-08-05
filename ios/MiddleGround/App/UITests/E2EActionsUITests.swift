@@ -216,6 +216,81 @@ final class E2EActionsUITests: XCTestCase {
         shoot("action-07-report-asks-who")
     }
 
+    // MARK: - Contrast on filled surfaces
+
+    /// Photographs the three places where text sits on an indigo fill.
+    ///
+    /// A UI test cannot assert a colour, so this exists to produce the frames — the check is a
+    /// person looking at them. Worth having because the failure is invisible to every other kind
+    /// of test: the text is present, hittable and correctly labelled, and simply cannot be read.
+    func test_action_09_textOnIndigoFills() throws {
+        launch()
+
+        // 1. The chosen category, which is the one chip that must read as chosen.
+        tab("Requests").tap()
+        let fab = app.buttons["Create new request or spontaneous invite"]
+        guard fab.waitForExistence(timeout: 12) else { return XCTFail("no compose button") }
+        fab.tap()
+        if app.buttons["New Request"].waitForExistence(timeout: 6) {
+            app.buttons["New Request"].tap()
+        }
+        let couple = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Couple' OR label CONTAINS[c] 'Relationship'")
+        ).firstMatch
+        if couple.waitForExistence(timeout: 8), couple.isHittable { couple.tap() }
+        shoot("contrast-01-selected-category")
+
+        // 2. Your own messages, which sit on an indigo bubble.
+        let cancel = app.buttons.containing(
+            NSPredicate(format: "label BEGINSWITH[c] 'Cancel'")
+        ).firstMatch
+        if cancel.exists && cancel.isHittable { cancel.tap() }
+        guard openPlan("Sunday roast?") else { return }
+        _ = scrollTo(text(containing: "I'm in"), swipes: 8)
+        shoot("contrast-02-your-own-message")
+    }
+
+    /// The compose screen should say when somebody else has already blocked out that day.
+    ///
+    /// Sam is seeded busy two days out, so the picker is moved there. Before this, the only
+    /// warning when choosing a time was about your own calendar — what the rest of the group had
+    /// said lived on the Calendar tab, a screen away from the decision.
+    func test_action_10_composeWarnsWhenSomebodyElseIsBusy() throws {
+        launch()
+        tab("Requests").tap()
+
+        let fab = app.buttons["Create new request or spontaneous invite"]
+        guard fab.waitForExistence(timeout: 12) else { return XCTFail("no compose button") }
+        fab.tap()
+        if app.buttons["New Request"].waitForExistence(timeout: 6) {
+            app.buttons["New Request"].tap()
+        }
+
+        // `scrollTo` returns whether the element *exists*, not whether it can be tapped, and a
+        // tap on a present-but-offscreen element silently does nothing — which reads exactly like
+        // a broken toggle. This scrolls until it is actually hittable.
+        let suggestTime = app.switches["Suggest a time"]
+        var found = false
+        for _ in 0..<10 where !found {
+            if suggestTime.exists && suggestTime.isHittable { found = true; break }
+            app.swipeUp()
+        }
+        guard found else { return XCTFail("the time toggle never became tappable") }
+
+        // The trailing edge, not the centre. The switch's accessibility frame spans the whole
+        // row, so a plain `.tap()` lands on the label — hittable, and inert.
+        suggestTime.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        let deadline = Date().addingTimeInterval(8)
+        while Date() < deadline && (suggestTime.value as? String) != "1" { usleep(200_000) }
+        XCTAssertEqual(suggestTime.value as? String, "1", "the time toggle should turn on")
+
+        XCTAssertTrue(
+            app.datePickers.firstMatch.waitForExistence(timeout: 8),
+            "turning the time on should offer a picker"
+        )
+        shoot("contrast-03-compose-with-time")
+    }
+
     // MARK: - Home
 
     /// Saved plans are findable again, which is the whole point of saving one.

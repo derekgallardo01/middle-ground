@@ -14,13 +14,22 @@ actor FirestoreAdminRepository: AdminRepository {
         let statuses = ["pending", "accepted", "declined", "negotiated", "rescheduled", "countered", "saved"]
         let categories = RequestCategory.allCases
         // Funnel, in order.
-        let funnel = [
-            ("Signed up", "signed_up"),
-            ("Finished onboarding", "onboarding_completed"),
-            ("Created a group", "relationship_created"),
-            ("Paired", "invite_redeemed"),
-            ("Created a request", "request_created"),
-            ("Answered a request", "request_responded")
+        //
+        // These are event counts, not distinct people — a user who makes four groups counts four
+        // times, which is why a later step can exceed an earlier one. Counting people would mean
+        // denormalising a per-user flag on write; the card says which it is instead of implying
+        // the other.
+        //
+        // "Shared an invite" is the denominator that pairing never had, and pairing is narrowed
+        // to group joins, because a single-plan join is not a pairing.
+        let funnel: [FunnelSpec] = [
+            FunnelSpec(label: "Signed up", type: "signed_up"),
+            FunnelSpec(label: "Finished onboarding", type: "onboarding_completed"),
+            FunnelSpec(label: "Created a group", type: "relationship_created"),
+            FunnelSpec(label: "Shared an invite", type: "invite_shared"),
+            FunnelSpec(label: "Paired", type: "invite_redeemed", kind: "group"),
+            FunnelSpec(label: "Created a request", type: "request_created"),
+            FunnelSpec(label: "Answered a request", type: "request_responded")
         ]
 
         // Aggregation queries count server-side without reading the documents themselves —
@@ -36,7 +45,15 @@ actor FirestoreAdminRepository: AdminRepository {
         let categoryQueries = categories.map {
             CountQuery(collection: "requests", field: "category", equals: $0.rawValue)
         }
-        let funnelQueries = funnel.map { CountQuery(collection: "events", field: "type", equals: $0.1) }
+        let funnelQueries = funnel.map {
+            CountQuery(
+                collection: "events",
+                field: "type",
+                equals: $0.type,
+                alsoField: $0.kind == nil ? nil : "metadata.kind",
+                alsoEquals: $0.kind
+            )
+        }
 
         // Paired groups.
         //
@@ -76,7 +93,7 @@ actor FirestoreAdminRepository: AdminRepository {
             overview.requestsByCategory[category.displayName] = value
         }
         for (step, value) in zip(funnel, take(funnelQueries.count)) {
-            overview.funnel.append(AdminOverview.FunnelStep(label: step.0, count: value))
+            overview.funnel.append(AdminOverview.FunnelStep(label: step.label, count: value))
         }
 
         (overview.pairedCount, overview.pairedCountIsExact) = try await pairedResult
@@ -118,10 +135,24 @@ actor FirestoreAdminRepository: AdminRepository {
     /// Describing them this way is what lets them run concurrently: `Query` is a reference into
     /// the Firestore SDK and is not something to hand across task boundaries, whereas this is
     /// plain data. Each task builds its own query and throws it away again.
+    /// One step of the funnel. A named type rather than a tuple, which is both over the lint's
+    /// two-member limit and unreadable at the call site once a third element appears.
+    private struct FunnelSpec: Sendable {
+        let label: String
+        let type: String
+        var kind: String?
+    }
+
     private struct CountQuery: Sendable {
         let collection: String
         var field: String?
         var equals: String?
+        /// A second equality, for events that need their `metadata` narrowed.
+        ///
+        /// `invite_redeemed` means two different things — joining a group and joining a single
+        /// plan — so counting the type alone made the funnel's pairing step count both.
+        var alsoField: String?
+        var alsoEquals: String?
         var since: Date?
     }
 
@@ -129,6 +160,9 @@ actor FirestoreAdminRepository: AdminRepository {
         var query: Query = Firestore.firestore().collection(spec.collection)
         if let field = spec.field, let equals = spec.equals {
             query = query.whereField(field, isEqualTo: equals)
+        }
+        if let alsoField = spec.alsoField, let alsoEquals = spec.alsoEquals {
+            query = query.whereField(alsoField, isEqualTo: alsoEquals)
         }
         if let since = spec.since {
             query = query.whereField("at", isGreaterThan: Timestamp(date: since))

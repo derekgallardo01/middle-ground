@@ -220,12 +220,24 @@ struct NegotiationView: View {
                     .datePickerStyle(.graphical)
                     .tint(MGColors.indigo)
 
+                // Follows the picker rather than waiting for Attach: the warning is only useful
+                // while a time is being chosen. `pickedTime` is local until it is attached, so
+                // the checker is driven from here instead of from a `didSet` on the model.
+                CalendarClashRow(
+                    availability: viewModel.clashChecker.availability,
+                    accessGranted: viewModel.clashChecker.accessGranted
+                ) {
+                    Task { await viewModel.clashChecker.requestAccess(then: pickedTime) }
+                }
+
                 Spacer()
             }
             .padding()
             .background(MGColors.sand.ignoresSafeArea())
             .navigationTitle("Suggest a time")
             .navigationBarTitleDisplayMode(.inline)
+            .task { viewModel.clashChecker.check(pickedTime) }
+            .onChange(of: pickedTime) { _, time in viewModel.clashChecker.check(time) }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { showTimePicker = false }
@@ -256,9 +268,10 @@ struct NegotiationBubble: View {
 
             VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: MGSpacing.xs) {
                 if let text = message.text, !text.isEmpty {
+                    // Into `mgFont`, not after it — see `mgFont(_:color:)`. Applied afterwards
+                    // it is dropped, and your own messages sit on an indigo fill.
                     Text(text)
-                        .mgFont(.body)
-                        .foregroundStyle(isCurrentUser ? MGColors.onAccent : MGColors.slate)
+                        .mgFont(.body, color: isCurrentUser ? MGColors.onAccent : MGColors.slate)
                         .padding(.vertical, MGSpacing.md)
                         .padding(.horizontal, MGSpacing.lg)
                         .background(isCurrentUser ? MGColors.indigo : MGColors.warm100)

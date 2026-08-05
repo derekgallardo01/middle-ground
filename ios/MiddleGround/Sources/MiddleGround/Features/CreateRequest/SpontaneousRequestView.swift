@@ -202,8 +202,7 @@ struct SpontaneousRequestView: View {
                                 }
                                 Text(person.name)
                             }
-                            .mgFont(.bodySmall)
-                            .foregroundStyle(isChosen ? MGColors.onAccent : MGColors.slate)
+                            .mgFont(.bodySmall, color: isChosen ? MGColors.onAccent : MGColors.slate)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
                             .background(isChosen ? MGColors.indigo : MGColors.warm100)

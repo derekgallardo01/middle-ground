@@ -212,6 +212,11 @@ struct ProfileView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(MGColors.indigo)
+                    // `simultaneousGesture` because ShareLink has no action of its own and must
+                    // still open its sheet. This fires on the reach, not on a delivered message.
+                    .simultaneousGesture(TapGesture().onEnded {
+                        viewModel.noteInviteShared(relationshipID: relationship.id)
+                    })
 
                     // Codes used to be permanent and were never deleted after pairing, so
                     // anyone who ever saw one kept indefinite access. This is the revoke.

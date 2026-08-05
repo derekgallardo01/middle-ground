@@ -13,13 +13,18 @@ struct RequestTypePicker: View {
                     }
                     Haptics.shared.impact(.light)
                 } label: {
+                    let ink = selected == category ? MGColors.onAccent : MGColors.slate
                     VStack(spacing: 8) {
                         Image(systemName: category.iconName)
                             .font(.system(size: 24, weight: .semibold))
+                        // The colour goes *into* `mgFont`, not after it. Applied afterwards it
+                        // is ignored — `mgFont` sets slate on the Text itself and SwiftUI takes
+                        // the innermost style — so the chosen category rendered slate on indigo,
+                        // which is the one chip that most needs to read as chosen.
                         Text(category.displayName)
-                            .mgFont(.caption)
+                            .mgFont(.caption, color: ink)
                     }
-                    .foregroundStyle(selected == category ? MGColors.onAccent : MGColors.slate)
+                    .foregroundStyle(ink)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(selected == category ? MGColors.indigo : MGColors.surface)

@@ -104,17 +104,6 @@
           "order": "DESCENDING"
         }
       ]
-    },
-    {
-      "_comment": "Collection-group query behind purgeMessages: a deleted user's messages are scattered under every request they were ever on, including ones somebody else still owns, and subcollections survive the deletion of their parent.",
-      "collectionGroup": "messages",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        {
-          "fieldPath": "senderID",
-          "order": "ASCENDING"
-        }
-      ]
     }
   ],
   "fieldOverrides": [
@@ -126,9 +115,9 @@
       "indexes": []
     },
     {
-      "_comment": "Usage events are written on every user action and are never read after the reporting window, so without a TTL the collection grows without bound while carrying personal data indefinitely. Firestore deletes each document 90 days after its `at` value. Requires Blaze \u2014 under Spark this returns HTTP 403 and fails the whole firestore deploy. The 90-day retention sentence in docs/legal/privacy-policy.md must stay in step with this.",
+      "_comment": "Usage events are written on every user action and are never read after the reporting window, so without a TTL the collection grows without bound while carrying personal data indefinitely. The policy points at `expiresAt` (written as `at` + 90 days), NOT at `at`: a TTL deletes a document once the field it names is in the past, with no offset, so pointing it at the event time deleted everything within a day \u2014 six users, twelve requests and five groups had produced an empty collection. Requires Blaze \u2014 under Spark this returns HTTP 403 and fails the whole firestore deploy. The 90-day retention sentence in docs/legal/privacy-policy.md must stay in step with this.",
       "collectionGroup": "events",
-      "fieldPath": "at",
+      "fieldPath": "expiresAt",
       "ttl": true,
       "indexes": [
         {
@@ -151,6 +140,29 @@
       "fieldPath": "expiresAt",
       "ttl": true,
       "indexes": []
+    },
+    {
+      "_comment": "Collection-group index for purgeMessages, which deletes a departing user's messages from under every request they were ever on. A single-field collection-group index has to be a fieldOverride: declared under `indexes` Firestore rejects it with \"this index is not necessary, configure using single field index controls\", and that 400 fails the entire firestore:indexes deploy \u2014 so nothing in this file was reaching production, including the TTL policies. Without the index the purge query itself fails, and the privacy policy's promise to erase every message you sent would be untrue. Collection-group query behind purgeMessages: a deleted user's messages are scattered under every request they were ever on, including ones somebody else still owns, and subcollections survive the deletion of their parent.",
+      "collectionGroup": "messages",
+      "fieldPath": "senderID",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "arrayConfig": "CONTAINS",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
     }
   ]
 }

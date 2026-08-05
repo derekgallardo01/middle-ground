@@ -8,7 +8,9 @@ struct ProfileView: View {
 
     @Environment(AppState.self) private var appState
     @Environment(\.scenePhase) private var scenePhase
-    @State private var viewModel = ProfileViewModel()
+    // Not private: the pairing sections live in their own file, and `private` is
+    // file-scoped.
+    @State var viewModel = ProfileViewModel()
     @State private var showDeleteConfirmation = false
     @State private var relationshipToLeave: Relationship?
 
@@ -96,72 +98,6 @@ struct ProfileView: View {
         .background(MGColors.surface)
         .mgCard(radius: MGRadius.lg)
         .mgShadow(MGShadow.md)
-    }
-
-    @ViewBuilder
-    private var pairingSection: some View {
-        if viewModel.hasNoRelationship {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Connect")
-                    .mgFont(.h2)
-
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("""
-                    You're not connected with anyone yet. Start a group and share the code, \
-                    or join with a code you were given.
-                    """)
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
-
-                    Picker("Group type", selection: $viewModel.selectedRelationshipType) {
-                        ForEach(RelationshipType.allCases) { type in
-                            Text(type.displayName).tag(type)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .tint(MGColors.indigo)
-
-                    Button {
-                        Task { await viewModel.createGroup() }
-                    } label: {
-                        Text("Create a group")
-                            // .mgFont forces MGColors.slate, which over an indigo fill is
-                            // ~1.9:1. Setting the colour afterwards does not help — SwiftUI
-                            // resolves the innermost one — so this passes it in.
-                            .mgFont(.body, color: MGColors.onAccent)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(MGColors.indigo)
-                    .disabled(viewModel.isPairing)
-
-                    Divider()
-
-                    TextField("Enter invite code", text: $viewModel.joinCodeInput)
-                        .mgFont(.body)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                        .padding(12)
-                        .background(MGColors.sand)
-                        .clipShape(RoundedRectangle(cornerRadius: MGRadius.sm, style: .continuous))
-                        .accessibilityLabel("Invite code")
-
-                    Button {
-                        Task { await viewModel.joinGroup() }
-                    } label: {
-                        Text("Join with a code")
-                            .mgFont(.body)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(MGColors.indigo)
-                    .disabled(!viewModel.canJoin || viewModel.isPairing)
-                }
-                .padding()
-                .background(MGColors.surface)
-                .mgCard(radius: MGRadius.md)
-            }
-        }
     }
 
     @ViewBuilder

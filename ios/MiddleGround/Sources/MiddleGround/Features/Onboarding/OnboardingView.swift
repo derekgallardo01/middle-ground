@@ -270,7 +270,19 @@ struct OnboardingView: View {
                         .tracking(4)
                         .accessibilityIdentifier("inviteCode")
 
-                    ShareLink(item: "Join me on Middle Ground with code \(code)") {
+                    // The App Store link, like every other share site. This one sent a bare
+                    // string — no link, no instruction — and it is the *first* share anybody
+                    // makes, immediately after creating their group. The recipient got a code
+                    // for an app they had no way to reach.
+                    ShareLink(
+                        item: AppConfiguration.appStoreURL,
+                        subject: Text("Join me on Middle Ground"),
+                        message: Text("""
+                        Join me on Middle Ground — my invite code is \(code)
+
+                        Get the app, then enter the code in Profile → Connect.
+                        """)
+                    ) {
                         Label("Share invite", systemImage: "square.and.arrow.up")
                             .mgFont(.body)
                     }

@@ -128,6 +128,17 @@ extension Container {
         }
     }
 
+    var disputeRepository: Factory<DisputeRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockDisputeRepository()
+            }
+            #endif
+            return FirestoreDisputeRepository()
+        }
+    }
+
     var planOutcomeRepository: Factory<PlanOutcomeRepository> {
         Factory(self) {
             #if DEBUG

@@ -166,6 +166,9 @@ struct RequestDetailView: View {
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
+        .sheet(isPresented: $viewModel.showDisputeSheet) {
+            DisputeSheet(viewModel: viewModel)
+        }
         .sheet(isPresented: $viewModel.showReportSheet) {
             ReportSheet(viewModel: viewModel)
         }
@@ -239,8 +242,8 @@ struct RequestDetailView: View {
             icon = "xmark.circle"
             tint = MGColors.warm600
         case .disputed:
-            // Named rather than resolved. A contested plan is what an appeal would argue over,
-            // so it settles nothing on its own and scores nothing either way.
+            // Named rather than resolved. A contested plan settles nothing on its own and scores
+            // nothing either way — that stays. What is new is somewhere to take it.
             message = "You remember this differently."
             icon = "questionmark.circle"
             tint = MGColors.warm600
@@ -250,16 +253,34 @@ struct RequestDetailView: View {
             tint = MGColors.warm600
         }
 
-        return HStack(spacing: MGSpacing.md) {
-            Image(systemName: icon)
-                .foregroundStyle(tint)
-            Text(message)
-                .mgFont(.body)
-                .foregroundStyle(MGColors.warm600)
-            Spacer()
+        return VStack(alignment: .leading, spacing: MGSpacing.sm) {
+            HStack(spacing: MGSpacing.md) {
+                Image(systemName: icon)
+                    .foregroundStyle(tint)
+                Text(message)
+                    .mgFont(.body)
+                    .foregroundStyle(MGColors.warm600)
+                Spacer()
+            }
+            .accessibilityElement(children: .combine)
+
+            // Only on a contested plan, and only once. Raising it changes nothing about the plan
+            // — it is a way to reach a person, not a mechanism that decides anything.
+            if viewModel.canDispute {
+                Button {
+                    viewModel.showDisputeSheet = true
+                } label: {
+                    Label("Ask us to take a look", systemImage: "questionmark.bubble")
+                        .mgFont(.bodySmall, color: MGColors.indigo)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Sends this plan to Middle Ground to review. Nothing changes for either of you.")
+            } else if viewModel.didRaiseDispute {
+                Label("We'll take a look.", systemImage: "checkmark.circle")
+                    .mgFont(.bodySmall, color: MGColors.warm600)
+            }
         }
         .mgSurfaceCard()
-        .accessibilityElement(children: .combine)
     }
 
     /// What the creator sees on their own unanswered request.
@@ -438,56 +459,11 @@ struct RequestDetailView: View {
             }
         }
         .sheet(isPresented: $viewModel.showReschedulePicker) {
-            rescheduleSheet
+            RescheduleSheet(viewModel: viewModel)
         }
     }
 
     /// Suggest a different time — the `.reschedule` response.
-    private var rescheduleSheet: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Suggest a different time for \"\(viewModel.request.title)\".")
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
-
-                DatePicker(
-                    "New time",
-                    selection: $viewModel.proposedNewTime,
-                    in: Date()...
-                )
-                .datePickerStyle(.graphical)
-                .tint(MGColors.indigo)
-
-                CalendarClashRow(
-                    availability: viewModel.clashChecker.availability,
-                    accessGranted: viewModel.clashChecker.accessGranted
-                ) {
-                    Task { await viewModel.clashChecker.requestAccess(then: viewModel.proposedNewTime) }
-                }
-
-                Spacer()
-            }
-            .padding()
-            .background(MGColors.sand.ignoresSafeArea())
-            .navigationTitle("Reschedule")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { viewModel.showReschedulePicker = false }
-                        .accessibilityLabel("Cancel rescheduling")
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Send") {
-                        Task { await viewModel.sendReschedule() }
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(viewModel.isSending)
-                    .accessibilityLabel("Send new time")
-                }
-            }
-        }
-        .presentationDetents([.large])
-    }
 }
 
 #Preview {

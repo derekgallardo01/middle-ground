@@ -20,12 +20,14 @@ final class AdminViewModel {
     private let adminRepository = Container.shared.adminRepository()
     private let venueRepository = Container.shared.venueRepository()
     private let planOutcomeRepository = Container.shared.planOutcomeRepository()
+    private let disputeRepository = Container.shared.disputeRepository()
 
     enum Section: String, CaseIterable, Identifiable {
         case overview = "Overview"
         case users = "Users"
         case requests = "Requests"
         case reports = "Reports"
+        case disputes = "Disputes"
         case outcomes = "Outcomes"
         case events = "Events"
         case venues = "Venues"
@@ -48,6 +50,7 @@ final class AdminViewModel {
     var events: [AnalyticsEvent] = []
     var auditEntries: [AdminAuditEntry] = []
     var reports: [ContentReport] = []
+    var disputes: [PlanDispute] = []
     var venues: [Venue] = []
     /// The follow-through record, and what it adds up to. Collection began 2 August 2026 — there
     /// is no history before that and it cannot be reconstructed.
@@ -84,6 +87,18 @@ final class AdminViewModel {
     /// a hundred unread reports and a hundred handled ones looked identical. Optimistic, then
     /// reloaded: the rules are the enforcement, and a refused write must not leave the screen
     /// claiming otherwise.
+    /// Records what was decided about a contested plan. Same shape as resolving a report, and
+    /// deliberately a different queue — see `PlanDispute`.
+    func resolve(_ dispute: PlanDispute, as resolution: ReportResolution) async {
+        guard let adminID = authService.currentUserID else { return }
+        do {
+            try await disputeRepository.resolveDispute(id: dispute.id, as: resolution, by: adminID)
+            disputes = try await disputeRepository.recentDisputes(limit: 200)
+        } catch {
+            errorMessage = "Couldn't record that: \(error.localizedDescription)"
+        }
+    }
+
     func resolve(_ report: ContentReport, as resolution: ReportResolution) async {
         guard let adminID = authService.currentUserID else { return }
         do {
@@ -110,6 +125,8 @@ final class AdminViewModel {
                 requests = try await adminRepository.allRequests(limit: 200)
             case .reports:
                 reports = try await eventRepository.recentReports(limit: 200)
+            case .disputes:
+                disputes = try await disputeRepository.recentDisputes(limit: 200)
             case .outcomes:
                 outcomes = try await planOutcomeRepository.recentOutcomes(limit: 500)
                 outcomeSummary = OutcomeSummary.from(outcomes)

@@ -23,6 +23,8 @@ final class RequestDetailViewModel {
     let planMessages = Container.shared.planMessageRepository()
     let typingPresence = Container.shared.typingPresenceRepository()
     let readReceiptRepository = Container.shared.planReadReceiptRepository()
+    // Not private: the reporting extension is its own file.
+    let disputes = Container.shared.disputeRepository()
 
     var request: Request
     var currentUser: User?
@@ -462,6 +464,16 @@ final class RequestDetailViewModel {
         set { reportNoteStorage = RequestLimits.clamp(newValue, to: RequestLimits.reportNote) }
     }
     var didSubmitReport = false
+
+    // MARK: - Disputes (behaviour in RequestDetailViewModel+Reporting.swift)
+
+    var showDisputeSheet = false
+    var didRaiseDispute = false
+    private var disputeNoteStorage: String = ""
+    var disputeNote: String {
+        get { disputeNoteStorage }
+        set { disputeNoteStorage = RequestLimits.clamp(newValue, to: RequestLimits.reportNote) }
+    }
 
     deinit {
         messagesTask.cancel()

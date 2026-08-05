@@ -31,6 +31,44 @@ extension RequestDetailViewModel {
         showReportSheet = true
     }
 
+    // MARK: - Disagreeing about what happened
+
+    /// Whether this plan is one the two of them remember differently.
+    var canDispute: Bool {
+        guard let currentUserID else { return false }
+        return request.isDisputed && request.isParticipant(currentUserID) && !didRaiseDispute
+    }
+
+    /// Asks for a second look. Nothing about the plan changes — a contested plan already scores
+    /// nothing either way, and that stays. This puts it in front of a person.
+    func raiseDispute() async {
+        guard let currentUserID, request.isDisputed else { return }
+        isSending = true
+        errorMessage = nil
+        defer { isSending = false }
+
+        let note = disputeNote.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            try await disputes.raise(
+                PlanDispute(
+                    raisedBy: currentUserID,
+                    requestID: request.id,
+                    planTitle: request.title,
+                    note: note.isEmpty ? nil : note
+                )
+            )
+            didRaiseDispute = true
+            showDisputeSheet = false
+            disputeNote = ""
+            Haptics.shared.notification(.success)
+        } catch {
+            // Thrown rather than swallowed: somebody asking to be heard must be told if it did
+            // not land, instead of believing it was filed.
+            errorMessage = "Couldn't send that. Please try again."
+            Haptics.shared.notification(.error)
+        }
+    }
+
     /// Files an abuse report (App Review guideline 1.2). Leaving the group is the other half
     /// and lives in Profile — reporting alone does not stop the person contacting you.
     func submitReport() async {

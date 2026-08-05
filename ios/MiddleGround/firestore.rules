@@ -728,6 +728,40 @@ service cloud.firestore {
     // Abuse reports (App Review guideline 1.2). A user files one against content they can
     // see; only an admin can read them. Write-only from the reporter's side on purpose —
     // being able to list reports would expose who reported whom.
+    // Asking for a second look at a plan two people remember differently.
+    //
+    // Its own collection rather than a `reports` row: that queue means abuse and carries a stated
+    // 24-hour review promise, and a disagreement about whether Tuesday happened is not a report
+    // about somebody's conduct. See `PlanDispute`.
+    match /disputes/{disputeId} {
+      // `get` on a known path, which rules can do — a participant of the plan, and nobody else,
+      // may raise one. Without this anyone holding a request ID could file against a plan they
+      // have never been part of.
+      function onThePlan(requestId) {
+        return exists(/databases/$(database)/documents/requests/$(requestId))
+          && uid() in get(/databases/$(database)/documents/requests/$(requestId)).data.allParticipantIDs;
+      }
+
+      allow read: if isAdmin();
+      allow create: if signedIn()
+                    && request.resource.data.raisedBy == uid()
+                    && request.resource.data.keys().hasOnly(
+                         ['raisedBy', 'requestID', 'planTitle', 'note', 'at'])
+                    && request.resource.data.requestID is string
+                    && onThePlan(request.resource.data.requestID);
+
+      // An operator may record what was decided and nothing else, for the same reason as a
+      // report: what somebody said happened is the thing under review.
+      allow update: if isAdmin()
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['resolution', 'resolvedBy', 'resolvedAt'])
+                    && request.resource.data.resolution in ['actioned', 'dismissed']
+                    && request.resource.data.resolvedBy == uid()
+                    && request.resource.data.resolvedAt is timestamp;
+
+      allow delete: if false;
+    }
+
     match /reports/{reportId} {
       allow read: if isAdmin();
       allow create: if signedIn()

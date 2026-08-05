@@ -106,4 +106,67 @@ final class ReliabilityScoreTests: XCTestCase {
         XCTAssertEqual(score.lateCancellations, 0)
         XCTAssertEqual(score.cancellationStreak, 0)
     }
+
+    // MARK: - Who may see it
+
+    /// The roadmap's open question, answered in one place. A couple is two people whatever the
+    /// group calls itself, so the check is the type and not the name.
+    func testACoupleNeverShowsAScore() {
+        let couple = Relationship(
+            id: "rel_1",
+            participantIDs: ["me", "them"],
+            type: .couple,
+            name: "The gang",
+            inviteCode: "MG24KT"
+        )
+
+        XCTAssertFalse(ReliabilityScore.canBeSeen(in: couple))
+    }
+
+    func testAPairedGroupOfFriendsShowsOne() {
+        let friends = Relationship(
+            id: "rel_2",
+            participantIDs: ["me", "them", "third"],
+            type: .friends,
+            inviteCode: "MG7QP2"
+        )
+
+        XCTAssertTrue(ReliabilityScore.canBeSeen(in: friends))
+    }
+
+    /// A score drawn from plans with yourself is not a measurement of anything.
+    func testAGroupNobodyHasJoinedShowsNothing() {
+        let empty = Relationship(
+            id: "rel_3",
+            participantIDs: ["me"],
+            type: .friends,
+            inviteCode: "MG0000"
+        )
+
+        XCTAssertFalse(ReliabilityScore.canBeSeen(in: empty))
+    }
+
+    /// A run of three is the pattern, and it does not need a denominator to mean something —
+    /// which matters because the person it describes usually has very little history.
+    func testARunOfCancellationsIsFlaggedBeforeThereIsEnoughForAPercentage() {
+        var requests: [Request] = []
+        for index in 0..<3 {
+            var request = Request(
+                id: "req_\(index)",
+                creatorID: "me",
+                recipientIDs: ["them"],
+                category: .daily,
+                title: "Plan \(index)",
+                proposedTime: Date().addingTimeInterval(-3600),
+                status: .cancelled
+            )
+            request.updatedAt = Date().addingTimeInterval(TimeInterval(-index * 60))
+            requests.append(request)
+        }
+
+        let score = ReliabilityScore.from(requests: requests, userID: "me")
+
+        XCTAssertNil(score.percentage, "three plans is not enough for a percentage")
+        XCTAssertTrue(score.isCancellingRepeatedly, "and the run should still be visible")
+    }
 }

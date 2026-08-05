@@ -21,7 +21,32 @@ struct ReliabilityCard: View {
             } else {
                 notYet
             }
+
+            // Outside the percentage, deliberately.
+            //
+            // This used to live inside the earned branch, so it only appeared once there were
+            // five settled plans — and somebody who has called off their last three in a row is
+            // very often somebody with fewer than five. The one signal worth noticing was hidden
+            // from exactly the person it is about. A run of three is the pattern; it does not
+            // need a denominator to mean something.
+            if score.isCancellingRepeatedly {
+                cancellationRun
+            }
         }
+    }
+
+    /// Named plainly rather than punitively. The point is that the person notices it, not that
+    /// they are told off — and nobody else sees this card.
+    private var cancellationRun: some View {
+        Label {
+            Text("You've called off your last \(score.cancellationStreak) plans in a row.")
+                .mgFont(.bodySmall)
+        } icon: {
+            Image(systemName: "arrow.uturn.backward")
+                .foregroundStyle(MGColors.warm600)
+        }
+        .foregroundStyle(MGColors.warm600)
+        .mgSurfaceCard()
     }
 
     private var notYet: some View {
@@ -66,13 +91,6 @@ struct ReliabilityCard: View {
                 Spacer(minLength: 0)
             }
 
-            // Named plainly rather than punitively. The point of surfacing a run of
-            // cancellations is that the person notices it, not that they are told off.
-            if score.isCancellingRepeatedly {
-                Text("You've called off your last \(score.cancellationStreak) plans in a row.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
-            }
         }
         .mgSurfaceCard()
     }

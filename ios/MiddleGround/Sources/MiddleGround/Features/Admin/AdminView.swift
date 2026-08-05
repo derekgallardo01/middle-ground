@@ -58,6 +58,10 @@ struct AdminView: View {
                     case .users: usersSection
                     case .requests: requestsSection
                     case .reports: reportsSection
+                    case .disputes:
+                        AdminDisputesSection(disputes: viewModel.disputes) { dispute, resolution in
+                            Task { await viewModel.resolve(dispute, as: resolution) }
+                        }
                     case .events: eventsSection
                     case .outcomes:
                         AdminOutcomesSection(

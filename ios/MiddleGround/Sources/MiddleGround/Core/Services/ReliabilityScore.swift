@@ -100,6 +100,30 @@ struct ReliabilityScore: Equatable, Sendable {
     }
 }
 
+extension ReliabilityScore {
+    /// Whether one person's score may be shown to the others in a group.
+    ///
+    /// The roadmap carried this as an open question — "who can see someone's reliability score?"
+    /// — while the answer already existed in a view model, where a second screen could have
+    /// answered it differently without anybody noticing. It lives here now, beside the thing it
+    /// governs.
+    ///
+    /// **Never inside a couple.** A score your partner can throw back at you is ammunition, not
+    /// feedback, and it is a rule rather than a setting for that reason. The check is the member
+    /// count via `type`, not the group's name, because a couple that calls itself something else
+    /// is still two people.
+    ///
+    /// **Never in a group nobody has joined.** A "score" derived from plans with yourself is not
+    /// a measurement of anything.
+    ///
+    /// `GroupFollowThrough` deliberately does not consult this: it reports on a group's plans
+    /// rather than on a person, names nobody, and cannot be decomposed into per-person figures —
+    /// so the ammunition problem this exists to prevent does not arise there.
+    static func canBeSeen(in relationship: Relationship) -> Bool {
+        relationship.type != .couple && relationship.isPaired
+    }
+}
+
 extension Request {
     /// Called off close enough to the time that the other person had already planned around it.
     ///

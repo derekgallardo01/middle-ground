@@ -903,6 +903,72 @@ describe('rotating an invite code', () => {
   });
 });
 
+describe('plan disputes', () => {
+  // Its own collection so the abuse queue keeps meaning abuse. A dispute may only be raised by
+  // somebody actually on the plan, and only an operator may ever read one.
+  const asRoot = () => testEnv.authenticatedContext('root', { admin: true }).firestore();
+
+  const dispute = (overrides = {}) => ({
+    raisedBy: BOB,
+    requestID: 'r1',
+    planTitle: 'Coffee on Monday',
+    note: 'I waited half an hour.',
+    at: new Date(),
+    ...overrides,
+  });
+
+  beforeEach(() => seed((db) => setDoc(doc(db, 'requests/r1'), request())));
+
+  test('somebody on the plan can raise one', async () => {
+    await assertSucceeds(setDoc(doc(asBob(), 'disputes/d1'), dispute()));
+  });
+
+  test('somebody who is not on the plan cannot', async () => {
+    await assertFails(setDoc(doc(asMallory(), 'disputes/d2'), dispute({ raisedBy: MALLORY })));
+  });
+
+  test('one cannot be raised in somebody else name', async () => {
+    await assertFails(setDoc(doc(asBob(), 'disputes/d3'), dispute({ raisedBy: ALICE })));
+  });
+
+  test('a plan that does not exist cannot be disputed', async () => {
+    await assertFails(setDoc(doc(asBob(), 'disputes/d4'), dispute({ requestID: 'nope' })));
+  });
+
+  test('extra fields are refused', async () => {
+    await assertFails(
+      setDoc(doc(asBob(), 'disputes/d5'), dispute({ resolution: 'actioned' })),
+    );
+  });
+
+  test('the person who raised it cannot read it back', async () => {
+    // Deliberate: a queue somebody can read is a queue they can audit for who else complained.
+    await seed((db) => setDoc(doc(db, 'disputes/d1'), dispute()));
+    await assertFails(getDoc(doc(asBob(), 'disputes/d1')));
+  });
+
+  test('an admin can read and decide', async () => {
+    await seed((db) => setDoc(doc(db, 'disputes/d1'), dispute()));
+    await assertSucceeds(getDoc(doc(asRoot(), 'disputes/d1')));
+    await assertSucceeds(updateDoc(doc(asRoot(), 'disputes/d1'), {
+      resolution: 'dismissed',
+      resolvedBy: 'root',
+      resolvedAt: new Date(),
+    }));
+  });
+
+  test('an admin cannot alter what was said', async () => {
+    await seed((db) => setDoc(doc(db, 'disputes/d1'), dispute()));
+    await assertFails(updateDoc(doc(asRoot(), 'disputes/d1'), { note: 'never mind' }));
+  });
+
+  test('nobody can delete one', async () => {
+    await seed((db) => setDoc(doc(db, 'disputes/d1'), dispute()));
+    await assertFails(deleteDoc(doc(asRoot(), 'disputes/d1')));
+    await assertFails(deleteDoc(doc(asBob(), 'disputes/d1')));
+  });
+});
+
 describe('abuse reports', () => {
   const report = (overrides = {}) => ({
     reporterID: BOB,

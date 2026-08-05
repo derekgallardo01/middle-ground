@@ -66,6 +66,20 @@ struct OnboardingView: View {
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
+        // Somebody who arrived on an invite link is joining, and we know it rather than
+        // guessing — which is what the segmented picker's default could never do. Both on
+        // appear and on change, because the link may have launched the app or arrived while
+        // it was already open.
+        .task { takeInviteCode() }
+        .onChange(of: appState.pendingInviteCode) { _, _ in takeInviteCode() }
+    }
+
+    /// Fills the code in and switches to joining, once.
+    private func takeInviteCode() {
+        guard let code = appState.pendingInviteCode else { return }
+        viewModel.inviteCodeInput = code
+        viewModel.pairingMode = .join
+        appState.pendingInviteCode = nil
     }
 
     private var stepIndicator: some View {
@@ -275,12 +289,12 @@ struct OnboardingView: View {
                     // makes, immediately after creating their group. The recipient got a code
                     // for an app they had no way to reach.
                     ShareLink(
-                        item: AppConfiguration.appStoreURL,
+                        item: AppConfiguration.inviteURL(code: code),
                         subject: Text("Join me on Middle Ground"),
                         message: Text("""
                         Join me on Middle Ground — my invite code is \(code)
 
-                        Get the app, then enter the code in Profile → Connect.
+                        Open the link and it will walk you through it — the code is already in it.
                         """)
                     ) {
                         Label("Share invite", systemImage: "square.and.arrow.up")

@@ -30,12 +30,12 @@ struct PlanInviteRow: View {
                         .tracking(3)
 
                     ShareLink(
-                        item: AppConfiguration.appStoreURL,
+                        item: AppConfiguration.inviteURL(code: code),
                         subject: Text(planTitle),
                         message: Text("""
                         Join me for "\(planTitle)" on Middle Ground — the code is \(code)
 
-                        Get the app, then enter the code in Profile → Connect.
+                        Open the link and it will walk you through it — the code is already in it.
                         """)
                     ) {
                         Label("Share", systemImage: "square.and.arrow.up")

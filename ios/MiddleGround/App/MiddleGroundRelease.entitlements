@@ -23,6 +23,10 @@
 	  Keep this in step with the generated MiddleGround.entitlements — any capability added
 	  there has to be added here too, or it will work in Debug and vanish in Release.
 	-->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:seekmiddleground.com</string>
+	</array>
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>

@@ -50,6 +50,14 @@
 	# `route` preserves the order written here. Top-level directives are otherwise sorted by
 	# Caddy's own fixed precedence, which is how "redirect before try_files" silently becomes
 	# "try_files before redirect" and the redirects never fire.
+	# Apple fetches this to decide whether an invite link may open the app. Two things it is
+	# strict about, both of which fail silently: the path is exact and extensionless, and the
+	# type must be application/json — Caddy would otherwise serve an extensionless file as
+	# application/octet-stream and iOS would quietly ignore the whole thing.
+	@aasa path /.well-known/apple-app-site-association
+	header @aasa Content-Type "application/json"
+	header @aasa Cache-Control "public, max-age=3600"
+
 	route {
 		# Paths that exist in shipped binaries and in App Store Connect metadata. These must
 		# keep resolving for as long as any build referencing them is installed anywhere.
@@ -63,6 +71,11 @@
 		# and try_files then resolves that back to the file on disk without another redirect.
 		@html path_regexp html ^/(.+)\.html$
 		redir @html /{re.html.1} 301
+
+		# Every invite lands on the same page; the code is in the URL, not the document. Placed
+		# before try_files because /join/MG24KT is not a file and would otherwise 404 into the
+		# error handler — which is precisely the person we least want to lose.
+		rewrite /join/* /join.html
 
 		try_files {path} {path}/index.html {path}.html
 		file_server

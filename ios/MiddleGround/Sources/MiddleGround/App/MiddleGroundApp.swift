@@ -17,6 +17,12 @@ public struct MiddleGroundRootView: View {
             }
         }
         .environment(appState)
+        // An invite link. Parked on AppState rather than acted on here, because at this moment
+        // we may not know who this is yet — see `pendingInviteCode`.
+        .onOpenURL { url in
+            guard let code = Relationship.inviteCode(fromLink: url) else { return }
+            appState.pendingInviteCode = code
+        }
         // Cloud Functions set the badge to the user's pending count; without this it would
         // never come back down, so the icon kept a number long after everything was answered.
         .onChange(of: scenePhase) { _, phase in

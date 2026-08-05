@@ -151,6 +151,25 @@ extension Relationship {
         String((0..<length).compactMap { _ in inviteCodeAlphabet.randomElement() })
     }
 
+    /// The invite code carried by a universal link, if that is what this URL is.
+    ///
+    /// Deliberately strict. It accepts `https://seekmiddleground.com/join/MG24KT` and nothing
+    /// else — not a bare path, not another host, not a longer trail of segments — because a URL
+    /// that merely *looks* like an invite would silently drop somebody into a join they never
+    /// asked for. Anything unrecognised returns nil and the link opens the web page instead,
+    /// which is the safe direction to fail.
+    static func inviteCode(fromLink url: URL) -> String? {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.scheme == "https",
+              components.host == "seekmiddleground.com" else { return nil }
+
+        let parts = components.path.split(separator: "/", omittingEmptySubsequences: true)
+        guard parts.count == 2, parts[0] == "join" else { return nil }
+
+        let code = normalizeInviteCode(String(parts[1]))
+        return code.count == inviteCodeLength ? code : nil
+    }
+
     /// Normalises user input so "abc-123" and "ABC123" match the same code.
     static func normalizeInviteCode(_ raw: String) -> String {
         raw.uppercased().filter { inviteCodeAlphabet.contains($0) }

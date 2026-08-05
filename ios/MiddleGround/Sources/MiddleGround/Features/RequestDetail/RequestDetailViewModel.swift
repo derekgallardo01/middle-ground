@@ -59,7 +59,17 @@ final class RequestDetailViewModel {
     let messagesTask = TaskBox()
     var didCancel = false
     var showReschedulePicker = false
-    var proposedNewTime = Date().addingTimeInterval(3600)
+    /// See `clashChecker`.
+    var proposedNewTime = Date().addingTimeInterval(3600) {
+        didSet { clashChecker.check(proposedNewTime) }
+    }
+    /// Whether the chosen time collides with something already on this device's calendar.
+    ///
+    /// Neither the reschedule sheet nor the counter composer had any check at all: the warning
+    /// existed only when *proposing* a plan, so the app flagged a double-booking on the way in
+    /// and said nothing on the way back. Suggesting a new time is when somebody is most likely
+    /// to pick badly, because they are working around a conflict rather than starting fresh.
+    let clashChecker = CalendarClashChecker()
 
     /// Sends `.reschedule` with a new proposed time. Until now this response type had an
     /// emoji, label, XP rule, colour and status mapping — and no way to trigger it.
@@ -133,44 +143,6 @@ final class RequestDetailViewModel {
         let encoded = place.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         return URL(string: "https://maps.apple.com/?q=\(encoded)")
             ?? URL(string: "https://maps.apple.com")!
-    }
-
-    // MARK: - Inviting someone to just this plan
-
-    /// Whether this plan can be opened up to someone outside your groups.
-    var canInviteToPlan: Bool {
-        guard let currentUserID else { return false }
-        return request.creatorID == currentUserID && request.isOpen
-    }
-
-    var planInviteCode: String? {
-        request.planInviteCode.flatMap { $0.isEmpty ? nil : $0 }
-    }
-
-    func createPlanInvite() async {
-        guard let currentUserID else { return }
-        isSending = true
-        errorMessage = nil
-        defer { isSending = false }
-        do {
-            request = try await requestService.createPlanInvite(for: request, by: currentUserID)
-            Haptics.shared.impact(.light)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    func revokePlanInvite() async {
-        guard let currentUserID else { return }
-        isSending = true
-        errorMessage = nil
-        defer { isSending = false }
-        do {
-            request = try await requestService.revokePlanInvite(for: request, by: currentUserID)
-            Haptics.shared.impact(.light)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
     }
 
     // MARK: - Points on the plan
@@ -414,7 +386,9 @@ final class RequestDetailViewModel {
     }
 
     /// A time attached to the counter being written, if the user picked one.
-    var counterProposedTime: Date?
+    var counterProposedTime: Date? {
+        didSet { clashChecker.check(counterProposedTime) }
+    }
 
     /// `newTime` moves the proposed time along with the response.
     ///

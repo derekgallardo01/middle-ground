@@ -458,6 +458,13 @@ struct RequestDetailView: View {
                 .datePickerStyle(.graphical)
                 .tint(MGColors.indigo)
 
+                CalendarClashRow(
+                    availability: viewModel.clashChecker.availability,
+                    accessGranted: viewModel.clashChecker.accessGranted
+                ) {
+                    Task { await viewModel.clashChecker.requestAccess(then: viewModel.proposedNewTime) }
+                }
+
                 Spacer()
             }
             .padding()

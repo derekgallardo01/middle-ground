@@ -77,41 +77,19 @@ final class CreateRequestViewModel {
 
     // MARK: - Calendar clashes
 
-    private let calendarService = Container.shared.calendarConflictService()
+    /// Shared with the reschedule and counter pickers — see `CalendarClashChecker`, which is
+    /// where the debounce and the "could not look is not free" rule now live.
+    let clashChecker = CalendarClashChecker()
 
-    /// Whether the proposed time collides with something already in the user's calendar.
-    ///
-    /// `.unknown` when access has not been granted, and the UI says nothing in that case — the
-    /// one thing this must never do is imply a slot is free when the app simply could not look.
-    private(set) var availability: CalendarAvailability = .unknown
+    var availability: CalendarAvailability { clashChecker.availability }
+    var calendarAccessGranted: Bool { clashChecker.accessGranted }
 
-    var calendarAccessGranted: Bool { calendarService.hasAccess }
-
-    private var availabilityCheck: Task<Void, Never>?
-
-    /// Coalesces the flurry of updates a date picker emits while the user scrubs through times.
     private func scheduleAvailabilityCheck() {
-        availabilityCheck?.cancel()
-        guard includeTime, calendarService.hasAccess else {
-            availability = .unknown
-            return
-        }
-        let time = proposedTime
-        availabilityCheck = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(250))
-            guard !Task.isCancelled, let self else { return }
-            let result = await calendarService.availability(
-                at: time,
-                duration: CalendarConflictService.assumedDuration
-            )
-            guard !Task.isCancelled else { return }
-            self.availability = result
-        }
+        clashChecker.check(includeTime ? proposedTime : nil)
     }
 
     func enableCalendarChecks() async {
-        await calendarService.requestAccess()
-        scheduleAvailabilityCheck()
+        await clashChecker.requestAccess(then: includeTime ? proposedTime : nil)
     }
     var recipientID: String = ""
 

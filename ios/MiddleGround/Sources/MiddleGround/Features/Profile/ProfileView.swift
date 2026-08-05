@@ -11,6 +11,13 @@ struct ProfileView: View {
     // Not private: the pairing sections live in their own file, and `private` is
     // file-scoped.
     @State var viewModel = ProfileViewModel()
+
+    /// Fills a code from a link into whichever join field is on screen, once.
+    private func takeInviteCode() {
+        guard let code = appState.pendingInviteCode else { return }
+        viewModel.joinCodeInput = code
+        appState.pendingInviteCode = nil
+    }
     @State private var showDeleteConfirmation = false
     @State private var relationshipToLeave: Relationship?
 
@@ -38,7 +45,14 @@ struct ProfileView: View {
             // saying "Share this code so someone can join you" until the app was force-quit.
             // Pairing is the one thing that happens to you rather than because of you, and
             // this is the screen where you would look for it.
-            .task { await viewModel.refresh() }
+            .task {
+                await viewModel.refresh()
+                takeInviteCode()
+            }
+            // An invite link tapped by somebody who already has an account. The field is filled
+            // in for them; joining stays a deliberate tap, because a link should not enrol
+            // anybody in anything on its own.
+            .onChange(of: appState.pendingInviteCode) { _, _ in takeInviteCode() }
             .refreshable { await viewModel.refresh() }
             // Only on a genuine return from the background. `scenePhase` also flips to
             // `.active` during the first appearance, so an unguarded hook re-ran the whole
@@ -134,12 +148,12 @@ struct ProfileView: View {
                     // definition someone who does not have the app yet, and a bare code gives
                     // them nothing to act on.
                     ShareLink(
-                        item: AppConfiguration.appStoreURL,
+                        item: AppConfiguration.inviteURL(code: code),
                         subject: Text("Join me on Middle Ground"),
                         message: Text("""
                         Join me on Middle Ground — my invite code is \(code)
 
-                        Get the app, then enter the code in Profile → Connect.
+                        Open the link and it will walk you through it — the code is already in it.
                         """)
                     ) {
                         Label("Share invite", systemImage: "square.and.arrow.up")

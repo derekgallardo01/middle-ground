@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "9U3ZSABZG7.app.middleground.MiddleGround"
+        ],
+        "components": [
+          {
+            "/": "/join/*",
+            "comment": "Invite links"
+          }
+        ]
+      }
+    ]
+  }
+}

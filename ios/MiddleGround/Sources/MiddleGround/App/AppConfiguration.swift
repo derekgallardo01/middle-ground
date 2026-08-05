@@ -89,6 +89,16 @@ enum AppConfiguration {
     static let termsURL = webRoot.appending(path: "terms")
     static let supportURL = webRoot.appending(path: "support")
 
+    /// The link that carries an invite code through an install.
+    ///
+    /// Shared instead of a bare App Store URL, so the code travels as data rather than as prose
+    /// somebody has to notice and retype. With the app installed it opens straight to joining;
+    /// without it, it opens a page that holds the code somewhere the recipient can come back to.
+    /// The App Store link lives on that page.
+    static func inviteURL(code: String) -> URL {
+        webRoot.appending(path: "join").appending(path: code)
+    }
+
     /// The App Store listing, shared alongside an invite code.
     ///
     /// Without this the invite is unusable by the one person it is aimed at: someone who does

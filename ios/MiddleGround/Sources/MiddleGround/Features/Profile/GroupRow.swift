@@ -102,12 +102,12 @@ struct GroupRow: View {
                 .tracking(2)
 
             ShareLink(
-                item: AppConfiguration.appStoreURL,
+                item: AppConfiguration.inviteURL(code: relationship.inviteCode),
                 subject: Text("Join me on Middle Ground"),
                 message: Text("""
                 Join me on Middle Ground — my invite code is \(relationship.inviteCode)
 
-                Get the app, then enter the code in Profile → Connect.
+                Open the link and it will walk you through it — the code is already in it.
                 """)
             ) {
                 Image(systemName: "square.and.arrow.up")

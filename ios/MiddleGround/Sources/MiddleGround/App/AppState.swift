@@ -23,6 +23,17 @@ final class AppState {
     /// is silently dropped. Buffering it lets Home open the request as soon as it arrives.
     var pendingRequestID: String?
 
+    /// An invite code from a link somebody tapped, waiting for a screen that can use it.
+    ///
+    /// It arrives before we know who this is or whether they have finished onboarding, so it is
+    /// parked here rather than pushed at a view. Onboarding takes it if the person is new;
+    /// Profile takes it if they are not. Cleared once used, so it cannot be redeemed twice.
+    ///
+    /// This is the whole point of the universal link: without it the code can only travel as
+    /// prose in a message, and the recipient has to notice it, copy it, and retype it after an
+    /// App Store detour.
+    var pendingInviteCode: String?
+
     enum Tab {
         case home
         case calendar

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import html
 import re
+import json
 import shutil
 from datetime import date
 from pathlib import Path
@@ -104,6 +105,20 @@ PAGES = [
         "Support",
         "How to get help with Middle Ground, and how to reach a human.",
         LEGAL / "support.md",
+    ),
+    # Where an invite link lands, and the reason a code can now survive an install.
+    #
+    # Every path under /join/ serves this page — see site/Caddyfile. The code is in the URL
+    # rather than the page body, because the page is built once and the codes are not; what the
+    # page does is give the code somewhere to live that a recipient can return to, instead of a
+    # message they scrolled past on the way to the App Store.
+    #
+    # Deliberately not in the nav: it is for people arriving from a link, not browsing.
+    Page(
+        "join",
+        "You've been invited",
+        "Someone invited you to make plans with them on Middle Ground.",
+        CONTENT / "join.md",
     ),
     Page(
         "404",
@@ -611,9 +626,14 @@ def build_page(page: Page) -> str:
     )
 
 
+# Pages that exist to be arrived at, not found. `/join` without a code in the path helps
+# nobody, and an indexed invite page is a search result promising something it cannot deliver.
+UNLISTED = {"404", "join"}
+
+
 def write_sitemap() -> None:
     urls = "\n".join(
-        f"  <url><loc>{p.url}</loc></url>" for p in PAGES if p.slug != "404"
+        f"  <url><loc>{p.url}</loc></url>" for p in PAGES if p.slug not in UNLISTED
     )
     (DIST / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -645,6 +665,44 @@ def write_manifest() -> None:
     )
 
 
+# The Apple team and bundle that own the app, and therefore the only build allowed to claim
+# these links. From ios/MiddleGround/App/project.yml — DEVELOPMENT_TEAM and
+# PRODUCT_BUNDLE_IDENTIFIER. If either changes, universal links stop working silently.
+APP_ID = "9U3ZSABZG7.app.middleground.MiddleGround"
+
+
+def write_association_file() -> None:
+    """Lets an invite link open the app instead of a web page.
+
+    Without this an invite code can only travel as prose in a message, and the recipient has to
+    notice it, copy it, and retype it after installing — the single largest drop in the funnel.
+
+    Two details that fail silently if wrong. It must be served at exactly
+    `/.well-known/apple-app-site-association`, with **no** `.json` extension, and with
+    `Content-Type: application/json` — see site/Caddyfile, which sets that header, because Caddy
+    would otherwise serve an extensionless file as octet-stream and iOS would ignore it. Apple
+    fetches this through its own CDN, so a change can take a while to be believed.
+    """
+    association = {
+        "applinks": {
+            "details": [
+                {
+                    "appIDs": [APP_ID],
+                    # Only the invite path. Claiming "/" would route the privacy policy and the
+                    # changelog into the app too, which is worse for everyone: those links are
+                    # read by people who do not have it.
+                    "components": [{"/": "/join/*", "comment": "Invite links"}],
+                }
+            ]
+        }
+    }
+    well_known = DIST / ".well-known"
+    well_known.mkdir(parents=True, exist_ok=True)
+    (well_known / "apple-app-site-association").write_text(
+        json.dumps(association, indent=2) + "\n", encoding="utf-8"
+    )
+
+
 def main() -> None:
     DIST.mkdir(parents=True, exist_ok=True)
     if DIST.exists():
@@ -668,6 +726,7 @@ def main() -> None:
 
     write_sitemap()
     write_manifest()
+    write_association_file()
     print("  wrote sitemap.xml, robots.txt, site.webmanifest")
     print(f"\nsite/dist is ready ({len(list(DIST.iterdir()))} files)")
 

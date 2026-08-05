@@ -50,12 +50,12 @@ struct InvitePrompt: View {
                     )
 
                 ShareLink(
-                    item: AppConfiguration.appStoreURL,
+                    item: AppConfiguration.inviteURL(code: code),
                     subject: Text("Join me on Middle Ground"),
                     message: Text("""
                     Join me on Middle Ground — my invite code is \(code)
 
-                    Get the app, then enter the code in Profile → Connect.
+                    Open the link and it will walk you through it — the code is already in it.
                     """)
                 ) {
                     Label("Share invite", systemImage: "square.and.arrow.up")

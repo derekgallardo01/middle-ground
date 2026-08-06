@@ -40,6 +40,37 @@ public final class AppDelegate: NSObject, UIApplicationDelegate {
         Task { await NotificationService.shared.registerIfAlreadyAuthorized() }
         return true
     }
+
+    /// Hands the APNs device token to Firebase Messaging.
+    ///
+    /// This is the line the whole notification system rests on, and it lived in the wrong class:
+    /// it was declared on `MGAppCheckProviderFactory`, which is not an app delegate, so UIKit
+    /// never called it. `FirebaseAppDelegateProxyEnabled` is `false` in project.yml — set there
+    /// *because a comment said this delegate handled the token* — so nothing swizzled it either.
+    ///
+    /// FCM therefore never had an APNs token, could not mint a usable registration token, and no
+    /// push has ever reached a device. Zero rows in `user_tokens` was the symptom; this was the
+    /// cause, and it looked correct from every angle except being asked which class it was on.
+    ///
+    /// The proxy stays disabled. Doing this explicitly is the right choice — it simply has to be
+    /// true.
+    public func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        guard AppConfiguration.isBackendEnabled else { return }
+        Messaging.messaging().apnsToken = deviceToken
+        MGLog.notifications.info("APNs device token registered with Messaging.")
+    }
+
+    public func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        MGLog.notifications.error(
+            "Failed to register for remote notifications: \(error.localizedDescription, privacy: .public)"
+        )
+    }
 }
 
 /// Chooses an App Check attestation provider.
@@ -60,22 +91,5 @@ final class MGAppCheckProviderFactory: NSObject, AppCheckProviderFactory {
         // App Attest needs iOS 14+; the deployment target is 17.
         return AppAttestProvider(app: app)
         #endif
-    }
-
-    public func application(
-        _ application: UIApplication,
-        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
-    ) {
-        guard AppConfiguration.isBackendEnabled else { return }
-        Messaging.messaging().apnsToken = deviceToken
-    }
-
-    public func application(
-        _ application: UIApplication,
-        didFailToRegisterForRemoteNotificationsWithError error: Error
-    ) {
-        MGLog.notifications.error(
-            "Failed to register for remote notifications: \(error.localizedDescription, privacy: .public)"
-        )
     }
 }

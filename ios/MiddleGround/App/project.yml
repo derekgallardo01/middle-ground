@@ -29,7 +29,13 @@ settings:
     CURRENT_PROJECT_VERSION: "$(MG_BUILD_NUMBER:default=1)"
     SWIFT_VERSION: "5.10"
     DEVELOPMENT_LANGUAGE: en
-    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    # NO, and only because of the Crashlytics dSYM upload below.
+    #
+    # The upload script reads the built dSYMs and reaches the network, which sandboxing forbids —
+    # it fails with a permission error that reads like a broken script rather than a policy. The
+    # alternative is symbol-less crash reports, which is what shipped: Crashlytics received every
+    # crash and could not turn any of them into a stack frame.
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
     SWIFT_STRICT_CONCURRENCY: complete
 
 packages:
@@ -110,6 +116,12 @@ targets:
         # Cloud Functions never sending `content-available` — is a Guideline 2.5.4
         # rejection. Alert-style pushes do not need it.
         # AppDelegate sets the APNs token explicitly, so Firebase must not swizzle it.
+        #
+        # That sentence was false for the life of this setting: the callback was declared on
+        # MGAppCheckProviderFactory, which UIKit never calls, so nothing set the token and
+        # nothing swizzled it either — push could not reach a device. The callback is on
+        # AppDelegate now, which is what makes disabling the proxy the right choice rather than
+        # a silent breakage.
         FirebaseAppDelegateProxyEnabled: false
         UILaunchScreen:
           UIColorName: LaunchBackground
@@ -151,6 +163,38 @@ targets:
     #
     # Adding a capability means editing BOTH MiddleGround.entitlements and
     # MiddleGroundRelease.entitlements, or it will work in Debug and vanish in Release.
+
+    # Sends debug symbols to Crashlytics, which is what turns a crash report into a stack trace.
+    #
+    # Without this every report arrives as raw addresses and Firebase files it under "missing
+    # dSYM" — the crashes were being received the whole time and none of them was readable.
+    # ExportOptions.plist also sets `uploadSymbols`, but that sends them to App Store Connect,
+    # which is a different destination and does not reach Firebase.
+    #
+    # Needs ENABLE_USER_SCRIPT_SANDBOXING: NO — see the note on that setting.
+    postBuildScripts:
+      - name: Upload dSYMs to Crashlytics
+        basedOnDependencyAnalysis: false
+        # The binary ships inside the SwiftPM checkout, so the path is derived from BUILD_DIR
+        # rather than a pod. `-gsp` points at the plist so the upload lands in the right project.
+        script: |
+          CRASHLYTICS="${BUILD_DIR%/Build/*}/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run"
+          PLIST="${SRCROOT}/GoogleService-Info.plist"
+          # Warn and carry on rather than failing. The plist is gitignored and absent in mock
+          # mode and on a fresh clone, and a missing symbol upload is not a reason to refuse to
+          # build — the first version of this made it one.
+          if [ ! -f "$CRASHLYTICS" ]; then
+            echo "warning: Crashlytics run script not found — dSYMs were not uploaded."
+            exit 0
+          fi
+          if [ ! -f "$PLIST" ]; then
+            echo "warning: no GoogleService-Info.plist — dSYMs were not uploaded."
+            exit 0
+          fi
+          "$CRASHLYTICS" -gsp "$PLIST"
+        inputFiles:
+          - ${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${TARGET_NAME}
+          - $(SRCROOT)/$(BUILT_PRODUCTS_DIR)/$(INFOPLIST_PATH)
 
   # Drives the app on a simulator so flows are verified by running, not just compiling.
   # The package's unit tests cover logic; this covers the things only a launch can prove.

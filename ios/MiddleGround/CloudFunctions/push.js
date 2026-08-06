@@ -79,13 +79,22 @@ function isAwaitingReplyFrom(request, userId) {
  * `recipientIDs` at all. So the badge stayed silent on every negotiation in flight. Membership
  * plus open status narrows it in the query; whose turn it is has to be computed, because it
  * depends on the last message in the chain.
+ *
+ * Bounded because this is the most frequently executed read in the system — it runs on every
+ * push, once per recipient — and it was unbounded. The result is a badge number, and iOS clamps
+ * what it shows long before this; nobody has 200 open plans, and if they somehow did, "200" on
+ * the icon says everything "237" would. The cap costs nothing and turns an unbounded fan-out into
+ * a fixed one.
  */
+const MAX_BADGE_COUNT = 200;
+
 async function pendingCountFor(userId) {
   try {
     const snapshot = await db()
       .collection('requests')
       .where('allParticipantIDs', 'array-contains', userId)
       .where('status', 'in', OPEN_STATUSES)
+      .limit(MAX_BADGE_COUNT)
       .get();
     return snapshot.docs.filter((doc) => isAwaitingReplyFrom(doc.data(), userId)).length;
   } catch (error) {

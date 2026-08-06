@@ -24,10 +24,13 @@ function docSnapshot(id, data) {
 
 /** Just enough Firestore for push.js: two document reads, one filtered query, one update. */
 function fakeFirestore() {
-  const query = (name, filters) => ({
-    where: (field, op, value) => query(name, [...filters, { field, op, value }]),
+  const query = (name, filters, cap) => ({
+    where: (field, op, value) => query(name, [...filters, { field, op, value }], cap),
+    // Real Firestore truncates server-side, so the fake has to as well — a `limit` that only
+    // exists in production is a cap nothing can test.
+    limit: (count) => query(name, filters, count),
     get: async () => {
-      const docs = Object.entries(store[name] || {})
+      const matches = Object.entries(store[name] || {})
         .filter(([, data]) =>
           filters.every(({ field, op, value }) => {
             if (op === 'array-contains') return (data[field] || []).includes(value);
@@ -36,13 +39,14 @@ function fakeFirestore() {
           }),
         )
         .map(([id, data]) => docSnapshot(id, data));
+      const docs = cap === undefined ? matches : matches.slice(0, cap);
       return { docs, empty: docs.length === 0, size: docs.length };
     },
   });
 
   return {
     collection: (name) => ({
-      ...query(name, []),
+      ...query(name, [], undefined),
       doc: (id) => ({
         get: async () => docSnapshot(id, (store[name] || {})[id]),
         update: async (changes) => Object.assign(store[name][id], changes),
@@ -149,6 +153,23 @@ describe('badge count', () => {
     };
 
     assert.equal(await badgeAfterNotifying('alice'), 1);
+  });
+
+  // This query runs on every push, once per recipient, and was unbounded — the most frequently
+  // executed read in the system with no ceiling on it. The number it produces is a badge, and
+  // "200" on an app icon says everything a larger number would.
+  test('the badge query is capped rather than reading everything open', async () => {
+    for (let i = 0; i < 260; i += 1) {
+      store.requests[`r${i}`] = {
+        status: 'pending',
+        creatorID: 'bob',
+        recipientIDs: ['alice'],
+        allParticipantIDs: ['alice', 'bob'],
+        negotiationChain: [],
+      };
+    }
+
+    assert.equal(await badgeAfterNotifying('alice'), 200);
   });
 
   test('does not count a request waiting on the other person', async () => {

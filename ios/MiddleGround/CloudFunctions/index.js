@@ -17,7 +17,7 @@
  */
 
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldPath } = require('firebase-admin/firestore');
 const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } =
   require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
@@ -28,6 +28,7 @@ const functionsV1 = require('firebase-functions/v1');
 const { getUserName, notifyUsers, getUserTimeZone, DEFAULT_TIME_ZONE, NotificationType } =
   require('./push');
 const { formatPlanTime } = require('./time');
+const { pagedDocs, mapWithConcurrency } = require('./paging');
 const { purgeUserData } = require('./purge');
 const { sendAlert, when } = require('./alerts');
 
@@ -399,35 +400,50 @@ exports.remindBeforePlan = onSchedule(
  * the fastest way to teach someone this app does not know what it is talking about.
  */
 const NUDGE_HISTORY_LIMIT = 50;
+const NUDGE_PAGE_SIZE = 200;
+/**
+ * How many users are evaluated at once.
+ *
+ * Each one costs a Firestore query and possibly a name lookup and a send, and `Promise.all` over
+ * every user in the database started all of them simultaneously. At a few users that is invisible;
+ * it is also precisely the kind of thing that stops being invisible without warning, because the
+ * failure is a burst rather than a slow climb.
+ */
+const NUDGE_CONCURRENCY = 20;
 
 exports.weeklyNudge = onSchedule(
   { schedule: '0 10 * * 4', timeZone: 'America/New_York' },
   async () => {
-    // Reading every user and every relationship is honest at this size and will not stay that
-    // way. The shape that scales is a per-user scheduled fan-out (a task queue keyed by user),
-    // and the moment to build it is when this function's runtime becomes visible — not before.
-    const [users, relationships] = await Promise.all([
-      db().collection('users').get(),
-      db().collection('relationships').get(),
-    ]);
-
+    // Still reads every user and every relationship — that is inherent to "nudge whoever is
+    // quiet", and the shape that removes it is a per-user task queue. What has changed is that
+    // nothing is now unbounded *within* the run: documents arrive a page at a time and the
+    // per-user work runs a fixed number at a time, so the run gets slower as the database grows
+    // rather than falling over at some unknown size.
     const groupsByUser = new Map();
-    relationships.forEach((doc) => {
-      const group = doc.data();
-      const members = group.participantIDs || [];
-      // Was `!== 2`, which silently exempted every group of three or more from the one
-      // message aimed at quiet groups — while the setting that turns it on says "a group".
-      if (members.length < 2) return; // Unpaired: there is nobody to plan with yet.
-      members.forEach((id) => {
-        if (!groupsByUser.has(id)) groupsByUser.set(id, []);
-        groupsByUser.get(id).push({ id: doc.id, ...group });
+    for await (const docs of pagedDocs(db, FieldPath, 'relationships', NUDGE_PAGE_SIZE)) {
+      docs.forEach((doc) => {
+        const group = doc.data();
+        const members = group.participantIDs || [];
+        // Was `!== 2`, which silently exempted every group of three or more from the one
+        // message aimed at quiet groups — while the setting that turns it on says "a group".
+        if (members.length < 2) return; // Unpaired: there is nobody to plan with yet.
+        members.forEach((id) => {
+          if (!groupsByUser.has(id)) groupsByUser.set(id, []);
+          groupsByUser.get(id).push({ id: doc.id, ...group });
+        });
       });
-    });
+    }
 
-    const nudged = await Promise.all(
-      users.docs.map((doc) => nudgeIfQuiet(doc.id, groupsByUser.get(doc.id) || [])),
-    );
-    console.log(`Nudged ${nudged.filter(Boolean).length} of ${users.size} user(s)`);
+    let considered = 0;
+    let nudged = 0;
+    for await (const docs of pagedDocs(db, FieldPath, 'users', NUDGE_PAGE_SIZE)) {
+      considered += docs.length;
+      const results = await mapWithConcurrency(docs, NUDGE_CONCURRENCY, (doc) =>
+        nudgeIfQuiet(doc.id, groupsByUser.get(doc.id) || []),
+      );
+      nudged += results.filter(Boolean).length;
+    }
+    console.log(`Nudged ${nudged} of ${considered} user(s)`);
   }
 );
 

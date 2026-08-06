@@ -157,9 +157,83 @@ with the checkmarks.
 
 ---
 
+---
+
+## Infrastructure and configuration
+
+Checked because the repo saying something and production doing it are different claims — an
+index file that had never deployed was a real bug here once.
+
+| Check | Result |
+|---|---|
+| Deployed security rules vs repo | ✅ identical (sha256 match), released 2026-08-05 |
+| Composite indexes | ✅ 10 READY, and repo ↔ production now agree exactly |
+| TTL policies | ✅ active on `events`, `locations`, `presence` |
+| Secrets in git | ✅ none tracked; `GoogleService-Info.plist` and `.env` both ignored |
+| Legal pages, AASA, `/join/*` | ✅ all 200; AASA serves `application/json` with the right app ID |
+| App Check enforcement | ⚠️ **off — and must stay off**, see below |
+
+**Three dead indexes were deleted.** `requests` carried composite indexes on `recipientIDs` and
+`creatorID` — the query shape from before turn-taking. Nothing in the app, the functions or the
+scripts queries those fields any more; everything moved to `allParticipantIDs`. They were absent
+from `firestore.indexes.json`, so the repo was not the source of truth, and every write to a
+request was updating three indexes that served no query.
+
+**App Check must not be enforced yet.** Enforcement is `UNSPECIFIED` (off) for Firestore and
+Storage, which matches the intent documented in `AppDelegate`. What is new is the evidence: across
+all three App Check metrics there are **zero verifications in 14 days**, and **zero debug tokens**
+are registered. App Attest *is* configured for the iOS app (1-hour TTL), and the entitlement
+shipped today — but nothing has ever passed verification, including the physical device. Turning
+enforcement on now would lock every client out of Firestore, including the build in App Review.
+The simulator would fail too: it uses `AppCheckDebugProvider`, whose token is rejected while no
+debug token is registered.
+
+---
+
+## Account deletion
+
+Guideline 5.1.1(v). `onUserDeleted` has run 11 times in production, so the cascade is live.
+
+| Data | Before | After |
+|---|---|---|
+| `users`, `user_tokens`, `gamification`, `notification_settings` | ✅ deleted | ✅ |
+| `invites`, `relationships`, `requests`, `events`, `messages` | ✅ deleted | ✅ |
+| `availability` (blocked days) | ❌ **survived, permanently — no TTL** | ✅ deleted |
+| `locations` (coordinates) | ❌ **survived until TTL** | ✅ deleted |
+| `reads`, `presence` | ❌ survived | ✅ deleted |
+| `reports` | retained deliberately — a safety record about somebody else | unchanged |
+| `plan_outcomes`, `booking_intents` | retained — anonymous by contract, no user or plan id | unchanged |
+
+Four subcollections keyed by uid were never swept. No collection-group query can reach them,
+because the uid is the document id rather than a field — which is why nothing caught it. Both
+existing purge loops already visited the right parents, so the fix was four deletes inside loops
+that were already running. Two tests cover it; both fail if the sweeps are removed.
+
+---
+
+## Admin surface
+
+Every admin test runs under `-MGMockMode`, so the whole surface was UI-only. Production showed
+exactly that shape: 17 `admin_audit` rows from viewing requests, and nothing in `venues` or
+`reports`.
+
+| Path | Evidence |
+|---|---|
+| Admin read | ✅ 17 `admin_audit` entries (16 `viewed_request`, 1 `verification`) |
+| Admin write | ✅ a venue created through the real rules with a real custom claim |
+| Report moderation | ⬜ still unexercised — `reports` is empty and filing one is a user action |
+
+The write was proven by granting the claim to the test account temporarily. Both the test venue
+and the claim were removed afterwards: a venue shows up as a suggestion when somebody fills in
+"Where?", so a fake one is not harmless clutter.
+
+---
+
 ## Still open
 
-- One `alertOnSignup` error from 2026-07-30 with no surviving log.
+- One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.
+- App Attest has never produced a verified request. Enforcement stays off until it does.
+- Report moderation, which needs a real report to work through.
 - Deep-link destinations, which need a real plan between two real accounts.
 - 1.0 is in review with build `202608021918`, which predates every fix this week. Push does not
   work in it at all. Fixes land in 1.0.1.

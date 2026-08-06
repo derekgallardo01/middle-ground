@@ -236,4 +236,64 @@ final class RealBackendFeatureTests: XCTestCase {
         // straight away is a plausible reason the collection is empty, and waiting rules it out.
         Thread.sleep(forTimeInterval: 6)
     }
+
+    /// The admin surface against the real rules, not the mock repositories.
+    ///
+    /// `E2EAdminUITests` covers every admin screen — under `-MGMockMode`, so it never reaches
+    /// Firestore. Production shows the picture that leaves: 17 `admin_audit` rows from viewing
+    /// requests, and **zero** documents in `venues` or `reports`. The read path is exercised, the
+    /// write path never has been.
+    ///
+    /// Creating a venue is the cheapest admin write there is, and the rule guarding it
+    /// (`allow create: if isAdmin()`) is the same one guarding the rest — so if the custom claim
+    /// reaches the rules at all, it reaches them here.
+    ///
+    /// Needs the admin claim on the test account:
+    ///   node Scripts/grant-admin.mjs tester-a@middleground.test
+    func testLive5_anAdminCanCreateAVenue() throws {
+        launch(asTestUser: "A")
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40), "not signed in")
+
+        let adminTab = app.tabBars.buttons["Admin"]
+        guard adminTab.waitForExistence(timeout: 15) else {
+            capture("live-5-no-admin-tab")
+            throw XCTSkip("No Admin tab — run `node Scripts/grant-admin.mjs tester-a@middleground.test`. "
+                          + "The claim only reaches the app on a fresh ID token, so relaunch after granting.")
+        }
+        adminTab.tap()
+
+        let venues = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Venues'")).firstMatch
+        guard scrollTo(venues) else {
+            capture("live-5-no-venues-section")
+            return XCTFail("no Venues section. On screen:\n\(app.debugDescription)")
+        }
+        venues.tap()
+
+        let add = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Add'")).firstMatch
+        guard add.waitForExistence(timeout: 10) else {
+            capture("live-5-no-add")
+            return XCTFail("no way to add a place")
+        }
+        add.tap()
+
+        let name = app.textFields["Name"]
+        guard name.waitForExistence(timeout: 10) else {
+            capture("live-5-no-form")
+            return XCTFail("the new-place form never appeared")
+        }
+        name.tap()
+        name.typeText("E2E audit cafe")
+        if app.textFields["City"].exists {
+            app.textFields["City"].tap()
+            app.textFields["City"].typeText("Testville")
+        }
+
+        app.buttons["Save"].tap()
+
+        XCTAssertTrue(
+            app.staticTexts["E2E audit cafe"].waitForExistence(timeout: 25),
+            "the venue never came back — an admin write the rules refused looks exactly like this"
+        )
+        capture("live-5-venue-created")
+    }
 }

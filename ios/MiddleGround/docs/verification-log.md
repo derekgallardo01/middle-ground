@@ -229,11 +229,51 @@ and the claim were removed afterwards: a venue shows up as a suggestion when som
 
 ---
 
+---
+
+## Second-pass audit
+
+Dimensions the first two passes did not touch.
+
+| Area | Result |
+|---|---|
+| Concurrency (the crash class) | ✅ only two `NotificationCenter.post` sites, both now `@MainActor` |
+| Snapshot listeners | ✅ all five remove on stream termination — no leaks |
+| Auth ↔ Firestore drift | ✅ 6 accounts, 6 user documents, every uid has both |
+| Referential integrity | ⚠️ two demo plans reference a user who no longer exists |
+| Dependency vulnerabilities | ⚠️ 7 moderate, all transitive — **do not fix on this Mac** |
+| CI | ✅ green on main; ⚠️ **25 commits unpushed**, so it has seen none of this work |
+| Accessibility: control labels | ✅ no icon-only control lacks a label |
+| Accessibility: Dynamic Type | ✅ every text path scales; only decorative emoji are fixed |
+
+**Two demo plans have a dangling participant.** `demo-negotiating` and `demo-waiting-on-them`
+list `m9iBqmtR3gQTKqoTLnAKfhzhJSN2`, who exists in neither Firebase Auth nor `users`. The app
+degrades gracefully — `name(for:)` falls back to "Someone" rather than showing a raw id — so this
+is cosmetic, but it is real production data contradicting itself. `Scripts/check-data-integrity.mjs`
+is what found it and will find the next one. Re-seeding the demo data
+(`seed-demo-partner.mjs --clean`, then seed again) is the clean repair.
+
+**The dependency warnings must not be fixed from this machine.** All seven trace to one `uuid`
+advisory pulled in transitively through `teeny-request → retry-request → gaxios →
+@google-cloud/storage`. Running `npm audit fix` here would resolve the tree for darwin only and
+rewrite `package-lock.json` with deletions of every non-darwin optional binary, breaking CI on
+`ubuntu-latest`. Fix it from the Windows machine or in CI, and never commit a lockfile diff that
+is only deletions.
+
+**Nothing from this work has been through CI.** The last run was 2026-08-05 on `main`; every
+commit since is local. The new function tests would be picked up (`test/*.test.js` matches all
+five files, and `test/support/` correctly is not), and no dependency was added — so the suite
+should pass. It simply has not run anywhere but here.
+
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.
 - App Attest has never produced a verified request. Enforcement stays off until it does.
 - Report moderation, which needs a real report to work through.
+- Two demo plans with a dangling participant; re-seeding the demo data clears them.
+- Seven moderate transitive dependency advisories, to be fixed away from this Mac.
+- 25 commits that CI has never seen.
 - Deep-link destinations, which need a real plan between two real accounts.
 - 1.0 is in review with build `202608021918`, which predates every fix this week. Push does not
   work in it at all. Fixes land in 1.0.1.

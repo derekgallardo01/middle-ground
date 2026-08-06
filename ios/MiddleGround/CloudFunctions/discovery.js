@@ -1,32 +1,37 @@
 /**
- * Finding somewhere to go, from an API key that never leaves the server.
+ * Live events near somewhere, from an API key that never leaves the server.
  *
- * OpenTable declined, which blocks holding a table and nothing else — the booking link has always
- * been a public search URL. What was actually missing is the step before: there was no way to
- * *find* anywhere. "Where?" is free text, and the curated venue list meant to help it has never
- * held a single document in production.
+ * **Places do not come through here.** They come from Apple's `MKLocalSearch` on the device, which
+ * costs nothing, needs no key, and — the part that matters most — never sends the coordinate to a
+ * third party at all. This started out as a Yelp proxy; Yelp retired its free tier and now starts
+ * at $229 a month, which is not a sensible dependency for helping two people pick a restaurant.
+ * MapKit turned out to be better on every axis except ratings and photos, and those are one tap
+ * away through a link.
  *
- * Of the services worth using, only two give access without a partnership: Yelp Fusion for places
- * and Ticketmaster for live events. Resy, Airbnb and Kayak are deep links, which need nobody's
- * permission and are built on the client.
+ * Events are the exception, because no on-device API knows what is *on* tonight. Ticketmaster's
+ * Discovery API does, is free, and is self-serve. It is the only reason this file still exists.
  *
- * This runs server-side for three reasons, in order of how much they matter:
+ * It runs server-side for three reasons, in order of how much they matter:
  *
  *   1. A key shipped in an iOS binary is a key anybody can extract. It stays here.
  *   2. A slider being dragged is twenty searches. The cache turns that into one.
  *   3. A metered API reached directly from a client is an unbounded bill. The rate limit is the
  *      only thing standing between a loop and a suspended account.
  *
- * The coordinate is rounded before it is used, which is what makes "coarse location" true rather
- * than a word in a privacy questionnaire — see `roundCoordinate`.
+ * The coordinate is still rounded before it is used, which is what makes "coarse location" true
+ * rather than a word in a privacy questionnaire — see `roundCoordinate`.
  */
 
 const { getFirestore } = require('firebase-admin/firestore');
 
 const db = () => getFirestore();
 
-/** Yelp's hard ceiling. 40,000 m is 24.85 miles, which is why the UI caps at 24 and not 25. */
-const MAX_RADIUS_METRES = 40000;
+/**
+ * Ticketmaster accepts up to 19,999 miles, so nothing here is the binding constraint any more.
+ * Capped at 25 miles because that is what the UI offers and a wider search returns a different
+ * city's listings — Yelp's 40,000 m ceiling was the only reason 25 was ever awkward.
+ */
+const MAX_RADIUS_METRES = Math.round(25 * 1609.344);
 const MIN_RADIUS_METRES = 500;
 const METRES_PER_MILE = 1609.344;
 
@@ -36,7 +41,7 @@ const MAX_RESULTS = 20;
 /** How long a search stays warm. Long enough to cover a slider drag and a change of mind. */
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
-/** Per user, per hour. Yelp's free tier is a few hundred calls a day across everybody. */
+/** Per user, per hour. Generous for a person, and a hard stop for a loop. */
 const RATE_LIMIT_PER_HOUR = 60;
 
 const CACHE_COLLECTION = 'discovery_cache';
@@ -104,52 +109,9 @@ async function remember(key, results) {
 }
 
 /**
- * Yelp Fusion. Places: restaurants, bars, hotels.
- *
- * `categories` rather than free text for the kind, because a term search for "hotel" returns
- * restaurants with "hotel" in the name.
- */
-async function searchYelp({ latitude, longitude, radius, term, categories }, apiKey) {
-  const params = new URLSearchParams({
-    latitude: String(latitude),
-    longitude: String(longitude),
-    radius: String(radius),
-    limit: String(MAX_RESULTS),
-    sort_by: 'best_match',
-  });
-  if (term) params.set('term', term);
-  if (categories) params.set('categories', categories);
-
-  const res = await fetch(`https://api.yelp.com/v3/businesses/search?${params}`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Yelp ${res.status}: ${body.slice(0, 200)}`);
-  }
-  const json = await res.json();
-  return (json.businesses || []).map((b) => ({
-    id: b.id,
-    name: b.name,
-    category: (b.categories || [])[0]?.title || null,
-    // Yelp gives metres; the app talks in miles.
-    distanceMiles: typeof b.distance === 'number'
-      ? Math.round((b.distance / METRES_PER_MILE) * 10) / 10
-      : null,
-    address: (b.location?.display_address || []).join(', ') || null,
-    city: b.location?.city || null,
-    rating: b.rating ?? null,
-    price: b.price ?? null,
-    imageURL: b.image_url || null,
-    url: b.url || null,
-    source: 'yelp',
-  }));
-}
-
-/**
  * Ticketmaster Discovery. Live events.
  *
- * Not Yelp: its events endpoint is thin and largely US-metro. Ticketmaster takes a radius in miles
+ * Ticketmaster takes a radius in miles
  * directly, which is the unit the UI already uses.
  */
 async function searchTicketmaster({ latitude, longitude, radius, term }, apiKey) {
@@ -192,24 +154,21 @@ async function searchTicketmaster({ latitude, longitude, radius, term }, apiKey)
   });
 }
 
-/** What `kind` means, and which upstream answers it. */
-const KINDS = {
-  restaurants: { source: 'yelp', categories: 'restaurants' },
-  bars: { source: 'yelp', categories: 'bars' },
-  hotels: { source: 'yelp', categories: 'hotels' },
-  events: { source: 'ticketmaster', categories: null },
-};
+/**
+ * Only events. Places are answered on the device by MapKit and never reach this function — see
+ * the note at the top of the file.
+ */
+const KINDS = { events: { source: 'ticketmaster' } };
 
 /**
  * One search.
  *
  * @param {object} request  `{ kind, latitude, longitude, radiusMiles, term }`
  * @param {string} uid      the caller, for rate limiting
- * @param {{yelp: string, ticketmaster: string}} keys
+ * @param {{ticketmaster: string}} keys
  */
 async function discover(request, uid, keys) {
-  const kind = KINDS[request.kind] ? request.kind : 'restaurants';
-  const spec = KINDS[kind];
+  const kind = 'events';
 
   const latitude = roundCoordinate(Number(request.latitude));
   const longitude = roundCoordinate(Number(request.longitude));
@@ -230,10 +189,10 @@ async function discover(request, uid, keys) {
     throw new Error('Too many searches just now. Try again shortly.');
   }
 
-  const args = { latitude, longitude, radius, term, categories: spec.categories };
-  const results = spec.source === 'ticketmaster'
-    ? await searchTicketmaster(args, keys.ticketmaster)
-    : await searchYelp(args, keys.yelp);
+  const results = await searchTicketmaster(
+    { latitude, longitude, radius, term },
+    keys.ticketmaster
+  );
 
   await remember(key, results);
   return { results, cached: false, radiusMiles: radius / METRES_PER_MILE };

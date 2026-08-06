@@ -38,7 +38,6 @@ initializeApp();
 const db = () => getFirestore();
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
-const YELP_API_KEY = defineSecret('YELP_API_KEY');
 const TICKETMASTER_API_KEY = defineSecret('TICKETMASTER_API_KEY');
 
 const HOUR = 60 * 60 * 1000;
@@ -687,7 +686,10 @@ exports.onUserDeleted = functionsV1.auth.user().onDelete(async (user) => {
 // ---------------------------------------------------------- place discovery
 
 /**
- * Nearby places and events, for the moment before a plan exists.
+ * Live events nearby, for the moment before a plan exists.
+ *
+ * Places are **not** here: `MKLocalSearch` answers those on the device, free and without sending
+ * a coordinate anywhere. Only events need an upstream that knows what is on tonight.
  *
  * The project's first callable function — everything else here is a trigger or a schedule. It is
  * callable rather than an HTTP endpoint because callable functions carry the caller's identity,
@@ -700,7 +702,7 @@ exports.onUserDeleted = functionsV1.auth.user().onDelete(async (user) => {
  * attacker which quota to exhaust, and tells the person searching nothing they can act on.
  */
 exports.discoverPlaces = onCall(
-  { secrets: [YELP_API_KEY, TICKETMASTER_API_KEY], enforceAppCheck: false },
+  { secrets: [TICKETMASTER_API_KEY], enforceAppCheck: false },
   async (event) => {
     const uid = event.auth?.uid;
     if (!uid) {
@@ -709,7 +711,6 @@ exports.discoverPlaces = onCall(
 
     try {
       return await discover(event.data || {}, uid, {
-        yelp: YELP_API_KEY.value(),
         ticketmaster: TICKETMASTER_API_KEY.value(),
       });
     } catch (error) {

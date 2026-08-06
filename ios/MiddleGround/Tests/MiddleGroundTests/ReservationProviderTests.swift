@@ -54,7 +54,11 @@ final class ReservationProviderTests: XCTestCase {
         let venue = ReservableVenue(
             name: "Lucia's", city: "Brooklyn", providerID: "curated", providerVenueID: "v1"
         )
-        let time = Date(timeIntervalSince1970: 1_785_000_000)
+        // Wall-clock components, so the expectation does not depend on the machine's zone — and
+        // so this actually checks the hour rather than its presence.
+        var parts = DateComponents()
+        parts.year = 2026; parts.month = 9; parts.day = 12; parts.hour = 19; parts.minute = 30
+        let time = try XCTUnwrap(Calendar(identifier: .gregorian).date(from: parts))
         let url = try XCTUnwrap(provider.bookingURL(for: venue, partySize: 4, at: time))
         let items = try XCTUnwrap(
             URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
@@ -63,9 +67,11 @@ final class ReservationProviderTests: XCTestCase {
         XCTAssertEqual(url.host, "www.opentable.com")
         XCTAssertEqual(items.first { $0.name == "covers" }?.value, "4")
         XCTAssertEqual(items.first { $0.name == "term" }?.value, "Lucia's")
-        XCTAssertNotNil(
+        XCTAssertEqual(
             items.first { $0.name == "dateTime" }?.value,
-            "the point of the link is that nobody re-enters what we already know"
+            "2026-09-12T19:30:00",
+            "the link must name the hour the app is showing — ISO8601DateFormatter defaults to "
+                + "GMT, so this sent 23:30 for a 7:30pm dinner and the page loaded perfectly"
         )
     }
 

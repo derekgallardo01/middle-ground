@@ -46,8 +46,12 @@ final class RealBackendFeatureTests: XCTestCase {
     }
 
     /// Opens the plan the pairing run left behind, whatever it is called.
+    ///
+    /// `firstMatch` is load-bearing: the pairing run can be repeated, and every run leaves another
+    /// plan with the same title. A plain subscript raises "Multiple matching elements found"
+    /// rather than picking one, so the second run of the harness failed on its own leftovers.
     private func openAPlan() -> Bool {
-        let known = app.staticTexts["E2E dinner test"]
+        let known = app.staticTexts["E2E dinner test"].firstMatch
         if known.waitForExistence(timeout: 30) {
             known.tap()
             return true

@@ -27,7 +27,10 @@ const FEATURES = [
   ['messages', true, 'plan chat', 'no message has ever been sent — notifyPlanMessage cannot fire'],
   ['locations', true, 'location sharing', 'never shared; the only feature making a privacy claim'],
   ['availability', true, 'shared availability', 'no day has ever been blocked out'],
-  ['presence', true, 'typing indicator', 'nobody has ever been seen typing'],
+  // Ephemeral by design: `stopTyping` deletes the document, and it is called on send and on
+  // leaving the screen. An empty collection is the correct resting state, so counting
+  // documents here can only ever produce a false negative — it is listed to say so.
+  ['presence', true, 'typing indicator (ephemeral)', 'expected: written only while typing'],
   ['reads', true, 'read receipts', 'no plan has ever been marked read'],
   ['requests', false, 'plans', ''],
   ['relationships', false, 'pairing', ''],
@@ -82,12 +85,12 @@ for (const [id, nested, label, whenEmpty] of FEATURES) {
     console.log(`✗ ${label.padEnd(24)} query failed: ${result.error.slice(0, 40)}`);
     continue;
   }
-  const mark = result.n > 0 ? '✓' : '✗';
+  const mark = result.n > 0 ? '✓' : (label.includes('ephemeral') ? '~' : '✗');
   const detail = result.n > 0
     ? `${result.n} document(s) in ${id}`
     : `NONE — ${whenEmpty || 'never written'}`;
   console.log(`${mark} ${label.padEnd(24)} ${detail}`);
-  if (result.n === 0) unproven += 1;
+  if (result.n === 0 && !label.includes('ephemeral')) unproven += 1;
 }
 
 // The function that cannot fire until plan chat is used at least once, and the clearest single
@@ -111,8 +114,32 @@ const runs = (metrics.timeSeries ?? []).reduce(
   (total, ts) => total + (ts.points ?? []).reduce((a, p) => a + Number(p.value.int64Value ?? 0), 0),
   0
 );
+// Monitoring aggregates on a delay, so a function that ran a minute ago still reads zero. Cloud
+// Logging is immediate, and the difference matters here: this metric is the one people check
+// right after a test run, which is exactly when it is least trustworthy.
+const recentLogs = await (
+  await fetch('https://logging.googleapis.com/v2/entries:list', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      resourceNames: [`projects/${PROJECT}`],
+      filter: 'resource.labels.service_name="notifyplanmessage" '
+        + `AND timestamp>="${new Date(Date.now() - 6 * 3600 * 1000).toISOString()}"`,
+      orderBy: 'timestamp desc',
+      pageSize: 5,
+    }),
+  })
+).json();
+const lastRun = recentLogs.entries?.[0]?.timestamp;
+
 console.log('─'.repeat(64));
-console.log(`${runs > 0 ? '✓' : '✗'} notifyPlanMessage        ${runs} execution(s) in 30 days`);
+if (runs > 0) {
+  console.log(`✓ notifyPlanMessage        ${runs} execution(s) in 30 days`);
+} else if (lastRun) {
+  console.log(`✓ notifyPlanMessage        ran at ${lastRun} (metrics lag; log is immediate)`);
+} else {
+  console.log('✗ notifyPlanMessage        no executions and no recent logs');
+}
 
 console.log('');
 if (unproven === 0) {

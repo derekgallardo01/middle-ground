@@ -28,6 +28,12 @@ DEVICE_B="${MG_DEVICE_B:-iPhone 17 Pro}"
 cd "$APP_DIR"
 echo "Results -> $OUT"
 
+# The project is generated from project.yml, and XcodeGen picks files up by directory glob
+# at generation time. A test file added since the last generate is simply absent: the run
+# reports '** TEST SUCCEEDED **' having executed nothing, which is the most misleading green
+# there is. Regenerating here costs a second and removes the trap.
+xcodegen generate >/dev/null
+
 udid_for() {
   xcrun simctl list devices available -j | python3 -c "
 import json,sys

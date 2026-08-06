@@ -27,7 +27,7 @@ Execution counts from Cloud Monitoring (`cloudfunctions.googleapis.com/function/
 | `promptForAttendance` | ✅ 111 | ✅ | hourly |
 | `remindBeforePlan` | ✅ 24 | ✅ | hourly |
 | `weeklyNudge` | ✅ 1 | ✅ | **first execution ever 2026-08-06T14:00Z** |
-| `purgeStaleEvents` | ⬜ 0 | ✅ | first firing due 2026-08-09 |
+| `purgeStaleEvents` | ✅ 1 | ✅ | **first execution 2026-08-06T18:46:03Z**, triggered manually; nothing to purge, nothing lost |
 | `dailyDigest` | ✅ 3 | ✅ | paused in Cloud Scheduler by request |
 | `alertOnSignup` | ✅ 12 | ✅ | 1 error, 2026-07-30, no log retained |
 | `alertOnPairing` | ✅ 11 | ✅ | |
@@ -79,14 +79,14 @@ real security rules, and the evidence is the document — not the test result.
 
 | Feature | Collection | Before | After | Evidence |
 |---|---|---|---|---|
-| Plan chat | `messages` | ⬜ 0 | ✅ 1 | first message ever; fired `notifyPlanMessage` |
-| Location sharing | `locations` | ⬜ 0 | ✅ 1 | written by the app; see the caveat below |
+| Plan chat | `messages` | ⬜ 0 | ✅ 5 | first message ever; fired `notifyPlanMessage` |
+| Location sharing | `locations` | ⬜ 0 | ✅ 2 | written by the app, through the real rules |
 | Shared availability | `availability` | ⬜ 0 | ✅ 2 | one per group — writing to all of them is intended |
-| Read receipts | `reads` | ⬜ 0 | ✅ 2 | |
+| Read receipts | `reads` | ⬜ 0 | ✅ 3 | |
 | Typing indicator | `presence` | ⬜ 0 | ➖ n/a | ephemeral: `stopTyping` deletes it on send |
-| Plans | `requests` | ✅ 12 | ✅ 13 | |
+| Plans | `requests` | ✅ 12 | ✅ 14 | |
 | Pairing | `relationships` | ✅ 5 | ✅ 6 | |
-| Analytics | `events` | ✅ 1 | ✅ 6 | |
+| Analytics | `events` | ✅ 1 | ✅ 8 | |
 | Push registration | `user_tokens` | ✅ 1 | ✅ 1 | |
 
 `notifyPlanMessage` executed for the first time in the project's history at **2026-08-06T15:35:23Z**,
@@ -97,15 +97,18 @@ app → Firestore subcollection → Cloud Function works end to end.
 on send and on leaving the screen, so an empty collection is the correct resting state. Reported
 as `~` rather than a failure.
 
-**Location sharing is verified but not yet repeatable.** Sharing requires an accepted plan timed
-within an hour before and four hours after now, which the pairing run does not produce. Re-dating
-a plan server-side is not enough on its own: `CachedRequestRepository.merge` only overwrites a
-local row when the remote copy is strictly newer, so the client keeps serving its cached copy
-until `updatedAt` moves. The test therefore skips with an explanation rather than failing. Making
-it repeatable needs a plan created for the purpose.
+**Location sharing is repeatable.** It needs an accepted plan timed within an hour before and four
+hours after now, which the pairing run does not produce. `Scripts/seed-location-fixture.mjs`
+writes a **new** document for the purpose — re-dating an existing plan does not work, because
+`CachedRequestRepository.merge` only overwrites a local row when the remote copy is strictly
+newer, so the client keeps serving its own copy. Two further things had to be true and were each
+found by being wrong first: the simulator needs a *simulated location* (without one CoreLocation
+fails and the test reports "location was never shared", which points at the wrong thing), and the
+Springboard permission alert needs an interruption monitor.
 
-    node Scripts/verify-live-features.mjs
-    xcodebuild ... -only-testing:MiddleGroundUITests/RealBackendFeatureTests
+All of it is now one command:
+
+    ./Scripts/run-live-features.sh
 
 ---
 
@@ -118,7 +121,12 @@ Proven on physical hardware on 2026-08-06, for the first time in the project's h
 | Device registers an FCM token | ✅ 1 device in `user_tokens`, 142-char token |
 | Each of six push types delivered | ✅ all accepted by FCM and received |
 | Tapping a notification | ✅ no longer crashes (was `SIGABRT` on every tap) |
-| Deep link destinations | ⬜ **unproven** — test payloads carry mock IDs |
+| Deep link destinations | ✅ tapping opened the named plan, not just the app |
+
+Deep links stayed unproven for a simple reason: every payload carried a mock fixture id like
+`req_6`, which exists only in mock mode, so on a real account the tap correctly resolved to nothing
+and stopped at Home. `send-test-push.mjs --request <id>` now targets a real plan; sending
+`demo-negotiating` and tapping it opened "Movie night Saturday?".
 
 The tap crash was diagnosed from three `.ips` reports symbolicated against a matching dSYM, not
 inferred: `@objc closure #1 in NotificationService.userNotificationCenter(_:didReceive:)` on queue
@@ -151,11 +159,8 @@ with the checkmarks.
 
 ## Still open
 
-- `purgeStaleEvents` first firing, due 2026-08-09 — the last function never to have run.
-- A repeatable fixture for location sharing, per the caveat above.
+- One `alertOnSignup` error from 2026-07-30 with no surviving log.
 - Deep-link destinations, which need a real plan between two real accounts.
-- One `alertOnSignup` error from 2026-07-30 with no surviving log — an observability gap, not a
-  known fault. Cloud Logging returned nothing at any severity.
 - 1.0 is in review with build `202608021918`, which predates every fix this week. Push does not
   work in it at all. Fixes land in 1.0.1.
 - App Privacy → **Coarse Location**, collected, **linked** to the user, App Functionality, not

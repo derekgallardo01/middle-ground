@@ -26,6 +26,17 @@ const CLIENT_SECRET = 'j9iVZfS8kkCEFUPaAeJV0sAi';
 const args = process.argv.slice(2);
 const kind = args.find((a) => !a.startsWith('--')) ?? 'reminder';
 const onlyUser = args.includes('--user') ? args[args.indexOf('--user') + 1] : null;
+/**
+ * Overrides the payload's target id with a real one.
+ *
+ * Without this every payload below carries a mock fixture id (`req_6`), which exists only in mock
+ * mode. On a real account the tap correctly resolves to nothing and stops at Home — so the banner
+ * proved delivery and the deep link stayed permanently unproven. Pass a plan the recipient is
+ * actually on and the tap has somewhere to go.
+ *
+ *   node Scripts/send-test-push.mjs reminder --request demo-negotiating
+ */
+const realTarget = args.includes('--request') ? args[args.indexOf('--request') + 1] : null;
 
 /// The same shapes CloudFunctions/index.js sends. `data.type` is snake_case and `request_id` is
 /// what NotificationService.handleNotification switches on — get either wrong and the banner
@@ -65,6 +76,12 @@ const PAYLOADS = {
 };
 
 const payload = PAYLOADS[kind];
+if (payload && realTarget) {
+  // `weekly_nudge` names a group; everything else names a plan.
+  const key = 'relationship_id' in payload.data ? 'relationship_id' : 'request_id';
+  payload.data[key] = realTarget;
+  payload.body = `${payload.body}  [${key}=${realTarget}]`;
+}
 if (!payload) {
   console.error(`Unknown type "${kind}". One of: ${Object.keys(PAYLOADS).join(', ')}`);
   process.exit(1);

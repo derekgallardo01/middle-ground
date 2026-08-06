@@ -139,40 +139,50 @@ final class RealBackendFeatureTests: XCTestCase {
     /// Location sharing, the only one of the five with no test of any kind and the only one that
     /// makes a privacy claim to App Review.
     ///
-    /// Skips rather than fails when no plan is inside its window: sharing requires an *accepted*
-    /// plan timed within an hour before and four hours after now, which a pairing run does not
-    /// produce on its own. A skip here is honest — it says the path was not reached, rather than
-    /// implying it was checked.
+    /// Sharing needs an *accepted* plan timed within an hour before and four hours after now,
+    /// which a pairing run does not produce. `Scripts/seed-location-fixture.mjs` writes one.
+    ///
+    /// It writes a **new** document deliberately. Re-dating an existing plan does not work:
+    /// `CachedRequestRepository.merge` only overwrites a local row when the remote copy is
+    /// strictly newer, so an app that already cached the plan keeps serving its own copy. A
+    /// document the client has never seen has nothing to lose to.
     func testLive3_sharesLocationWhenAPlanIsHappening() throws {
         launch(asTestUser: "A")
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40), "not signed in")
 
-        // Pull to refresh first. `CachedRequestRepository.merge` only overwrites a local row when
-        // the remote copy is strictly newer, so a plan re-dated on the server is invisible to a
-        // client that already cached it — which is exactly how this test is set up, and it
-        // skipped twice before that was understood.
-        app.swipeDown()
-        Thread.sleep(forTimeInterval: 3)
+        let fixture = app.staticTexts["E2E location window"].firstMatch
+        guard fixture.waitForExistence(timeout: 30) else {
+            capture("live-3-no-fixture")
+            throw XCTSkip("Run `node Scripts/seed-location-fixture.mjs` first — this needs a plan "
+                          + "inside its location window, and the pairing run does not make one")
+        }
+        fixture.tap()
 
-        guard openAPlan() else { throw XCTSkip("No plan in the feed") }
+        // The location permission alert belongs to Springboard, not the app, so XCUITest will not
+        // dismiss it on its own and every query below would wait behind it until it timed out —
+        // reported as "location was never shared", which is true but says the wrong thing about
+        // why. `simctl privacy grant` usually pre-empts the prompt; this is what makes the test
+        // survive when it does not.
+        addUIInterruptionMonitor(withDescription: "location permission") { alert in
+            for label in ["Allow While Using App", "Allow Once", "Allow", "OK"] where alert.buttons[label].exists {
+                alert.buttons[label].tap()
+                return true
+            }
+            return false
+        }
 
         let share = app.buttons.matching(
             NSPredicate(format: "label CONTAINS[c] 'Share my location'")
         ).firstMatch
         guard scrollTo(share) else {
-            capture("live-3-window-closed")
-            throw XCTSkip("""
-                No plan is inside its location window. Sharing needs an accepted plan timed within \
-                an hour before and four hours after now, which the pairing run does not produce, \
-                and re-dating one on the server is not enough on its own — the client serves its \
-                cached copy until a strictly newer updatedAt arrives.
-
-                This is a fixture problem, not an unverified feature: location sharing was proven \
-                live on 2026-08-06, with a document in `locations` written by the app through the \
-                real rules. Making this repeatable needs a plan created for the purpose.
-                """)
+            capture("live-3-no-share-button")
+            return XCTFail("the fixture plan is inside its window but offers no way to share. "
+                           + "On screen:\n\(app.debugDescription)")
         }
         share.tap()
+        // An interruption monitor only fires on the next interaction with the app, so this tap is
+        // what actually gives it a chance to dismiss the alert.
+        app.tap()
 
         // "Stop sharing" only exists once a point has been shared, so it is the unambiguous
         // signal. The obvious-looking alternative — matching "your location" — appears in the

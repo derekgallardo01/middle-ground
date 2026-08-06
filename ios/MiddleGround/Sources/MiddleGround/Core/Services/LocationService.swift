@@ -20,6 +20,21 @@ protocol LocationProviding: Sendable {
     func currentCoordinate() async throws -> CLLocationCoordinate2D
 }
 
+/// The part of `CLLocationManager` this file uses.
+///
+/// A seam, so the service can be tested without the real one — which reaches for hardware, needs
+/// a provisioning profile, and answers with wherever the test machine happens to be. Nothing here
+/// had a test before, and this is the type that made writing one impossible.
+protocol LocationManaging: AnyObject {
+    var authorizationStatus: CLAuthorizationStatus { get }
+    var desiredAccuracy: CLLocationAccuracy { get set }
+    var delegate: CLLocationManagerDelegate? { get set }
+    func requestWhenInUseAuthorization()
+    func requestLocation()
+}
+
+extension CLLocationManager: LocationManaging {}
+
 /// A single location fix, on demand.
 ///
 /// `requestLocation()` rather than `startUpdatingLocation()`, deliberately: it delivers one fix
@@ -28,22 +43,46 @@ protocol LocationProviding: Sendable {
 /// courtesy — `Always` would require a background mode and a justification at review that this
 /// feature does not have.
 final class LocationService: NSObject, LocationProviding, CLLocationManagerDelegate, @unchecked Sendable {
-    private let manager = CLLocationManager()
+    private let manager: LocationManaging
     /// Guarded because the delegate callbacks arrive on the main queue while the caller may be
     /// suspended anywhere. Resuming a continuation twice is a crash, not a warning.
     private let lock = NSLock()
     private var pending: CheckedContinuation<CLLocationCoordinate2D, Error>?
+    private let timeout: Duration
 
-    override init() {
+    init(manager: LocationManaging = CLLocationManager(), timeout: Duration = .seconds(60)) {
+        self.manager = manager
+        self.timeout = timeout
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+    }
+
+    /// Whether anybody is actually waiting for a fix.
+    ///
+    /// The delegate callbacks are the system's to call, not ours, and they arrive whether or not
+    /// this service asked for anything. This is what tells the difference.
+    private var isWaiting: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return pending != nil
     }
 
     func currentCoordinate() async throws -> CLLocationCoordinate2D {
         if manager.authorizationStatus == .denied || manager.authorizationStatus == .restricted {
             throw LocationError.denied
         }
+
+        // The permission prompt can go unanswered — background the app and it simply sits there,
+        // and CoreLocation reports nothing at all. `requestLocation()` guarantees exactly one
+        // callback, but the prompt guarantees none, so without this the caller waits forever and
+        // `shareLocation`'s spinner never stops.
+        let deadline = Task { [weak self, timeout] in
+            try? await Task.sleep(for: timeout)
+            guard !Task.isCancelled else { return }
+            self?.finish(.failure(LocationError.unavailable))
+        }
+        defer { deadline.cancel() }
 
         return try await withCheckedThrowingContinuation { continuation in
             lock.lock()
@@ -71,14 +110,35 @@ final class LocationService: NSObject, LocationProviding, CLLocationManagerDeleg
 
     // MARK: - CLLocationManagerDelegate
 
+    /// CoreLocation calls this **the moment the delegate is set**, not only when authorisation
+    /// changes — and `LocationService` is registered unscoped in `Dependencies.swift`, so a fresh
+    /// one is built every time `RequestDetailView` opens a plan.
+    ///
+    /// Without the guard, that meant: open any plan, and if location had ever been granted this
+    /// handler called `requestLocation()` on its own. Nobody was waiting, so the fix was taken,
+    /// the system location indicator appeared, and the coordinate was thrown away. The file's own
+    /// promise directly above — "One fix, on demand" — was not true, and neither was the Coarse
+    /// Location answer given to App Review.
+    ///
+    /// The parameter is deliberately ignored in favour of `self.manager`: the callback hands back
+    /// the real `CLLocationManager`, which in a test is not the one this service was given.
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        switch manager.authorizationStatus {
+        authorizationDidChange()
+    }
+
+    /// Split out from the delegate method so it can be called without a `CLLocationManager`.
+    func authorizationDidChange() {
+        guard isWaiting else { return }
+
+        switch self.manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
             // Only now, after the prompt is answered, is there any point asking for a fix.
-            manager.requestLocation()
+            self.manager.requestLocation()
         case .denied, .restricted:
             finish(.failure(LocationError.denied))
         case .notDetermined:
+            // Still waiting on the prompt. Not a terminal state, so nothing to report — the
+            // deadline in `currentCoordinate` covers a prompt that is never answered.
             break
         @unknown default:
             finish(.failure(LocationError.unavailable))

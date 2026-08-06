@@ -60,8 +60,11 @@ final class NotificationService: NSObject, ObservableObject {
 }
 
 extension NotificationService: MessagingDelegate {
+    /// FCM calls this on its own queue, so the `@Published` write has to hop — publishing from a
+    /// background thread is the same class of fault as the tap handler above, and any view
+    /// observing `fcmToken` would be updated off the main thread.
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-        self.fcmToken = fcmToken
+        Task { @MainActor in self.fcmToken = fcmToken }
         guard let fcmToken else { return }
         Task { await Self.persist(token: fcmToken) }
     }
@@ -156,10 +159,23 @@ extension NotificationService: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse
     ) async {
         let userInfo = response.notification.request.content.userInfo
-        handleNotification(userInfo: userInfo)
+        await Self.handleNotification(userInfo: userInfo)
     }
 
-    private func handleNotification(userInfo: [AnyHashable: Any]) {
+    /// Turns a tapped notification into a navigation.
+    ///
+    /// `@MainActor` is load-bearing, not tidiness. `NotificationCenter.post` delivers
+    /// synchronously on the calling thread, so the observer in `HomeView` — and through it
+    /// `AppState`, which is `@MainActor` — ran on whatever thread this delegate callback happened
+    /// to arrive on. This method is `async` and the class is not actor-isolated, so that thread
+    /// was a cooperative-pool one rather than the main thread, and the compiler believed
+    /// otherwise: a view-body closure is assumed main-actor at compile time. Swift traps on that
+    /// mismatch rather than warning. Every notification tap crashed the app.
+    /// Static because it reads no instance state, and because `shared` cannot exist in a logic
+    /// test bundle — its `init` sets the `UNUserNotificationCenter` delegate, which needs a real
+    /// app bundle. Tying the one piece of routing logic in here to that was what kept it untested.
+    @MainActor
+    static func handleNotification(userInfo: [AnyHashable: Any]) {
         if let requestID = userInfo["request_id"] as? String {
             // Post a notification that AppState/Coordinator can observe to navigate
             NotificationCenter.default.post(

@@ -382,3 +382,46 @@ describe('dailyDigest', () => {
     await assert.doesNotReject(fns.dailyDigest.run({}));
   });
 });
+
+describe('account deletion', () => {
+  // Guideline 5.1.1(v) requires deletion to be real. The purger covered nine collections and
+  // missed four subcollections keyed by uid — availability, locations, reads, presence — which no
+  // collection-group query can find, because the uid is the document id rather than a field.
+  // Availability has no TTL at all, so those rows were permanent.
+  test('takes the subcollections keyed by user id with it', async () => {
+    seedUsers(['alice', 'bob']);
+    store['relationships/rel1'] = { participantIDs: ['alice', 'bob'] };
+    store['relationships/rel1/availability/alice'] = { blocks: [] };
+    store['relationships/rel1/availability/bob'] = { blocks: [] };
+    store['requests/r1'] = { allParticipantIDs: ['alice', 'bob'], creatorID: 'bob', recipientIDs: ['alice'] };
+    store['requests/r1/locations/alice'] = { latitude: 51.5, longitude: -0.12 };
+    store['requests/r1/reads/alice'] = { at: new Date() };
+    store['requests/r1/presence/alice'] = { startedAt: new Date() };
+    store['requests/r1/locations/bob'] = { latitude: 40.7, longitude: -74 };
+
+    await fns.onUserDeleted.run({ uid: 'alice' });
+
+    assert.equal(store['relationships/rel1/availability/alice'], undefined, 'blocked days remained');
+    assert.equal(store['requests/r1/locations/alice'], undefined, 'coordinates remained');
+    assert.equal(store['requests/r1/reads/alice'], undefined, 'read receipt remained');
+    assert.equal(store['requests/r1/presence/alice'], undefined, 'typing presence remained');
+
+    // The other participant keeps everything of their own.
+    assert.ok(store['relationships/rel1/availability/bob'], "bob's availability was collateral");
+    assert.ok(store['requests/r1/locations/bob'], "bob's location was collateral");
+  });
+
+  test('removes the account documents and leaves the shared plan for the other person', async () => {
+    seedUsers(['alice', 'bob']);
+    store['requests/r1'] = { allParticipantIDs: ['alice', 'bob'], creatorID: 'bob', recipientIDs: ['alice'] };
+    store['requests/solo'] = { allParticipantIDs: ['alice'], creatorID: 'alice', recipientIDs: [] };
+
+    await fns.onUserDeleted.run({ uid: 'alice' });
+
+    assert.equal(store['users/alice'], undefined);
+    assert.equal(store['user_tokens/alice'], undefined);
+    assert.equal(store['requests/solo'], undefined, 'a plan involving nobody else should go');
+    assert.ok(store['requests/r1'], "bob's shared plan must survive");
+    assert.deepEqual(store['requests/r1'].allParticipantIDs, ['bob'], 'and be scrubbed of alice');
+  });
+});

@@ -11,10 +11,20 @@
 
 const { FieldPathStub, applyFieldValues, FieldValueStub } = require('./field-values');
 
-function snapshot(path, data) {
+/**
+ * @param {string} path
+ * @param {object|undefined} data
+ * @param {(path: string) => object} [makeRef] builds the document reference for `ref`
+ *
+ * `ref` has to be a real reference rather than `{ path }`: `purge.js` walks from a query result
+ * into that document's subcollections (`doc.ref.collection('availability')`). With a bare object
+ * that call throws, the surrounding `Promise.allSettled` swallows it, and the test reports the
+ * data as "remaining" — blaming the code for a limitation of the fake.
+ */
+function snapshot(path, data, makeRef) {
   return {
     id: path.split('/').pop(),
-    ref: { path },
+    ref: makeRef ? makeRef(path) : { path },
     exists: data !== undefined,
     data: () => data,
   };
@@ -103,7 +113,7 @@ function fakeFirestore(store) {
       }
       if (spec.limit !== undefined) entries = entries.slice(0, spec.limit);
 
-      const docs = entries.map(([path, data]) => snapshot(path, data));
+      const docs = entries.map(([path, data]) => snapshot(path, data, docRef));
       return {
         docs,
         empty: docs.length === 0,
@@ -118,7 +128,7 @@ function fakeFirestore(store) {
   const docRef = (path) => ({
     path,
     id: path.split('/').pop(),
-    get: async () => snapshot(path, store[path]),
+    get: async () => snapshot(path, store[path], docRef),
     set: async (data, options) => {
       store[path] = options && options.merge
         ? applyFieldValues({ ...(store[path] || {}) }, data)

@@ -53,35 +53,46 @@ async function accessToken() {
 const token = await accessToken();
 
 /**
- * Finds the two E2E test accounts rather than hardcoding UIDs, which change whenever the test
- * accounts are recreated.
+ * Resolves the two E2E accounts **by name**, not by position.
+ *
+ * Borrowing `allParticipantIDs[0]` and calling it "A" is a coin flip, and it landed wrong: the
+ * pending plan was addressed to Tester B while the test signs in as Tester A, so it was correctly
+ * not A's turn and no Accept button was ever offered. The app was right and the fixture was wrong,
+ * which is exactly the sort of thing that gets read as a product bug.
+ *
+ * `signInAsTestUser` writes these display names, so they are the stable handle. UIDs are not —
+ * they change whenever the test accounts are recreated.
  */
-async function participants() {
+async function testers() {
   const fromArgs = process.argv.slice(2).filter((a) => !a.startsWith('--'));
-  if (fromArgs.length === 2) return fromArgs;
+  if (fromArgs.length === 2) return { a: fromArgs[0], b: fromArgs[1] };
 
   const res = await fetch(
     `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents:runQuery`,
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'requests' }], limit: 40 } }),
+      body: JSON.stringify({ structuredQuery: { from: [{ collectionId: 'users' }], limit: 50 } }),
     }
   );
   const rows = (await res.json()).filter?.((r) => r.document) ?? [];
-  // Borrow the participants of an existing E2E plan: whoever the harness last paired is exactly
-  // who the next test run will be signed in as.
-  const seed = rows.find((r) => r.document.fields?.title?.stringValue === 'E2E dinner test');
-  const ids = (seed?.document.fields?.allParticipantIDs?.arrayValue?.values ?? [])
-    .map((v) => v.stringValue);
-  if (ids.length < 2) {
-    throw new Error('Could not find a paired E2E plan to borrow participants from. '
-      + 'Run Scripts/two-device-e2e.sh first, or pass two UIDs as arguments.');
+  const byName = (want) => rows.find(
+    (r) => (r.document.fields?.name?.stringValue ?? '').trim().toLowerCase() === want
+  )?.document.name.split('/').pop();
+
+  const a = byName('tester a');
+  const b = byName('tester b');
+  if (!a || !b) {
+    throw new Error('Could not find users named "Tester A" and "Tester B". '
+      + 'Run Scripts/two-device-e2e.sh first, or pass their two UIDs as arguments.');
   }
-  return ids.slice(0, 2);
+  return { a, b };
 }
 
-const [creator, recipient] = await participants();
+const { a: testerA, b: testerB } = await testers();
+// The location fixture is A's own plan; either participant may share on it.
+const creator = testerA;
+const recipient = testerB;
 const now = new Date().toISOString();
 
 const document = {
@@ -103,21 +114,62 @@ const document = {
   },
 };
 
-const url = `https://firestore.googleapis.com/v1/projects/${PROJECT}`
-  + `/databases/(default)/documents/requests/${DOC_ID}`;
-const res = await fetch(url, {
-  method: 'PATCH',
-  headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  body: JSON.stringify(document),
-});
-const json = await res.json();
+/**
+ * A second fixture: a plan still waiting on an answer.
+ *
+ * `plan_outcomes` is written on the transition *into* accepted, and the collection is empty
+ * despite the app having been used — so the question is whether that write reaches the server at
+ * all. Answering it needs a plan somebody can actually accept, and the pairing run's plans have
+ * all been answered already.
+ *
+ * Addressed the other way round from the location fixture: the recipient is whoever the test signs
+ * in as, because only the person whose turn it is may respond.
+ */
+const PENDING_DOC_ID = 'e2e-accept-me';
+export const PENDING_TITLE = 'E2E accept me';
 
-if (json.error) {
-  console.error(`Failed to seed the fixture: ${json.error.message}`);
-  process.exit(1);
+const pending = {
+  fields: {
+    title: { stringValue: PENDING_TITLE },
+    status: { stringValue: 'pending' },
+    category: { stringValue: 'relationship' },
+    // Sent by B and awaiting A, because the test signs in as A and only the person whose turn
+    // it is may respond.
+    creatorID: { stringValue: testerB },
+    recipientIDs: { arrayValue: { values: [{ stringValue: testerA }] } },
+    allParticipantIDs: {
+      arrayValue: { values: [{ stringValue: testerB }, { stringValue: testerA }] },
+    },
+    proposedTime: { timestampValue: new Date(Date.now() + 36 * 3600 * 1000).toISOString() },
+    createdAt: { timestampValue: now },
+    updatedAt: { timestampValue: now },
+    savedForLater: { booleanValue: false },
+    negotiationChain: { arrayValue: { values: [] } },
+  },
+};
+
+async function put(id, body) {
+  const res = await fetch(
+    `https://firestore.googleapis.com/v1/projects/${PROJECT}`
+    + `/databases/(default)/documents/requests/${id}`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
+  const json = await res.json();
+  if (json.error) {
+    console.error(`Failed to seed ${id}: ${json.error.message}`);
+    process.exit(1);
+  }
+  return json;
 }
 
+await put(DOC_ID, document);
+await put(PENDING_DOC_ID, pending);
+
 console.log(`Seeded "${FIXTURE_TITLE}" (${DOC_ID})`);
-console.log(`  participants: ${creator}, ${recipient}`);
-console.log(`  proposedTime: ${now}`);
-console.log('  window open until roughly four hours from now');
+console.log(`  Tester A: ${testerA}   Tester B: ${testerB}`);
+console.log(`  proposedTime: ${now} — location window open for about four hours`);
+console.log(`Seeded "${PENDING_TITLE}" (${PENDING_DOC_ID}), sent by B, awaiting Tester A`);

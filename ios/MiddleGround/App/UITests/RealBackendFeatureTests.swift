@@ -194,4 +194,46 @@ final class RealBackendFeatureTests: XCTestCase {
         )
         capture("live-3-location-shared")
     }
+
+    /// Accepting a plan, which is meant to write the denominator every reliability figure rests on.
+    ///
+    /// `plan_outcomes` is empty in production despite plans having been agreed, and
+    /// `RequestService` does call `planOutcomes.record` on the transition into `.accepted`. So
+    /// either the write never reaches the server or the transition never happens — and reading the
+    /// code cannot tell the two apart. This makes the transition happen on purpose, against a plan
+    /// seeded for it, so the answer comes from Firestore afterwards.
+    ///
+    /// Note the pairing suite accepts only opportunistically (`if accept.exists`), so a run where
+    /// the button never appeared still passed. This one insists.
+    func testLive4_acceptingAPlanRecordsAnOutcome() throws {
+        launch(asTestUser: "A")
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40), "not signed in")
+
+        let pending = app.staticTexts["E2E accept me"].firstMatch
+        guard pending.waitForExistence(timeout: 30) else {
+            capture("live-4-no-pending-plan")
+            throw XCTSkip("Run `node Scripts/seed-location-fixture.mjs` — this needs a plan "
+                          + "still awaiting an answer, and previous runs have answered them all")
+        }
+        pending.tap()
+
+        let accept = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Accept'")).firstMatch
+        guard scrollTo(accept) else {
+            capture("live-4-no-accept")
+            return XCTFail("nothing to accept with. On screen:\n\(app.debugDescription)")
+        }
+        accept.tap()
+
+        // The celebration is the app's own confirmation that the response landed and was rewarded.
+        let celebration = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS[c] 'XP' OR label CONTAINS[c] 'accepted'")
+        ).firstMatch
+        XCTAssertTrue(celebration.waitForExistence(timeout: 25), "the accept never completed")
+        capture("live-4-accepted")
+
+        // Deliberately linger. `FirestorePlanOutcomeRepository.record` uses the non-awaiting
+        // `setData(from:)`, so the write is enqueued rather than confirmed — tearing the app down
+        // straight away is a plausible reason the collection is empty, and waiting rules it out.
+        Thread.sleep(forTimeInterval: 6)
+    }
 }

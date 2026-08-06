@@ -282,6 +282,7 @@ Every pair the app actually draws, measured in both schemes (WCAG 2.1: 4.5 body,
 |---|---|---|---|
 | `onAccent` on `indigo` — 8 buttons | 4.47:1 | 4.90:1 | ✅ passes for bold/large |
 | `onAccent` on `teal` — "Yes, it did" | **2.49:1** → 5.47:1 | 7.86:1 | ✅ **fixed** |
+| `onAccent` on `coral` — streak strip | **2.16:1** → 6.76:1 | **2.16:1** → 7.74:1 | ✅ **fixed** |
 | `slate` on `sand` / `surface` / `warm100` | 9.0–10.4:1 | 7.2–14.0:1 | ✅ |
 | `warm600` on `surface` | 4.83:1 | 6.97:1 | ✅ |
 | `teal` as a status colour on `sand` | **2.30:1** → 5.06:1 | 7.86:1 | ✅ **fixed** |
@@ -295,6 +296,20 @@ already 7.86:1.
 `ColourContrastTests` resolves the palette in both schemes and computes the ratios. Reverting teal
 makes three of its assertions fail with exactly the numbers above, so it is a regression test
 rather than a decoration.
+
+**A second defect, and a lesson about the tooling.** The streak strip drew white bold text on
+coral at 2.16:1. It hid from the first scan because both the text colour *and* the fill are written
+as ternaries, so a regex looking for `foregroundStyle(MGColors.` and `.background(MGColors.` matched
+neither. Rewriting the scan to read every `MGColors` token on a line — rather than assuming the
+syntax shape — found it. Three separate false negatives came from the same assumption today, and
+one false positive claimed 1.08:1 on a pair the app never renders. Every candidate here was read in
+the source before being called a defect.
+
+**The first fix for it was wrong, and the test caught that.** `slate` on coral is 4.79:1 in light
+and **1.81:1 in dark**, because slate flips to near-white while coral stays pale in both schemes.
+Ink that flips is wrong in one scheme or the other, which is why `onLightAccent` exists — a fixed
+dark ink for accents that do not flip, at 6.76:1 and 7.74:1. That is the argument for asserting
+both schemes rather than the one on screen.
 
 **Still open, and a design decision rather than a defect:** in light mode the remaining accents are
 below 3:1 on the page background — coral 2.00:1, sunshine 1.42:1, lavender 2.52:1, sky 1.54:1.

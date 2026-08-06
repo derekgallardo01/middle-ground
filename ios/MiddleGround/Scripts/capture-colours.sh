@@ -34,7 +34,10 @@ xcodegen generate >/dev/null
 for scheme in light dark; do
   echo "==> $scheme"
   xcrun simctl ui "$UDID" appearance "$scheme"
-  MG_SCHEME="$scheme" xcodebuild -project MiddleGround.xcodeproj -scheme MiddleGroundApp \
+  # TEST_RUNNER_-prefixed variables are the only ones xcodebuild forwards into the
+  # test process — plain MG_SCHEME reached the build and not the test, so every file
+  # came out labelled "unknown". Same mechanism two-device-e2e.sh uses for the code.
+  TEST_RUNNER_MG_SCHEME="$scheme" xcodebuild -project MiddleGround.xcodeproj -scheme MiddleGroundApp \
     -destination "platform=iOS Simulator,id=$UDID" \
     -derivedDataPath "$OUT/dd" \
     -resultBundlePath "$OUT/$scheme.xcresult" \

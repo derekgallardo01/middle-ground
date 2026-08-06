@@ -114,7 +114,7 @@ final class ProfileViewModel {
             )
             await loadRelationships()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(for: error)
         }
     }
 
@@ -130,13 +130,20 @@ final class ProfileViewModel {
         isPairing = true
         errorMessage = nil
         defer { isPairing = false }
+        var groupFailure: Error?
         do {
             _ = try await relationshipService.join(inviteCode: joinCodeInput, userID: user.id)
             joinCodeInput = ""
             await loadRelationships()
             return
         } catch {
-            // Fall through and try it as a plan code before reporting anything.
+            guard JoinCodeFailure.isWorthTryingAsPlan(afterGroupFailure: error) else {
+                // The code *did* name a group, and the join was refused for a reason worth
+                // hearing. A plan lookup can only overwrite that with something less true.
+                errorMessage = UserFacingError.message(for: error)
+                return
+            }
+            groupFailure = error
         }
 
         do {
@@ -144,7 +151,10 @@ final class ProfileViewModel {
             joinCodeInput = ""
             didJoinPlan = true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = JoinCodeFailure.message(
+                groupFailure: groupFailure ?? error,
+                planFailure: error
+            )
         }
     }
 
@@ -240,7 +250,7 @@ final class ProfileViewModel {
             await loadRelationships()
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(for: error)
             return false
         }
     }
@@ -258,7 +268,7 @@ final class ProfileViewModel {
             _ = try await relationshipService.regenerateInviteCode(for: relationship, userID: user.id)
             await loadRelationships()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(for: error)
         }
     }
 
@@ -280,7 +290,7 @@ final class ProfileViewModel {
             try await relationshipService.rename(relationship, to: renameInput)
             await loadRelationships()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(for: error)
         }
         renameInput = ""
     }
@@ -399,7 +409,7 @@ final class ProfileViewModel {
             isLoading = false
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(for: error)
             isLoading = false
             return false
         }

@@ -98,10 +98,10 @@ final class OnboardingViewModel {
                         self?.userName = user?.name ?? ""
                         self?.advance()
                     } catch {
-                        self?.errorMessage = error.localizedDescription
+                        self?.errorMessage = UserFacingError.message(for: error)
                     }
                 case .failure(let error):
-                    self?.errorMessage = error.localizedDescription
+                    self?.errorMessage = UserFacingError.message(for: error)
                 }
             }
         }
@@ -119,7 +119,7 @@ final class OnboardingViewModel {
                 isLoading = false
                 advance()
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = UserFacingError.message(for: error)
                 isLoading = false
             }
         }
@@ -185,7 +185,7 @@ final class OnboardingViewModel {
             advance()
             return user
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(for: error)
             isLoading = false
             return nil
         }

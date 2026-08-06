@@ -27,7 +27,7 @@ extension RequestDetailViewModel {
             request = try await requestService.createPlanInvite(for: request, by: currentUserID)
             Haptics.shared.impact(.light)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(for: error)
         }
     }
 
@@ -40,7 +40,7 @@ extension RequestDetailViewModel {
             request = try await requestService.revokePlanInvite(for: request, by: currentUserID)
             Haptics.shared.impact(.light)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(for: error)
         }
     }
 }

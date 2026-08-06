@@ -117,16 +117,23 @@ final class RealBackendFeatureTests: XCTestCase {
             capture("live-2-no-toggle")
             return XCTFail("no way to mark yourself unavailable. On screen:\n\(app.debugDescription)")
         }
-        XCTAssertTrue(toggle.label.localizedCaseInsensitiveContains("not free"))
+
+        // Deliberately state-agnostic. These run against a real account that keeps whatever the
+        // last run left behind, so today may already be blocked — asserting a fixed starting
+        // state made this pass once and fail on every rerun.
+        let wasBlocked = toggle.label.localizedCaseInsensitiveContains("free again")
         toggle.tap()
 
-        let cleared = app.buttons["toggleUnavailable"]
-        XCTAssertTrue(
-            cleared.waitForExistence(timeout: 15)
-                && cleared.label.localizedCaseInsensitiveContains("free again"),
-            "the day did not stay blocked — with the rollback added today, that means the write failed"
+        let after = app.buttons["toggleUnavailable"]
+        XCTAssertTrue(after.waitForExistence(timeout: 15))
+        let isBlocked = after.label.localizedCaseInsensitiveContains("free again")
+        XCTAssertNotEqual(
+            wasBlocked,
+            isBlocked,
+            "the toggle did not flip — with the rollback added today, that means the write failed "
+                + "and the day was put back"
         )
-        capture("live-2-day-blocked")
+        capture("live-2-day-toggled")
     }
 
     /// Location sharing, the only one of the five with no test of any kind and the only one that
@@ -140,6 +147,13 @@ final class RealBackendFeatureTests: XCTestCase {
         launch(asTestUser: "A")
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40), "not signed in")
 
+        // Pull to refresh first. `CachedRequestRepository.merge` only overwrites a local row when
+        // the remote copy is strictly newer, so a plan re-dated on the server is invisible to a
+        // client that already cached it — which is exactly how this test is set up, and it
+        // skipped twice before that was understood.
+        app.swipeDown()
+        Thread.sleep(forTimeInterval: 3)
+
         guard openAPlan() else { throw XCTSkip("No plan in the feed") }
 
         let share = app.buttons.matching(
@@ -147,15 +161,27 @@ final class RealBackendFeatureTests: XCTestCase {
         ).firstMatch
         guard scrollTo(share) else {
             capture("live-3-window-closed")
-            throw XCTSkip("No plan is inside its location window — needs an accepted plan timed near now")
+            throw XCTSkip("""
+                No plan is inside its location window. Sharing needs an accepted plan timed within \
+                an hour before and four hours after now, which the pairing run does not produce, \
+                and re-dating one on the server is not enough on its own — the client serves its \
+                cached copy until a strictly newer updatedAt arrives.
+
+                This is a fixture problem, not an unverified feature: location sharing was proven \
+                live on 2026-08-06, with a document in `locations` written by the app through the \
+                real rules. Making this repeatable needs a plan created for the purpose.
+                """)
         }
         share.tap()
 
-        // The permission prompt is a system alert; the simulator is pre-granted by the script.
-        let mine = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS[c] 'Sharing' OR label CONTAINS[c] 'your location'")
-        ).firstMatch
-        XCTAssertTrue(mine.waitForExistence(timeout: 30), "location was never shared")
+        // "Stop sharing" only exists once a point has been shared, so it is the unambiguous
+        // signal. The obvious-looking alternative — matching "your location" — appears in the
+        // *invitation* copy above the button and would have passed before anything was shared.
+        let stopSharing = app.buttons["Stop sharing"]
+        XCTAssertTrue(
+            stopSharing.waitForExistence(timeout: 30),
+            "location was never shared, so there is nothing to withdraw"
+        )
         capture("live-3-location-shared")
     }
 }

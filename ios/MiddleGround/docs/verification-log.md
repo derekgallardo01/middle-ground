@@ -266,6 +266,43 @@ five files, and `test/support/` correctly is not), and no dependency was added �
 should pass. It simply has not run anywhere but here.
 
 
+---
+
+## Third-pass audit: colour contrast
+
+The app has shipped two contrast failures, from opposite causes. Black on indigo, because a
+`foregroundStyle` applied after `mgFont` was silently dropped — the colour was *wrong*. And white
+on teal at **2.49:1**, where the colour was exactly right and the surface could not carry it.
+Neither is visible in review and neither breaks a screenshot test: both render a perfectly
+composed screen that happens to be hard to read.
+
+Every pair the app actually draws, measured in both schemes (WCAG 2.1: 4.5 body, 3.0 large/icons):
+
+| Pair | Light | Dark | |
+|---|---|---|---|
+| `onAccent` on `indigo` — 8 buttons | 4.47:1 | 4.90:1 | ✅ passes for bold/large |
+| `onAccent` on `teal` — "Yes, it did" | **2.49:1** → 5.47:1 | 7.86:1 | ✅ **fixed** |
+| `slate` on `sand` / `surface` / `warm100` | 9.0–10.4:1 | 7.2–14.0:1 | ✅ |
+| `warm600` on `surface` | 4.83:1 | 6.97:1 | ✅ |
+| `teal` as a status colour on `sand` | **2.30:1** → 5.06:1 | 7.86:1 | ✅ **fixed** |
+| `indigo` as a link on `surface` | 4.13:1 | 4.90:1 | ✅ icons/large |
+
+**Light-mode teal moved from `#14B8A6` (teal-500) to `#0F766E` (teal-700).** It is the only accent
+used behind text, and it also reads as a status tint and a location pin, where 2.30:1 was below
+even the floor for meaningful icons. Dark mode is untouched — `#2DD4BF` behind `onAccent` was
+already 7.86:1.
+
+`ColourContrastTests` resolves the palette in both schemes and computes the ratios. Reverting teal
+makes three of its assertions fail with exactly the numbers above, so it is a regression test
+rather than a decoration.
+
+**Still open, and a design decision rather than a defect:** in light mode the remaining accents are
+below 3:1 on the page background — coral 2.00:1, sunshine 1.42:1, lavender 2.52:1, sky 1.54:1.
+That is fine behind dark text or in a confetti burst, and not fine for anything a reader must make
+out. Twelve sites use them as foreground. The test records the numbers and deliberately does not
+fail on them; darkening the palette changes how the app looks, which is yours to decide.
+
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.
@@ -273,7 +310,9 @@ should pass. It simply has not run anywhere but here.
 - Report moderation, which needs a real report to work through.
 - Two demo plans with a dangling participant; re-seeding the demo data clears them.
 - Seven moderate transitive dependency advisories, to be fixed away from this Mac.
-- 25 commits that CI has never seen.
+- 27 commits that CI has never seen.
+- Four decorative accents below 3:1 in light mode, used as foreground in 12 places.
+- The darker teal is computed but not yet eyeballed on a device.
 - Deep-link destinations, which need a real plan between two real accounts.
 - 1.0 is in review with build `202608021918`, which predates every fix this week. Push does not
   work in it at all. Fixes land in 1.0.1.

@@ -9,7 +9,19 @@ import UIKit
 enum MGColors {
     // Primary — accents lift slightly in dark mode for contrast against dark surfaces.
     static let indigo = Color(light: 0x6366F1, dark: 0x818CF8)
-    static let teal = Color(light: 0x14B8A6, dark: 0x2DD4BF)
+    /// Darkened in light mode from `#14B8A6` (teal-500) to teal-700.
+    ///
+    /// It is the only accent used *behind* text — the "Yes, it did" button on a settled plan —
+    /// and white on teal-500 is **2.49:1**, which fails WCAG AA for body text (4.5) and for large
+    /// text (3.0) alike. That is the same failure as the black-on-purple button, arrived at from
+    /// the other direction: there the colour was applied wrongly, here it was applied correctly to
+    /// a colour that could not carry it.
+    ///
+    /// Teal also reads as text and icons — a status tint, the location pin — where teal-500 on
+    /// sand was 2.30:1, below even the 3:1 floor for meaningful icons. teal-700 answers both:
+    /// 5.47:1 with white, 5.06:1 as text on sand. Dark mode is untouched; `#2DD4BF` behind
+    /// `onAccent` is already 7.86:1.
+    static let teal = Color(light: 0x0F766E, dark: 0x2DD4BF)
     static let coral = Color(light: 0xFF8FA3, dark: 0xFDA4AF)
 
     // Supporting

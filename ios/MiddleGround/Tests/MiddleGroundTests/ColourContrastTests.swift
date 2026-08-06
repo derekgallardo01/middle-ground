@@ -69,6 +69,24 @@ final class ColourContrastTests: XCTestCase {
         assertReadable(MGColors.onAccent, on: MGColors.teal, atLeast: 4.5, "onAccent on teal")
     }
 
+    /// The streak strip. Coral is a light pink, so `onAccent` on it is 2.16:1 — the same defect
+    /// as the teal button, and it was hidden from the first scan because both the text colour and
+    /// the fill are written as ternaries.
+    ///
+    /// The first attempted fix used `slate`, which is 4.79:1 in light and **1.81:1 in dark**,
+    /// because slate flips to near-white while coral stays pale. This test caught that, which is
+    /// the argument for asserting both schemes rather than the one you happen to be looking at.
+    func testCompletedStreakDaysAreReadable() {
+        assertReadable(MGColors.onLightAccent, on: MGColors.coral, atLeast: 4.5, "onLightAccent on coral")
+        let whiteOnCoral = contrast(MGColors.onAccent, on: MGColors.coral, .light)
+        XCTAssertLessThan(
+            whiteOnCoral,
+            3.0,
+            "white on coral now clears 3:1 — if coral was darkened, this capsule can use onAccent "
+                + "again and this test should say so"
+        )
+    }
+
     /// The specific regression: white on teal-500 was 2.49:1, and this is a primary action.
     func testTheDidThisHappenButtonIsReadable() {
         let ratio = contrast(MGColors.onAccent, on: MGColors.teal, .light)

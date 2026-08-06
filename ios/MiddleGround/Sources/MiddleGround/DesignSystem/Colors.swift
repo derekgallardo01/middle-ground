@@ -44,6 +44,15 @@ enum MGColors {
     /// (indigo → #818CF8, coral → #FDA4AF), where white drops to ~2.9:1 and ~1.6:1.
     static let onAccent = Color(light: 0xFFFFFF, dark: 0x1E293B)
 
+    /// Ink for accents that stay light in **both** schemes — coral, sunshine, lavender, sky.
+    ///
+    /// `onAccent` exists for accents that are dark in light mode and light in dark mode, so it
+    /// flips. These do not flip: coral is `#FF8FA3` in light and `#FDA4AF` in dark, both pale. Ink
+    /// that flips is therefore wrong twice — `onAccent` gives white on pink (2.16:1) in light, and
+    /// `slate` gives near-white on pink (1.81:1) in dark. Only a fixed dark ink reads on both, at
+    /// 6.76:1 and 7.74:1.
+    static let onLightAccent = Color(light: 0x1E293B, dark: 0x1E293B)
+
     /// Shadow colour. Deliberately NOT derived from `slate`, which inverts to near-white in
     /// dark mode and turned every card shadow into a glow.
     static let shadow = Color(light: 0x334155, dark: 0x000000)

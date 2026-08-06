@@ -46,7 +46,11 @@ struct DayPill: View {
         Text(day)
             .mgFont(.caption)
             .fontWeight(.bold)
-            .foregroundStyle(isCompleted ? MGColors.onAccent : MGColors.warm600)
+            // `onLightAccent`, not `onAccent` and not `slate`. Coral is pale in both schemes, so
+            // ink that flips is wrong in one of them: white on coral is 2.16:1 in light, and slate
+            // goes near-white in dark for 1.81:1. A fixed dark ink is 6.76:1 and 7.74:1. Darkening
+            // coral itself would have changed a status colour used in twenty other places.
+            .foregroundStyle(isCompleted ? MGColors.onLightAccent : MGColors.warm600)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .background(isCompleted ? MGColors.coral : MGColors.warm100)

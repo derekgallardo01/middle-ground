@@ -74,7 +74,17 @@ final class GamificationViewModel {
         errorMessage = nil
         // Before the reads, not alongside them: on a reinstall the local store is empty, and
         // the mirror is the only place the user's XP and streak still exist.
-        await gamificationService.restoreFromMirrorIfNeeded(for: currentUser.id)
+        //
+        // If it couldn't be reached, everything below renders from defaults — Level 1, 0 XP, a
+        // 0-day streak, no achievements. Shown without comment that is not a degraded screen, it
+        // is a false one: it tells somebody with two years of history that they have none. An
+        // error state is the honest answer, and it retries.
+        if await gamificationService.restoreFromMirrorIfNeeded(for: currentUser.id) == .unavailable {
+            errorMessage = "Couldn't load your progress. Check your connection and try again."
+            isLoading = false
+            hasLoaded = true
+            return
+        }
         async let fetchedStats = gamificationService.stats(for: currentUser.id)
         async let fetchedAchievements = gamificationService.achievements(for: currentUser.id)
         async let fetchedActivities = gamificationService.activities(for: currentUser.id)

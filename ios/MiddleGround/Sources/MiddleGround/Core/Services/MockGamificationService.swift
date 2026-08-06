@@ -7,7 +7,7 @@ import Foundation
 /// to do with the UserDefaults-backed implementation anyway.
 actor MockGamificationService: GamificationServiceProtocol {
     /// No-op: the mock's stats are already fully populated, so there is nothing to restore.
-    func restoreFromMirrorIfNeeded(for userID: String) async {}
+    func restoreFromMirrorIfNeeded(for userID: String) async -> MirrorRestore { .notNeeded }
 
     func stats(for userID: String) async -> GamificationStats {
         GamificationStats(

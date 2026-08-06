@@ -66,6 +66,14 @@ struct HomeView: View {
                     Task { await viewModel.loadRequests() }
                 }
             }
+            // A response that failed leaves the feed intact, so it cannot use the error state
+            // above — that one is gated on an empty feed and would never appear. Without this,
+            // the card just snapped back to where it was and nothing explained why.
+            .alert("Oops", isPresented: .constant(viewModel.responseErrorMessage != nil)) {
+                Button("OK") { viewModel.responseErrorMessage = nil }
+            } message: {
+                Text(viewModel.responseErrorMessage ?? "")
+            }
         }
         .task {
             // The single entry point for this screen's data.

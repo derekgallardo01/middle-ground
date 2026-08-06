@@ -14,10 +14,19 @@ actor CachedUserRepository: UserRepository {
         ModelContext(modelContainer)
     }
 
+    /// Remote first, cache as a fallback.
+    ///
+    /// The `try await` used to propagate, which made the local read below reachable only when the
+    /// remote call *succeeded and returned nil* — the one case where the cache is least likely to
+    /// help. Offline, it threw. See `user(id:)` for what that cost.
     func currentUser() async throws -> User? {
-        if let remoteUser = try await remote.currentUser() {
-            try saveLocal(remoteUser)
-            return remoteUser
+        do {
+            if let remoteUser = try await remote.currentUser() {
+                try saveLocal(remoteUser)
+                return remoteUser
+            }
+        } catch {
+            MGLog.storage.info("Reading the current user failed; falling back to the cache.")
         }
         return try fetchLocal(id: "current")
     }
@@ -27,10 +36,21 @@ actor CachedUserRepository: UserRepository {
         try saveLocal(user)
     }
 
+    /// The read that decided whether somebody was signed in.
+    ///
+    /// `AuthService.currentUser()` wraps this in `try?`, `AppState.checkAuthState` sets
+    /// `isOnboarded = currentUser != nil`, and the app renders onboarding when that is false. So
+    /// an already-signed-in user with no connection saw the app appear and then get replaced by
+    /// the sign-in wall — their account intact, their session intact, and nothing on screen
+    /// saying the problem was the network. The cached profile answers this perfectly well.
     func user(id: String) async throws -> User? {
-        if let remoteUser = try await remote.user(id: id) {
-            try saveLocal(remoteUser)
-            return remoteUser
+        do {
+            if let remoteUser = try await remote.user(id: id) {
+                try saveLocal(remoteUser)
+                return remoteUser
+            }
+        } catch {
+            MGLog.storage.info("Reading a user profile failed; falling back to the cache.")
         }
         return try fetchLocal(id: id)
     }

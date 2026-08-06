@@ -33,6 +33,14 @@ struct CalendarView: View {
                 await viewModel.loadEvents()
                 await viewModel.loadAvailability()
             }
+            // Marking yourself away is a message to other people, so a write that reached nobody
+            // has to be said out loud. It cannot use the error state above: that one replaces the
+            // whole calendar, which loaded perfectly well.
+            .alert("Oops", isPresented: .constant(viewModel.availabilityErrorMessage != nil)) {
+                Button("OK") { viewModel.availabilityErrorMessage = nil }
+            } message: {
+                Text(viewModel.availabilityErrorMessage ?? "")
+            }
         }
         .task {
             await viewModel.loadCurrentUser()

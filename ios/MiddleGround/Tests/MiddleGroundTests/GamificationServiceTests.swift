@@ -188,7 +188,9 @@ final class GamificationServiceTests: XCTestCase {
 
     func testRestoreFromMirrorPopulatesAnEmptyDevice() async {
         let mirror = MockGamificationRepository()
-        var remote = GamificationStats(streakDays: 6, relationshipXP: 1200, level: 4, growthScore: 40, nextLevelXP: 1500)
+        var remote = GamificationStats(
+            streakDays: 6, relationshipXP: 1200, level: 4, growthScore: 40, nextLevelXP: 1500
+        )
         remote.acceptedCount = 9
         await mirror.save(remote, for: userID)
 

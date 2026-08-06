@@ -21,7 +21,14 @@ final class HomeViewModel {
     var isPaired = false
     var inviteCode: String?
     var isLoading = false
+    /// A failure that leaves nothing to show. Takes over the feed.
     var errorMessage: String?
+
+    /// A failure that happened *to* something on screen, which the feed must survive.
+    ///
+    /// Responding from a card can fail while the list around it is perfectly good, so this is
+    /// presented as an alert rather than replacing the feed with an error state.
+    var responseErrorMessage: String?
 
     // Whether the first load has actually answered each question the feed asks.
     //
@@ -206,7 +213,11 @@ final class HomeViewModel {
                 let outcome = await gamificationService.recordResponse(response, to: request, for: userID)
                 celebrate(response: response, outcome: outcome)
             } catch {
-                errorMessage = "Failed to send response."
+                // Deliberately *not* `errorMessage`. That one takes over the feed, and the view
+                // only renders it when `requests.isEmpty` — which a failed response cannot be,
+                // since responding requires a request to respond to. So this message was set and
+                // could never be read: the row simply snapped back and nothing said why.
+                responseErrorMessage = UserFacingError.message(for: error)
             }
         }
     }

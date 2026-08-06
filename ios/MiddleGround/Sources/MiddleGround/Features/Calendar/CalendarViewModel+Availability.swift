@@ -39,6 +39,7 @@ extension CalendarViewModel {
     func toggleUnavailable(on day: Date) async {
         guard let currentUserID = currentUser?.id else { return }
 
+        let blocksBeforeTheChange = myBlocks
         if let existing = myBlocks.first(where: { $0.covers(day) }) {
             myBlocks.removeAll { $0.id == existing.id }
         } else {
@@ -46,10 +47,24 @@ extension CalendarViewModel {
         }
 
         let mine = SharedAvailability(userID: currentUserID, blocks: myBlocks)
+        var savedToAtLeastOneGroup = false
         for group in groups {
             // Best effort per group: one failing write should not roll back the others or the
             // local state the user just changed.
-            try? await availabilityRepository.save(mine, forGroup: group.id)
+            do {
+                try await availabilityRepository.save(mine, forGroup: group.id)
+                savedToAtLeastOneGroup = true
+            } catch {
+                MGLog.storage.error("Couldn't share availability with one group.")
+            }
+        }
+
+        // Every write failed, so nobody can see this. Marking yourself away is a message to other
+        // people — a day that looks blocked only on your own phone is the exact failure this
+        // feature exists to prevent, and `try?` made it silent. Put it back and say so.
+        if !groups.isEmpty && !savedToAtLeastOneGroup {
+            myBlocks = blocksBeforeTheChange
+            availabilityErrorMessage = "Couldn't share that. Check your connection and try again."
         }
     }
 

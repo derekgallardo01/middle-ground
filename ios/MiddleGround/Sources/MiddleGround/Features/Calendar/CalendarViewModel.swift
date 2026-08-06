@@ -44,7 +44,13 @@ final class CalendarViewModel {
     /// straight through to the real content and drew an empty month and "no upcoming plans"
     /// before anything had been fetched — the screen visibly rewrote itself a beat later.
     private(set) var hasLoaded = false
+    /// A failure that leaves nothing to show. Takes over the screen.
     var errorMessage: String?
+
+    /// A failure that happened *to* a calendar that loaded fine — an availability write that
+    /// couldn't reach anybody. Presented as an alert, because replacing a good month view with
+    /// an error state would throw away far more than it explained.
+    var availabilityErrorMessage: String?
 
     /// Tracked separately from `selectedDate`.
     ///

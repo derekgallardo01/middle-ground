@@ -27,15 +27,41 @@ actor CachedRequestRepository: RequestRepository {
         return try fetchLocal(for: userID)
     }
 
+    /// Writes locally first so the feed updates immediately — and takes it back if the write
+    /// never landed.
+    ///
+    /// `needsSync` is set in three places and queried in none: there is no sync engine, and
+    /// nothing anywhere replays a pending row. So a create that failed left a request in the local
+    /// store that existed for nobody else, and `fetchLocal` served it back into the feed on every
+    /// load — a plan the recipient had never been sent, sitting there indefinitely, waiting for a
+    /// reply that could not come. Rolling back is the honest answer until something exists to
+    /// drain the queue; the caller already surfaces the failure and the user can send it again.
     func createRequest(_ request: Request) async throws {
         try insertLocal(request, needsSync: true)
-        try await remote.createRequest(request)
+        do {
+            try await remote.createRequest(request)
+        } catch {
+            try? deleteLocal(id: request.id)
+            throw error
+        }
         try markSynced(id: request.id)
     }
 
+    /// Same rollback as `createRequest`, restoring the previous copy rather than deleting: the
+    /// request existed before this edit and is still perfectly real, it just did not change.
     func updateRequest(_ request: Request) async throws {
+        let previous = try? fetchLocal(id: request.id)
         try insertLocal(request, needsSync: true)
-        try await remote.updateRequest(request)
+        do {
+            try await remote.updateRequest(request)
+        } catch {
+            if let previous {
+                try? insertLocal(previous, needsSync: false)
+            } else {
+                try? deleteLocal(id: request.id)
+            }
+            throw error
+        }
         try markSynced(id: request.id)
     }
 
@@ -113,6 +139,13 @@ actor CachedRequestRepository: RequestRepository {
         return try ctx.fetch(descriptor)
             .compactMap { $0.toModel() }
             .filter { $0.allParticipantIDs.contains(userID) }
+    }
+
+    /// One cached request, for putting things back the way they were.
+    private func fetchLocal(id: String) throws -> Request? {
+        let ctx = context
+        let descriptor = FetchDescriptor<RequestEntity>(predicate: #Predicate { $0.id == id })
+        return try ctx.fetch(descriptor).first?.toModel()
     }
 
     private func merge(requests: [Request]) throws {

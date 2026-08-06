@@ -14,9 +14,18 @@ actor CachedRelationshipRepository: RelationshipRepository {
         ModelContext(modelContainer)
     }
 
+    /// Remote first, cache as a fallback — the same shape as `CachedRequestRepository`.
+    ///
+    /// Without the fallback this threw offline, and who you are paired with is upstream of nearly
+    /// every screen: no relationships means no partners to choose in Create Request, an empty
+    /// calendar, and a profile with nobody in it. All of it already sits in the local store.
     func fetchRelationships(for userID: String) async throws -> [Relationship] {
-        let remoteRelationships = try await remote.fetchRelationships(for: userID)
-        try merge(relationships: remoteRelationships)
+        do {
+            let remoteRelationships = try await remote.fetchRelationships(for: userID)
+            try merge(relationships: remoteRelationships)
+        } catch {
+            MGLog.storage.info("Reading relationships failed; falling back to the cache.")
+        }
         return try fetchLocal(for: userID)
     }
 

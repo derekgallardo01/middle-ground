@@ -1,5 +1,22 @@
 import Foundation
 
+/// What a restore attempt established about this device's progress.
+///
+/// The screen renders from a local store, so a device with nothing in it draws Level 1, 0 XP and
+/// a 0-day streak — which is correct for a new person and a lie to everyone else. Distinguishing
+/// "you have no progress" from "we couldn't find out" is the whole point of this type: only one
+/// of them is safe to show as numbers.
+enum MirrorRestore: Sendable, Equatable {
+    /// Progress was already on this device; nothing was fetched and nothing is in doubt.
+    case notNeeded
+    /// Pulled back from the server. The numbers are real.
+    case restored
+    /// The server holds no progress for this account either — a genuinely new user.
+    case nothingStored
+    /// The server could not be reached. Anything shown after this is a default, not a fact.
+    case unavailable
+}
+
 protocol GamificationServiceProtocol: Sendable {
     func stats(for userID: String) async -> GamificationStats
     func achievements(for userID: String) async -> [Achievement]
@@ -10,7 +27,11 @@ protocol GamificationServiceProtocol: Sendable {
     /// Call this before the first `stats(for:)` of a session. It was missing from the
     /// protocol, which is why the implementation had no call sites and progress still did not
     /// survive a reinstall despite being mirrored on every save.
-    func restoreFromMirrorIfNeeded(for userID: String) async
+    ///
+    /// Returns what it managed to establish, so a caller that is about to render numbers can tell
+    /// whether they are the user's or a default.
+    @discardableResult
+    func restoreFromMirrorIfNeeded(for userID: String) async -> MirrorRestore
 
     /// Awards XP, extends the streak, and unlocks achievements for a response the user just sent.
     /// This is the write path that turns the Activities tab from decoration into a real reward loop.
@@ -240,26 +261,45 @@ actor GamificationService: GamificationServiceProtocol {
     ///
     /// Callers invoke this on every load, so the attempt is recorded per user. Without that,
     /// a user who genuinely has no progress anywhere never populates the local store and would
-    /// re-read the mirror on every single load.
-    func restoreFromMirrorIfNeeded(for userID: String) async {
-        guard !restoreAttempted.contains(userID) else { return }
-        restoreAttempted.insert(userID)
-        guard let mirror, store.data(forKey: statsKey(for: userID)) == nil else { return }
+    /// re-read the mirror on every single load — but only an attempt that *settled the question*
+    /// counts.
+    ///
+    /// The marker used to be set before the read, so a restore that failed because the
+    /// device was offline was never retried: come back online and the tab still showed Level 1 and
+    /// 0 XP until the app was relaunched. A failure now leaves the marker off, and the returned
+    /// `.unavailable` tells the caller not to present the defaults as facts.
+    @discardableResult
+    func restoreFromMirrorIfNeeded(for userID: String) async -> MirrorRestore {
+        guard !restoreAttempted.contains(userID) else { return .notNeeded }
+        guard let mirror, store.data(forKey: statsKey(for: userID)) == nil else {
+            restoreAttempted.insert(userID)
+            return .notNeeded
+        }
 
         // Both of these read the *same* document, `gamification/{userID}`, and awaiting them in
         // sequence paid for that round trip twice — on the one screen whose whole job is to be
         // there when you open the tab.
-        async let remoteStats = try? mirror.stats(for: userID)
-        async let remoteHistory = try? mirror.history(for: userID)
-        let (stats, history) = await (remoteStats, remoteHistory)
+        async let remoteStats = Self.attempt { try await mirror.stats(for: userID) }
+        async let remoteHistory = Self.attempt { try await mirror.history(for: userID) }
+        let (statsResult, historyResult) = await (remoteStats, remoteHistory)
+
+        guard case .success(let stats) = statsResult else {
+            // Not marked attempted: the next pull-to-refresh gets another go.
+            MGLog.storage.info("Progress could not be restored from the mirror; will retry.")
+            return .unavailable
+        }
+        restoreAttempted.insert(userID)
 
         if let stats, let data = try? JSONEncoder().encode(stats) {
             store.set(data, forKey: statsKey(for: userID))
+        } else if stats == nil {
+            // Reached the server and it holds nothing. A new account, and zeroes are the truth.
+            return .nothingStored
         }
 
         // Written directly rather than through `save(achievements:)`, which would mirror
         // straight back to the server the values just read from it.
-        guard let history else { return }
+        guard case .success(let history) = historyResult, let history else { return .restored }
         if !history.achievements.isEmpty,
            let data = try? JSONEncoder().encode(history.achievements) {
             store.set(data, forKey: achievementsKey(for: userID))
@@ -267,6 +307,20 @@ actor GamificationService: GamificationServiceProtocol {
         if !history.activities.isEmpty,
            let data = try? JSONEncoder().encode(history.activities) {
             store.set(data, forKey: activitiesKey(for: userID))
+        }
+        return .restored
+    }
+
+    /// `Result(catching:)` has no async form, and the difference between "the server said nothing"
+    /// and "the server was not reachable" is exactly what the caller needs — so `try?`, which
+    /// flattens both into nil, is the one thing that cannot be used here.
+    private static func attempt<T: Sendable>(
+        _ work: @Sendable () async throws -> T
+    ) async -> Result<T, Error> {
+        do {
+            return .success(try await work())
+        } catch {
+            return .failure(error)
         }
     }
 

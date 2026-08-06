@@ -133,6 +133,13 @@ final class SpontaneousRequestViewModel {
                     for: request, by: currentUser.id
                 )
                 planInviteCode = withInvite?.planInviteCode
+                if planInviteCode == nil {
+                    // Best effort is not the same as silent. Somebody who asked to invite a person
+                    // outside the app got a sent plan, no link, and no reason — and the one thing
+                    // they were trying to do is the thing that did not happen.
+                    errorMessage = "Your plan was sent, but the invite link couldn't be created. "
+                        + "You can share one from the plan itself."
+                }
             }
             isLoading = false
             Haptics.shared.notification(.success)

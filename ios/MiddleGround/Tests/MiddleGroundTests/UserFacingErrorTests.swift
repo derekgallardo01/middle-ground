@@ -43,14 +43,13 @@ final class UserFacingErrorTests: XCTestCase {
 
     // MARK: - Firestore codes people actually hit
 
-    func testPermissionDeniedReadsAsSomethingAPersonCanUnderstand() {
+    func testPermissionDeniedReadsAsSomethingAPersonCanUnderstand() throws {
         let denied = NSError(domain: "FIRFirestoreErrorDomain", code: 7)
 
-        let message = UserFacingError.message(for: denied)
+        let message = try XCTUnwrap(UserFacingError.message(for: denied))
 
-        XCTAssertNotNil(message)
-        XCTAssertFalse(message!.contains("FIRFirestoreErrorDomain"), "no domain names")
-        XCTAssertFalse(message!.contains("7"), "no error codes")
+        XCTAssertFalse(message.contains("FIRFirestoreErrorDomain"), "no domain names")
+        XCTAssertFalse(message.contains("7"), "no error codes")
     }
 
     func testUnavailableTalksAboutTheConnection() {
@@ -74,14 +73,14 @@ final class UserFacingErrorTests: XCTestCase {
 
     // MARK: - Not inventing a diagnosis
 
-    func testAnUnknownErrorGetsAPlainSentenceRatherThanAGuess() {
+    func testAnUnknownErrorGetsAPlainSentenceRatherThanAGuess() throws {
         let mystery = NSError(domain: "SomethingNobodyMapped", code: 99)
 
-        let message = UserFacingError.message(for: mystery)
+        let message = try XCTUnwrap(UserFacingError.message(for: mystery))
 
         XCTAssertEqual(message, "Something went wrong. Please try again.")
-        XCTAssertFalse(message!.contains("SomethingNobodyMapped"))
-        XCTAssertFalse(message!.contains("99"))
+        XCTAssertFalse(message.contains("SomethingNobodyMapped"))
+        XCTAssertFalse(message.contains("99"))
     }
 
     func testAnUnmappedFirestoreCodeFallsBackRatherThanGuessing() {

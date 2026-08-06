@@ -1,6 +1,8 @@
 import UIKit
 import FirebaseAppCheck
+import FirebaseAuth
 import FirebaseCore
+import FirebaseFirestore
 import FirebaseCrashlytics
 import FirebaseMessaging
 import UserNotifications
@@ -30,6 +32,24 @@ public final class AppDelegate: NSObject, UIApplicationDelegate {
         AppCheck.setAppCheckProviderFactory(MGAppCheckProviderFactory())
 
         FirebaseApp.configure()
+
+        // Emulators must be selected immediately after configure() and before any read or write —
+        // Firestore latches its settings the first time it is used, and changing the host after
+        // that traps. Nothing else in the launch sequence touches it, which is why this sits here
+        // rather than anywhere more obvious.
+        if AppConfiguration.usesEmulator {
+            let settings = Firestore.firestore().settings
+            settings.host = "\(AppConfiguration.emulatorHost):\(AppConfiguration.firestoreEmulatorPort)"
+            settings.isSSLEnabled = false
+            settings.cacheSettings = MemoryCacheSettings()
+            Firestore.firestore().settings = settings
+            Auth.auth().useEmulator(
+                withHost: AppConfiguration.emulatorHost,
+                port: AppConfiguration.authEmulatorPort
+            )
+            MGLog.storage.info("Using the local Firebase emulators.")
+        }
+
         // Only now is it safe to touch anything Firebase-backed.
         NotificationService.shared.start()
 

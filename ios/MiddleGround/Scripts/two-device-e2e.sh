@@ -19,6 +19,9 @@ export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Develope
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../App" && pwd)"
 OUT="${MG_E2E_OUT:-$(mktemp -d)}"
+# mktemp -d creates the directory; an MG_E2E_OUT handed in from outside may not exist,
+# and every step below redirects into it — so the first run died before the first test.
+mkdir -p "$OUT"
 DEVICE_A="${MG_DEVICE_A:-iPhone 17}"
 DEVICE_B="${MG_DEVICE_B:-iPhone 17 Pro}"
 

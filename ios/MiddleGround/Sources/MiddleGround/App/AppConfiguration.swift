@@ -65,6 +65,27 @@ enum AppConfiguration {
     /// `GoogleService-Info.plist` and `FirebaseApp.configure()` would abort the process.
     static var isBackendEnabled: Bool { !useMockRepositories }
 
+    /// Points Firestore and Auth at the local emulators instead of the real project.
+    ///
+    /// The gap this closes: the UI tests all run in mock mode, which swaps in in-memory
+    /// repositories and so never reaches Firestore, the security rules, or a Cloud Function. An
+    /// audit found five features — plan chat, location sharing, shared availability, typing
+    /// presence, read receipts — with passing UI tests and **zero documents ever written in
+    /// production**. A green suite and an unused feature looked identical.
+    ///
+    /// Real repositories, real rules, disposable data, no network. The rules are already tested
+    /// directly against hand-authored documents; this tests them against the documents the app
+    /// itself writes, which is the half that can silently diverge.
+    ///
+    ///   `xcodebuild ... -MGUseEmulator`, with `firebase emulators:start` running.
+    static var usesEmulator: Bool =
+        ProcessInfo.processInfo.arguments.contains("-MGUseEmulator")
+
+    /// Where the emulators listen. Matches the defaults in `firebase.json`.
+    static let emulatorHost = "127.0.0.1"
+    static let firestoreEmulatorPort = 8080
+    static let authEmulatorPort = 9099
+
     // MARK: - Legal & support destinations
     //
     // A reachable Privacy Policy, Terms and Support page are required for App Store review,

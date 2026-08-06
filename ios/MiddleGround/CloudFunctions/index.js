@@ -21,6 +21,7 @@ const { getFirestore, FieldPath } = require('firebase-admin/firestore');
 const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } =
   require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 // 1st-gen, for the auth trigger only. See the note above.
 const functionsV1 = require('firebase-functions/v1');
@@ -29,6 +30,7 @@ const { getUserName, notifyUsers, getUserTimeZone, DEFAULT_TIME_ZONE, Notificati
   require('./push');
 const { formatPlanTime } = require('./time');
 const { pagedDocs, mapWithConcurrency } = require('./paging');
+const { discover } = require('./discovery');
 const { purgeUserData } = require('./purge');
 const { sendAlert, when } = require('./alerts');
 
@@ -36,6 +38,8 @@ initializeApp();
 const db = () => getFirestore();
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
+const YELP_API_KEY = defineSecret('YELP_API_KEY');
+const TICKETMASTER_API_KEY = defineSecret('TICKETMASTER_API_KEY');
 
 const HOUR = 60 * 60 * 1000;
 
@@ -679,3 +683,44 @@ exports.dailyDigest = onSchedule(
 exports.onUserDeleted = functionsV1.auth.user().onDelete(async (user) => {
   await purgeUserData(user.uid);
 });
+
+// ---------------------------------------------------------- place discovery
+
+/**
+ * Nearby places and events, for the moment before a plan exists.
+ *
+ * The project's first callable function — everything else here is a trigger or a schedule. It is
+ * callable rather than an HTTP endpoint because callable functions carry the caller's identity,
+ * which is what the rate limit counts and what stops this being an open proxy to a metered API.
+ *
+ * The keys stay here. A key shipped in an iOS binary is a key anybody can extract, and the whole
+ * reason this function exists rather than the app calling Yelp directly.
+ *
+ * Errors are deliberately vague to the client and specific in the log: "Yelp 429" tells an
+ * attacker which quota to exhaust, and tells the person searching nothing they can act on.
+ */
+exports.discoverPlaces = onCall(
+  { secrets: [YELP_API_KEY, TICKETMASTER_API_KEY], enforceAppCheck: false },
+  async (event) => {
+    const uid = event.auth?.uid;
+    if (!uid) {
+      throw new HttpsError('unauthenticated', 'Sign in to search for places.');
+    }
+
+    try {
+      return await discover(event.data || {}, uid, {
+        yelp: YELP_API_KEY.value(),
+        ticketmaster: TICKETMASTER_API_KEY.value(),
+      });
+    } catch (error) {
+      console.error(`discoverPlaces failed for ${uid}:`, error);
+      if (/Too many searches/.test(error.message)) {
+        throw new HttpsError('resource-exhausted', error.message);
+      }
+      if (/latitude and longitude/.test(error.message)) {
+        throw new HttpsError('invalid-argument', error.message);
+      }
+      throw new HttpsError('unavailable', "Couldn't search for places just now.");
+    }
+  }
+);

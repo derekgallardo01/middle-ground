@@ -76,6 +76,37 @@ describe('paging a collection', () => {
     assert.equal(db.queriesIssued(), 3);
   });
 
+  // Found by mutation testing: deleting the cursor advance made this loop forever instead of
+  // failing a test, so a stalled cursor now raises rather than reading the same page until the
+  // function is killed.
+  test('a cursor that stops advancing raises instead of looping forever', async () => {
+    const ids = ['a', 'b', 'c', 'd'];
+    const docs = ids.map((id) => ({ id, data: () => ({ id }) }));
+    // A database that ignores startAfter — the shape of a mis-ordered or malformed query.
+    const stuck = () => ({
+      collection: () => ({
+        orderBy: () => ({
+          limit: (n) => ({
+            startAfter: () => ({ get: async () => page(n) }),
+            get: async () => page(n),
+          }),
+        }),
+      }),
+    });
+    const page = (n) => {
+      const slice = docs.slice(0, n);
+      return { docs: slice, empty: slice.length === 0, size: slice.length };
+    };
+
+    await assert.rejects(
+      (async () => {
+        // eslint-disable-next-line no-unused-vars
+        for await (const _page of pagedDocs(stuck, fieldPath, 'users', 2)) { /* keep pulling */ }
+      })(),
+      /cursor stalled/,
+    );
+  });
+
   test('an empty collection yields nothing', async () => {
     const db = fakeDb([]);
 

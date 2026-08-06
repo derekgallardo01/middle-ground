@@ -32,7 +32,18 @@ async function* pagedDocs(db, fieldPath, collection, pageSize) {
     yield snapshot.docs;
     // A short page is the last page; asking again would cost a read to learn nothing.
     if (snapshot.size < pageSize) return;
-    cursor = snapshot.docs[snapshot.docs.length - 1];
+
+    const next = snapshot.docs[snapshot.docs.length - 1];
+    // The only thing that ends a full-page run is the cursor moving. If it ever stops moving —
+    // a mis-ordered query, a `startAfter` that silently does nothing — this loop would read the
+    // same page until the function was killed, which is a far worse failure than stopping early.
+    // Found by mutation testing: removing the advance below hung rather than failing a test.
+    if (cursor && next.id === cursor.id) {
+      throw new Error(
+        `pagedDocs: cursor stalled on ${collection} at ${next.id}; refusing to re-read the same page`
+      );
+    }
+    cursor = next;
   }
 }
 

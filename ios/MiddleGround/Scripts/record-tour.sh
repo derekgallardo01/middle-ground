@@ -161,10 +161,11 @@ fi
 rm -f "$ALLFRAMES"
 
 SIZE=$(du -h "$TRIMMED" | cut -f1)
-LENGTH=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$TRIMMED")
 FRAMES=$(ffprobe -v error -select_streams v -count_frames \
   -show_entries stream=nb_read_frames -of default=nw=1:nk=1 "$TRIMMED")
 echo "Video: $TRIMMED  ($SIZE, ${LENGTH}s, ${FRAMES} frames, app on screen ${ASTART}s–${AEND}s)"
+
+LENGTH=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$TRIMMED")
 
 # One clip per walkthrough.
 #
@@ -202,6 +203,15 @@ else
     ffmpeg -nostdin -loglevel error -ss "$SEG_START" -to "$SEG_END" -i "$TRIMMED" \
       -c:v libx264 -crf 23 -preset veryfast -movflags +faststart \
       "$CLIPS/$NAME.mp4" -y || echo "  could not cut $NAME" >&2
+
+    # A clip with no duration is not a clip. One run measured the film as 100 seconds longer than
+    # it was and asked for a stretch past its end; ffmpeg exited 0 and left 262 bytes behind, and
+    # only the duration column in the summary showed anything wrong.
+    if ! ffprobe -v error -show_entries format=duration -of csv=p=0 "$CLIPS/$NAME.mp4" \
+         2>/dev/null | grep -qE '^[0-9]+\.?[0-9]*$'; then
+    echo "  $NAME came out empty — asked for ${SEG_START}s-${SEG_END}s of a ${LENGTH}s film" >&2
+    rm -f "$CLIPS/$NAME.mp4"
+    fi
     INDEX=$(( INDEX + 1 ))
   done <<< "$SEGMENTS"
   echo "Walkthroughs: $CLIPS"

@@ -62,23 +62,23 @@ def brightness_series(video: str) -> list:
     second long and a nine-minute recording would need two thousand seeks. Decoding once and
     reading the frames as they come is the same measurement in a fraction of the time.
     """
-    width, height = 32, 69  # scale=32:-1 on a 1206x2622 capture
+    # Both dimensions fixed, so the size of a frame is known rather than inferred. With
+    # `scale=32:-1` the height came out of the source aspect, and guessing it wrong scaled every
+    # timestamp: a run that picked 60 rows instead of 70 stretched a 603-second film to 703, put
+    # the last walkthrough past the end of it, and wrote a 262-byte clip. Squashing the aspect
+    # changes nothing here — this only ever takes a mean.
+    width, height = 32, 64
+    size = width * height
+
     process = subprocess.run(
         ["ffmpeg", "-loglevel", "error", "-i", video,
-         "-vf", f"fps={SAMPLES_PER_SECOND},scale={width}:-1",
+         "-vf", f"fps={SAMPLES_PER_SECOND},scale={width}:{height}",
          "-f", "rawvideo", "-pix_fmt", "gray", "-"],
         capture_output=True, check=False,
     )
     data = process.stdout
     if not data:
         return []
-    size = width * height
-    # The exact height depends on the source aspect; derive it rather than assume.
-    if len(data) % size:
-        for candidate in range(60, 80):
-            if len(data) % (width * candidate) == 0:
-                size = width * candidate
-                break
     return [sum(data[i:i + size]) / size for i in range(0, len(data) - size + 1, size)]
 
 

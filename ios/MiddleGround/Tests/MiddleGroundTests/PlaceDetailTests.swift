@@ -154,4 +154,54 @@ final class PlaceDetailTests: XCTestCase {
         XCTAssertEqual(phones.count, count, "two places share a phone number")
         XCTAssertEqual(sites.count, count, "two places share a website")
     }
+
+    /// Two places on one coordinate get one photograph, and it is not obvious from the code.
+    ///
+    /// Places were offset by their index *within their own kind*, so the first of every category —
+    /// Lucia's, The Bell Jar, The Rowan Hotel, The Bell House — sat on exactly the same point. The
+    /// detail sheet showed the identical Look Around image for a restaurant and a hotel, and
+    /// nothing failed, because each place was individually fine.
+    func testNoTwoPlacesShareACoordinate() async throws {
+        var seen: Set<String> = []
+        var count = 0
+
+        for kind in PlaceKind.allCases {
+            for place in try await MockPlaceDiscoveryProvider().places(
+                near: MockLocationService().coordinate,
+                radiusMiles: 25,
+                kind: kind,
+                matching: nil
+            ) {
+                count += 1
+                seen.insert(String(format: "%.5f,%.5f", place.latitude, place.longitude))
+            }
+        }
+
+        XCTAssertEqual(seen.count, count, "two places sit on the same spot and show one photo")
+    }
+
+    /// "1.1 miles away" on a place standing at the origin is a caption nobody can trust.
+    func testTheStatedDistanceMatchesWhereThePlaceActuallyIs() async throws {
+        let origin = MockLocationService().coordinate
+        let from = CLLocation(latitude: origin.latitude, longitude: origin.longitude)
+
+        for kind in PlaceKind.allCases {
+            for place in try await MockPlaceDiscoveryProvider().places(
+                near: origin,
+                radiusMiles: 25,
+                kind: kind,
+                matching: nil
+            ) {
+                let there = CLLocation(latitude: place.latitude, longitude: place.longitude)
+                let actual = from.distance(from: there) / 1609.344
+                let claimed = try XCTUnwrap(place.distanceMiles)
+                XCTAssertEqual(
+                    actual,
+                    claimed,
+                    accuracy: 0.1,
+                    "\(place.name) says \(claimed) mi but stands \(actual) mi away"
+                )
+            }
+        }
+    }
 }

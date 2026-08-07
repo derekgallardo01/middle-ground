@@ -269,6 +269,8 @@ enum PlaceLookup: String, CaseIterable, Identifiable, Sendable {
 /// Real ones would make every screenshot depend on where the machine running it happens to be,
 /// and `MKLocalSearch` needs a network that a test should not.
 struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
+    private func radians(_ degrees: Double) -> Double { degrees * .pi / 180 }
+
     func places(
         near coordinate: CLLocationCoordinate2D,
         radiusMiles: Double,
@@ -291,6 +293,14 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
             let address: String
             let phone: String
             let site: String
+            /// Which way from here, in degrees. With the distance above it fixes an actual spot.
+            ///
+            /// Places used to be offset by their index *within their own kind*, so the first place
+            /// of every category landed on precisely the same coordinate — and Look Around, asked
+            /// four times about one point, returned one photograph. Two different venues showed
+            /// the same street. The bearings also keep to Manhattan, where there is coverage:
+            /// due west of midtown is the Hudson.
+            let bearing: Double
         }
         let seeds: [Seed]
         switch kind {
@@ -302,7 +312,8 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     miles: 0.4,
                     address: "214 Smith Street, Brooklyn",
                     phone: "(718) 555-0148",
-                    site: "luciasbrooklyn.example"
+                    site: "luciasbrooklyn.example",
+                    bearing: 350
                 ),
                 Seed(
                     name: "Copper & Oak",
@@ -310,7 +321,8 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     miles: 0.9,
                     address: "77 Atlantic Avenue, Brooklyn",
                     phone: "(718) 555-0231",
-                    site: "copperandoak.example"
+                    site: "copperandoak.example",
+                    bearing: 175
                 ),
                 Seed(
                     name: "The Daily Grind",
@@ -318,7 +330,8 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     miles: 1.2,
                     address: "6 Bergen Street, Brooklyn",
                     phone: "(718) 555-0396",
-                    site: "dailygrind.example"
+                    site: "dailygrind.example",
+                    bearing: 10
                 ),
                 Seed(
                     name: "Fen Bakery",
@@ -326,7 +339,8 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     miles: 2.1,
                     address: "158 Court Street, Brooklyn",
                     phone: "(718) 555-0574",
-                    site: "fenbakery.example"
+                    site: "fenbakery.example",
+                    bearing: 185
                 )
             ]
         case .bar:
@@ -337,7 +351,8 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     miles: 0.6,
                     address: "42 Wythe Avenue, Brooklyn",
                     phone: "(718) 555-0612",
-                    site: "thebelljar.example"
+                    site: "thebelljar.example",
+                    bearing: 95
                 ),
                 Seed(
                     name: "Foxglove Brewing",
@@ -345,7 +360,8 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     miles: 1.8,
                     address: "301 Nostrand Avenue, Brooklyn",
                     phone: "(718) 555-0789",
-                    site: "foxglovebrewing.example"
+                    site: "foxglovebrewing.example",
+                    bearing: 355
                 )
             ]
         case .stay:
@@ -356,7 +372,8 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     miles: 1.1,
                     address: "88 Dean Street, Brooklyn",
                     phone: "(718) 555-0925",
-                    site: "rowanhotel.example"
+                    site: "rowanhotel.example",
+                    bearing: 170
                 ),
                 Seed(
                     name: "Harbour Inn",
@@ -364,7 +381,8 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     miles: 3.4,
                     address: "5 Pier Lane, Brooklyn",
                     phone: "(718) 555-1043",
-                    site: "harbourinn.example"
+                    site: "harbourinn.example",
+                    bearing: 180
                 )
             ]
         case .event:
@@ -375,7 +393,8 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     miles: 0.8,
                     address: "149 7th Street, Brooklyn",
                     phone: "(718) 555-1177",
-                    site: "thebellhouse.example"
+                    site: "thebellhouse.example",
+                    bearing: 200
                 ),
                 Seed(
                     name: "Regent Theatre",
@@ -383,7 +402,8 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     miles: 2.6,
                     address: "23 Flatbush Avenue, Brooklyn",
                     phone: "(718) 555-1288",
-                    site: "regenttheatre.example"
+                    site: "regenttheatre.example",
+                    bearing: 5
                 )
             ]
         }
@@ -397,10 +417,10 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     name: seed.name,
                     category: seed.category,
                     address: seed.address,
-                    // ~130m apart along the avenue, so each place is a different view and all of
-                    // them stay inside Look Around coverage. At 0.004 they walked out of it.
-                    latitude: coordinate.latitude + Double(index) * 0.0012,
-                    longitude: coordinate.longitude,
+                    latitude: coordinate.latitude + (seed.miles / 69.0) * cos(radians(seed.bearing)),
+                    longitude: coordinate.longitude
+                        + (seed.miles / (69.0 * cos(radians(coordinate.latitude))))
+                        * sin(radians(seed.bearing)),
                     distanceMiles: seed.miles,
                     phone: seed.phone,
                     website: URL(string: "https://\(seed.site)")

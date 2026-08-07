@@ -129,30 +129,38 @@ if [ -n "$LAUNCH_STAMP" ]; then
   fi
 fi
 START=$(python3 "$SCRIPT_DIR/trim-tour.py" "$VIDEO" "$FLOOR")
-# And where it stops. The tour terminates the app and xcodebuild then spends a minute or two
-# tearing down, all of it recorded — a film that ended after two minutes and sat on a home screen
-# for the rest, which reads as a broken video rather than a finished tour.
-END=$(python3 "$SCRIPT_DIR/trim-tour.py" "$VIDEO" "$START" --end)
-DURATION=$(( END - START ))
-[ "$DURATION" -lt 10 ] && DURATION=
+# The tail is cut further down, against the re-encoded file rather than this one. Measuring it
+# here put the cut two minutes late and left the home screen in anyway: the capture's timestamps
+# do not run at wall-clock rate, so a second measured in it is not a second in the output.
 #
 # `-fps_mode cfr -r 30` is not a nicety. simctl records variable-rate and writes nothing while the
 # screen is still, so re-encoding without it produced a "video" of **twelve frames stretched over
 # 144 seconds** — a slideshow that reported a sane duration and a sane file size, and that looked,
 # when scrubbed, exactly like a tour stuck on one screen. That is what "it swipes on the same
 # screen" was. A constant rate fills the gaps and makes the file seekable.
-if ! ffmpeg -loglevel error -ss "$START" -t "$DURATION" -i "$VIDEO" \
+if ! ffmpeg -loglevel error -ss "$START" -i "$VIDEO" \
      -c:v libx264 -crf 23 -preset veryfast \
      -fps_mode cfr -r 30 -movflags +faststart "$TRIMMED" -y; then
   echo "Trim failed. The untrimmed recording is at $VIDEO" >&2
   exit 1
 fi
 
+# Now cut the tail, against a file that is constant-rate and seekable, so a second is a second.
+# The tour terminates the app and xcodebuild spends another minute or two tearing down, all of it
+# recorded — a film that stopped after a minute and sat on a home screen for the rest, which reads
+# as broken rather than as finished.
+ENDS=$(python3 "$SCRIPT_DIR/trim-tour.py" "$TRIMMED" 0 --end)
+if [ -n "$ENDS" ] && [ "$ENDS" -gt 10 ]; then
+  if ffmpeg -loglevel error -t "$ENDS" -i "$TRIMMED" -c copy "${TRIMMED%.mp4}.cut.mp4" -y; then
+    mv "${TRIMMED%.mp4}.cut.mp4" "$TRIMMED"
+  fi
+fi
+
 SIZE=$(du -h "$TRIMMED" | cut -f1)
 LENGTH=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$TRIMMED")
 FRAMES=$(ffprobe -v error -select_streams v -count_frames \
   -show_entries stream=nb_read_frames -of default=nw=1:nk=1 "$TRIMMED")
-echo "Video: $TRIMMED  ($SIZE, ${LENGTH}s, ${FRAMES} frames, ${START}s–${END}s of the capture)"
+echo "Video: $TRIMMED  ($SIZE, ${LENGTH}s, ${FRAMES} frames, from ${START}s, ${ENDS}s of action)"
 
 # A duration and a file size both looked right on a twelve-frame file. The frame count is the
 # number that would have caught it, so it is checked rather than merely printed.

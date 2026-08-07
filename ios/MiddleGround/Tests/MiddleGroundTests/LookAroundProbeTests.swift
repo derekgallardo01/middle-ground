@@ -69,4 +69,33 @@ final class LookAroundProbeTests: XCTestCase {
             "'\(place.name)' has no street imagery — the demo location has drifted off coverage"
         )
     }
+
+    /// The one that a distinct-coordinates test cannot catch: Apple snaps a request to the nearest
+    /// photographed spot, so two places close together can still come back as one image. The only
+    /// way to know is to fetch both and compare the pixels.
+    func testTwoPlacesDoNotComeBackAsTheSamePhotograph() async throws {
+        let here = try await MockLocationService().currentCoordinate()
+        let provider = MapKitPlaceImageProvider()
+        let size = CGSize(width: 200, height: 130)
+
+        var pictures: [String: Data] = [:]
+        for kind in PlaceKind.allCases {
+            let places = try await MockPlaceDiscoveryProvider().places(
+                near: here, radiusMiles: 25, kind: kind, matching: nil
+            )
+            guard let first = places.first else { continue }
+            guard let picture = await provider.image(for: first, size: size),
+                  let data = picture.image.pngData() else {
+                throw XCTSkip("No imagery available in this environment.")
+            }
+            pictures[first.name] = data
+        }
+
+        XCTAssertEqual(pictures.count, PlaceKind.allCases.count)
+        XCTAssertEqual(
+            Set(pictures.values).count,
+            pictures.count,
+            "\(pictures.keys.sorted()) — two of these show the identical photograph"
+        )
+    }
 }

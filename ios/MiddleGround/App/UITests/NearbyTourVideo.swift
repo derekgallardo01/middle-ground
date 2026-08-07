@@ -235,6 +235,15 @@ final class NearbyTourVideo: XCTestCase {
     /// ends on — see `Scripts/record-tour.sh`, where the names below are repeated. Their order is
     /// what pairs a clip with its name, so this list and that one have to stay in step.
     func testTheTour() throws {
+        // A plan filmed to be thrown away.
+        //
+        // Launching the app before recording was not enough: the first plan of a run still lost
+        // most of its frames — 13 seconds of video for 70 seconds of work, against 72 to 78 for
+        // every plan after it. Whatever the first one pays for (the first search, the first
+        // snapshot, the first sheet) it pays once, so it pays here instead of inside the footage.
+        // `Scripts/record-tour.sh` drops the segment this produces.
+        try filmRequest(Plan(kind: "Food", title: "Warm-up", toGroup: false))
+
         let plans = [
             Plan(kind: "Food", title: "Dinner Friday?", toGroup: false),
             Plan(kind: "Food", title: "Dinner, all of us?", toGroup: true),

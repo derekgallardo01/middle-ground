@@ -180,6 +180,14 @@ rm -rf "$CLIPS"; mkdir -p "$CLIPS"
 SEGMENTS=$(python3 "$SCRIPT_DIR/trim-tour.py" "$TRIMMED" --segments)
 FOUND=$(printf '%s\n' "$SEGMENTS" | grep -c . || true)
 
+# The tour films a throwaway plan first — see `testTheTour`, which explains why. It shows up as
+# an extra leading segment when it captures well and vanishes when it does not, so both counts are
+# expected and only the extra one needs dropping.
+if [ "$FOUND" -eq "$(( ${#LABELS[@]} + 1 ))" ]; then
+  SEGMENTS=$(printf '%s\n' "$SEGMENTS" | tail -n "${#LABELS[@]}")
+  FOUND=${#LABELS[@]}
+fi
+
 if [ "$FOUND" -ne "${#LABELS[@]}" ]; then
   echo "Found $FOUND walkthroughs, expected ${#LABELS[@]} — not splitting, because clip N would" >&2
   echo "not be plan N and the names would be wrong. The whole film is still at $TRIMMED." >&2
@@ -188,7 +196,10 @@ else
   while read -r SEG_START SEG_END; do
     [ -z "$SEG_START" ] && continue
     NAME="${LABELS[$INDEX]}"
-    ffmpeg -loglevel error -ss "$SEG_START" -to "$SEG_END" -i "$TRIMMED" \
+    # -nostdin, because ffmpeg reads standard input and this loop is reading segments from it.
+    # Without it ffmpeg swallows the next lines, `read` gets a start with no end, and the cut
+    # fails with "Invalid duration" on a subset of the clips — which looks like bad timings.
+    ffmpeg -nostdin -loglevel error -ss "$SEG_START" -to "$SEG_END" -i "$TRIMMED" \
       -c:v libx264 -crf 23 -preset veryfast -movflags +faststart \
       "$CLIPS/$NAME.mp4" -y || echo "  could not cut $NAME" >&2
     INDEX=$(( INDEX + 1 ))

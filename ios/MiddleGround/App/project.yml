@@ -149,9 +149,13 @@ targets:
         # agreed plan, during the hours around it — there is no tracking, no background updates
         # and nothing to leave running. `Always` would need a background mode and a justification
         # at review that this feature does not have and does not want.
+        # Two purposes, because there are two. Tapping Nearby raises this same prompt, and a
+        # prompt about sharing with people on a plan is not an answer to "find me somewhere".
         NSLocationWhenInUseUsageDescription: >-
-          Middle Ground shares your location only when you tap to share it, only with the people
-          on that plan, and only around the time it is happening. It is deleted afterwards.
+          Middle Ground uses your location only when you tap for it: to find places near you when
+          you are putting a plan together, and to share where you are with the people on a plan
+          you agreed to. A nearby search is not stored. A shared location goes only to the people
+          on that plan, only around the time it is happening, and is deleted afterwards.
 
     # NOTE: there is deliberately no `entitlements:` block.
     #

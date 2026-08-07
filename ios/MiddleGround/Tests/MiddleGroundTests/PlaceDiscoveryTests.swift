@@ -150,8 +150,15 @@ final class PlaceDiscoveryTests: XCTestCase {
     /// A place with neither category nor distance should not render a stray separator.
     func testASubtitleWithNothingToSayIsEmpty() {
         let place = DiscoveredPlace(
-            id: "x", name: "Somewhere", category: nil, address: nil,
-            latitude: 0, longitude: 0, distanceMiles: nil, phone: nil, website: nil
+            id: "x",
+            name: "Somewhere",
+            category: nil,
+            address: nil,
+            latitude: 0,
+            longitude: 0,
+            distanceMiles: nil,
+            phone: nil,
+            website: nil
         )
         XCTAssertEqual(place.subtitle, "")
     }
@@ -160,7 +167,10 @@ final class PlaceDiscoveryTests: XCTestCase {
 
     func testDinnerAcceptsACafeAndABakery() {
         // A town without a literal `.restaurant` should not look like a town without food.
-        XCTAssertEqual(PlaceKind.restaurant.pointOfInterestCategories, [.restaurant, .cafe, .bakery])
+        XCTAssertEqual(
+            PlaceKind.restaurant.pointOfInterestCategories,
+            [.restaurant, .cafe, .bakery]
+        )
     }
 
     func testEveryKindSearchesForSomethingAndCanBeLabelled() {
@@ -188,8 +198,15 @@ final class PlaceDiscoveryTests: XCTestCase {
 
     func testEveryLookupProducesAUsableLink() throws {
         let place = DiscoveredPlace(
-            id: "x", name: "Lucia's Pizza", category: "Restaurant", address: "1 Main St",
-            latitude: 40.6782, longitude: -73.9442, distanceMiles: 0.4, phone: nil, website: nil
+            id: "x",
+            name: "Lucia's Pizza",
+            category: "Restaurant",
+            address: "1 Main St",
+            latitude: 40.6782,
+            longitude: -73.9442,
+            distanceMiles: 0.4,
+            phone: nil,
+            website: nil
         )
 
         for lookup in PlaceLookup.allCases {

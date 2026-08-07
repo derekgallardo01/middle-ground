@@ -186,7 +186,7 @@ struct MapKitPlaceDiscoveryProvider: PlaceDiscoveryProvider {
         }
         .sorted { ($0.distanceMiles ?? .infinity) < ($1.distanceMiles ?? .infinity) }
         .prefix(resultLimit)
-        .map { $0 }
+        .reduce(into: [DiscoveredPlace]()) { $0.append($1) }
     }
 
     /// `MKPOICategory(rawValue: "MKPOICategoryRestaurant")` is not a word anyone should read.
@@ -266,31 +266,37 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
         // A beat, so the loading state is a real state rather than a frame nobody sees.
         try? await Task.sleep(for: .milliseconds(400))
 
-        let seeds: [(String, String, Double)]
+        struct Seed { let name: String; let category: String; let miles: Double }
+        let seeds: [Seed]
         switch kind {
         case .restaurant:
-            seeds = [("Lucia's", "Restaurant", 0.4), ("Copper & Oak", "Restaurant", 0.9),
-                     ("The Daily Grind", "Cafe", 1.2), ("Fen Bakery", "Bakery", 2.1)]
+            seeds = [Seed(name: "Lucia's", category: "Restaurant", miles: 0.4),
+                     Seed(name: "Copper & Oak", category: "Restaurant", miles: 0.9),
+                     Seed(name: "The Daily Grind", category: "Cafe", miles: 1.2),
+                     Seed(name: "Fen Bakery", category: "Bakery", miles: 2.1)]
         case .bar:
-            seeds = [("The Bell Jar", "Nightlife", 0.6), ("Foxglove Brewing", "Brewery", 1.8)]
+            seeds = [Seed(name: "The Bell Jar", category: "Nightlife", miles: 0.6),
+                     Seed(name: "Foxglove Brewing", category: "Brewery", miles: 1.8)]
         case .stay:
-            seeds = [("The Rowan Hotel", "Hotel", 1.1), ("Harbour Inn", "Hotel", 3.4)]
+            seeds = [Seed(name: "The Rowan Hotel", category: "Hotel", miles: 1.1),
+                     Seed(name: "Harbour Inn", category: "Hotel", miles: 3.4)]
         case .event:
-            seeds = [("The Bell House", "Music Venue", 0.8), ("Regent Theatre", "Theater", 2.6)]
+            seeds = [Seed(name: "The Bell House", category: "Music Venue", miles: 0.8),
+                     Seed(name: "Regent Theatre", category: "Theater", miles: 2.6)]
         }
 
         return seeds
-            .filter { $0.2 <= radiusMiles }
+            .filter { $0.miles <= radiusMiles }
             .enumerated()
             .map { index, seed in
                 DiscoveredPlace(
                     id: "mock-\(kind.rawValue)-\(index)",
-                    name: seed.0,
-                    category: seed.1,
+                    name: seed.name,
+                    category: seed.category,
                     address: "\(index + 1) Example Street",
                     latitude: coordinate.latitude + Double(index) * 0.004,
                     longitude: coordinate.longitude,
-                    distanceMiles: seed.2,
+                    distanceMiles: seed.miles,
                     phone: nil,
                     website: nil
                 )

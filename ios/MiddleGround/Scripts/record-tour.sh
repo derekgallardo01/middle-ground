@@ -49,7 +49,7 @@ echo "==> running the tour"
 xcodebuild test-without-building -project MiddleGround.xcodeproj -scheme MiddleGroundApp \
   -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath "$OUT/dd" \
   -only-testing:MiddleGroundUITests/NearbyTourVideo \
-  > "$OUT/tour.log" 2>&1 || true
+  > "$OUT/tour.log" 2>&1 && TOUR_STATUS=0 || TOUR_STATUS=$?
 
 sleep 2
 # SIGINT, not SIGKILL: the file is only finalised on a clean exit.
@@ -57,6 +57,16 @@ kill -INT "$RECORDER" 2>/dev/null || true
 wait "$RECORDER" 2>/dev/null || true
 
 grep -E "Test Case '.*(passed|failed)'" "$OUT/tour.log" | sed 's/.*NearbyTourVideo //' | cut -c1-80 || true
+
+# The recording is stopped either way — footage of a failure is how the last two bugs were
+# found — but the run is not called a success. This printed a tidy "Video: ... 48s" line over a
+# tour that had failed its own assertion, and the file it named was the couple filmed twice.
+if [ "$TOUR_STATUS" -ne 0 ]; then
+  echo
+  echo "The tour FAILED. The video below is of a failed run — do not use it."
+  grep -E "error:.*NearbyTourVideo" "$OUT/tour.log" | sed 's|.*/||' | head -5
+  echo "Full log: $OUT/tour.log"
+fi
 if [ ! -f "$VIDEO" ]; then
   echo "No video was produced — see $OUT/tour.log"
   exit 1
@@ -74,3 +84,5 @@ fi
 SIZE=$(du -h "$TRIMMED" | cut -f1)
 LENGTH=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$TRIMMED")
 echo "Video: $TRIMMED  ($SIZE, ${LENGTH}s, trimmed from ${START}s)"
+
+exit "$TOUR_STATUS"

@@ -5,6 +5,12 @@ import SwiftData
 final class RelationshipEntity {
     @Attribute(.unique) var id: String
     var participantIDs: [String]
+    /// What the group is called. Cached because it is *read* from here — this repository is
+    /// remote-then-local, so a name that is not persisted is a name every group loses. "Sunday
+    /// hikers" came back nameless and was then labelled with one member's name.
+    ///
+    /// Optional, and appended, so SwiftData migrates existing stores automatically.
+    var name: String?
     var typeRaw: String
     var createdAt: Date
     var growthScore: Int
@@ -14,6 +20,7 @@ final class RelationshipEntity {
     init(from relationship: Relationship) {
         self.id = relationship.id
         self.participantIDs = relationship.participantIDs
+        self.name = relationship.name
         self.typeRaw = relationship.type.rawValue
         self.createdAt = relationship.createdAt
         self.growthScore = relationship.growthScore
@@ -23,6 +30,7 @@ final class RelationshipEntity {
 
     func update(from relationship: Relationship) {
         self.participantIDs = relationship.participantIDs
+        self.name = relationship.name
         self.typeRaw = relationship.type.rawValue
         self.createdAt = relationship.createdAt
         self.growthScore = relationship.growthScore
@@ -37,6 +45,7 @@ final class RelationshipEntity {
             type: type,
             createdAt: createdAt,
             growthScore: growthScore,
+            name: name,
             inviteCode: inviteCode
         )
     }

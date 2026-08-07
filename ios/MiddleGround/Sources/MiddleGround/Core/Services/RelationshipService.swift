@@ -175,15 +175,38 @@ actor RelationshipService {
         for relationship in relationships {
             if let name = relationship.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty {
                 labels[relationship.id] = name
-            } else if let partnerID = relationship.partnerID(excluding: currentUserID),
-                      let partner = try? await userRepository.user(id: partnerID),
-                      !partner.name.isEmpty {
-                labels[relationship.id] = partner.name
-            } else {
-                labels[relationship.id] = relationship.type.displayName
+                continue
             }
+
+            // Everybody else, not `partnerID`. That returns "an arbitrary one of them" for a
+            // group — its own doc comment says so — and this called it anyway, so an unnamed
+            // group of three was labelled with one member's name. A plan addressed to three
+            // people that says "Sam" is wrong about who is on it.
+            let others = relationship.otherIDs(excluding: currentUserID)
+            var names: [String] = []
+            for id in others {
+                if let user = try? await userRepository.user(id: id), !user.name.isEmpty {
+                    names.append(user.name)
+                }
+            }
+
+            labels[relationship.id] = Self.joined(names) ?? relationship.type.displayName
         }
         return labels
+    }
+
+    /// "Sam", "Sam & Priya", "Sam, Priya & Jo" — how a person would say a list out loud.
+    ///
+    /// Beyond three it stops naming everyone: a picker row is one line, and "Sam, Priya, Jo, Ada
+    /// & Ben" is a label nobody reads to the end of.
+    static func joined(_ names: [String]) -> String? {
+        switch names.count {
+        case 0: return nil
+        case 1: return names[0]
+        case 2: return "\(names[0]) & \(names[1])"
+        case 3: return "\(names[0]), \(names[1]) & \(names[2])"
+        default: return "\(names[0]), \(names[1]) & \(names.count - 2) others"
+        }
     }
 
     /// Renames a group. Any participant may do this — it is a shared label, not an owner's.

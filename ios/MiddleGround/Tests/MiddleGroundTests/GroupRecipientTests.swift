@@ -1,4 +1,5 @@
 import Factory
+import SwiftData
 import XCTest
 @testable import MiddleGround
 
@@ -35,6 +36,46 @@ final class GroupRecipientTests: XCTestCase {
 
     /// The two fixtures must be separately selectable, which is exactly what a shared tag
     /// prevented.
+    // MARK: - What a group is called
+
+    /// The cache dropped `name`, and `CachedRelationshipRepository` reads from the cache, so
+    /// every named group came back nameless. Nothing failed — it just quietly said the wrong
+    /// thing, and a recording of "Sunday hikers" showed "Sam".
+    func testAGroupKeepsItsNameThroughTheCache() {
+        let entity = RelationshipEntity(from: .previewGroup)
+
+        XCTAssertEqual(entity.toModel()?.name, "Sunday hikers", "the cache lost the group's name")
+    }
+
+    func testRenamingSurvivesTheCacheToo() {
+        let entity = RelationshipEntity(from: .previewGroup)
+        var renamed = Relationship.previewGroup
+        renamed.name = "Thursday climbers"
+
+        entity.update(from: renamed)
+
+        XCTAssertEqual(entity.toModel()?.name, "Thursday climbers")
+    }
+
+    /// `partnerID(excluding:)` says in its own doc comment that it returns an arbitrary
+    /// participant for a group, and the label builder called it regardless.
+    func testAnUnnamedGroupIsLabelledWithEveryoneInIt() {
+        XCTAssertEqual(RelationshipService.joined(["Sam"]), "Sam")
+        XCTAssertEqual(RelationshipService.joined(["Sam", "Priya"]), "Sam & Priya")
+        XCTAssertEqual(RelationshipService.joined(["Sam", "Priya", "Jo"]), "Sam, Priya & Jo")
+    }
+
+    /// A picker row is one line. Naming eleven people is not a label.
+    func testALongListStopsNamingEverybody() {
+        let many = ["Sam", "Priya", "Jo", "Ada", "Ben"]
+
+        XCTAssertEqual(RelationshipService.joined(many), "Sam, Priya & 3 others")
+    }
+
+    func testNobodyToNameFallsBackRatherThanRenderingBlank() {
+        XCTAssertNil(RelationshipService.joined([]))
+    }
+
     /// The repository returned the group before the couple, and could return either first
     /// tomorrow. An unordered picker makes "who is this addressed to on open" a coin flip.
     func testPairsAreListedBeforeGroups() async {

@@ -15,8 +15,11 @@ import XCTest
 final class NearbyTourVideo: XCTestCase {
     private var app: XCUIApplication!
 
-    /// Long enough to read a line before it changes.
-    private let beat: TimeInterval = 1.5
+    /// Long enough to read a line before it changes, and no longer.
+    ///
+    /// Was 1.5s, which made a tour of four categories run past two and a half minutes — most of it
+    /// a still screen. Reading a chip takes about half a second; the rest was dead air.
+    private let beat: TimeInterval = 0.55
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -99,8 +102,27 @@ final class NearbyTourVideo: XCTestCase {
                 result.waitForExistence(timeout: 12),
                 "\(label): tapped \(kind) and \(expected) never appeared — the category did not change"
             )
-            pause(1.8)
+            pause(1.2)
+            showEveryPlace(in: kind, for: label)
         }
+    }
+
+    /// Scrolls the results to the end, so the ones past the edge of the screen are in the film too.
+    ///
+    /// The row is horizontal and holds more than fits. A recording that never moves it shows the
+    /// first two or three and implies that is all there is.
+    private func showEveryPlace(in kind: String, for label: String) {
+        let chips = app.buttons.matching(identifier: "nearbyPlace")
+        let count = chips.count
+        XCTAssertGreaterThan(count, 0, "\(label): \(kind) returned nothing to show")
+
+        // Every place the row holds, one nudge at a time, rather than one flick past all of them.
+        let row = chips.element(boundBy: 0)
+        for _ in 0..<max(0, count - 2) {
+            row.swipeLeft(velocity: .slow)
+            pause(0.4)
+        }
+        pause(0.6)
     }
 
     /// One half per recipient, filmed the same way, so the two are comparable.
@@ -122,7 +144,7 @@ final class NearbyTourVideo: XCTestCase {
                 "the group half is not addressed to the group — it says \(label)"
             )
         }
-        pause(1.6)
+        pause(1.1)
 
         let find = app.buttons.matching(
             NSPredicate(format: "label CONTAINS[c] 'Find somewhere near me'")
@@ -142,19 +164,34 @@ final class NearbyTourVideo: XCTestCase {
         let slider = app.sliders["Search radius"]
         XCTAssertTrue(slider.waitForExistence(timeout: 10), "\(who): no radius control")
         slider.adjust(toNormalizedSliderPosition: 1.0)      // 25 miles
-        pause(1.6)
+        pause(1.1)
         slider.adjust(toNormalizedSliderPosition: 0.0)      // 1 mile, and the list shortens
-        pause(1.6)
+        pause(1.1)
         slider.adjust(toNormalizedSliderPosition: 0.25)
         pause()
 
         walkThroughEveryKind(who)
 
-        // Choosing one fills in "Where?".
+        // Looking one up properly: the picture, the address, the number, the links out.
         app.buttons["Food"].tap()
-        _ = app.buttons["nearbyPlace"].firstMatch.waitForExistence(timeout: 12)
+        XCTAssertTrue(
+            app.staticTexts["Lucia's"].waitForExistence(timeout: 12),
+            "\(who): the food results never came back"
+        )
         app.buttons["nearbyPlace"].firstMatch.tap()
-        pause(2.2)
+
+        let choose = app.buttons["choosePlace"]
+        XCTAssertTrue(choose.waitForExistence(timeout: 10), "\(who): the place detail never opened")
+        // Held longer than anything else here, because it is the screen with the most on it.
+        pause(3.5)
+        XCTAssertTrue(
+            app.staticTexts["1 Example Street"].exists || app.staticTexts["Address"].exists,
+            "\(who): the detail opened without the address it exists to show"
+        )
+
+        // Choosing from the detail is what fills in "Where?".
+        choose.tap()
+        pause(1.6)
         app.terminate()
     }
 

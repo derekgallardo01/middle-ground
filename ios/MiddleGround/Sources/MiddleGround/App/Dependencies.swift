@@ -213,6 +213,16 @@ extension Container {
         }
     }
 
+    /// Pictures of the places discovery found. Apple's own imagery in both tiers, so this stays a
+    /// keyless feature — see `PlaceImageProvider` for why a photo API was not worth the trade.
+    var placeImageProvider: Factory<PlaceImageProviding> {
+        Factory(self) {
+            AppConfiguration.useMockRepositories
+                ? MockPlaceImageProvider() as PlaceImageProviding
+                : MapKitPlaceImageProvider()
+        }
+    }
+
     var reservationProvider: Factory<ReservationProvider> {
         Factory(self) { CuratedVenueReservationProvider(venues: self.venueRepository()) }
     }

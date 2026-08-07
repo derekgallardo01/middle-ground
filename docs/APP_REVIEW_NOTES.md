@@ -278,6 +278,10 @@ What the reviewer should be told, and what is true:
   nobody else. There is no API key, no server of ours in the path, and nothing is stored: the fix
   is used for the search and discarded, never written to Firestore and never attached to a plan.
   Typing a place name works with no location permission at all.
+- **The pictures on a place's detail are Apple's**: `MKLookAroundSceneRequest` where there is
+  street-level coverage, `MKMapSnapshotter` where there is not, both rendered on the device from
+  the place's coordinate. No photo API, no key, no second company, and nothing added to App
+  Privacy — a snapshot request is answered and not retained, the same as the search above.
 - A shared point is readable only by the participants of that one plan, and only while the plan is
   inside its window — an hour before its time until four hours after. This is enforced in
   `firestore.rules` against the server clock, not just in the app.

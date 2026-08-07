@@ -47,6 +47,18 @@ struct DiscoveredPlace: Identifiable, Hashable, Sendable {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
+    /// The number, dialable.
+    ///
+    /// MapKit returns it formatted for reading — "(718) 555-0148" — and `tel:` will not take the
+    /// brackets and spaces. Lives here rather than in the view so it can be tested; a tap that
+    /// silently does nothing is exactly the kind of thing that ships unnoticed.
+    var telephoneURL: URL? {
+        guard let phone else { return nil }
+        let dialable = phone.filter { $0.isNumber || $0 == "+" }
+        guard !dialable.isEmpty else { return nil }
+        return URL(string: "tel:\(dialable)")
+    }
+
     /// How it reads on a chip: "Lucia's · 0.4 mi".
     var subtitle: String {
         let distance = distanceMiles.map { String(format: "%.1f mi", $0) }
@@ -266,7 +278,15 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
         // A beat, so the loading state is a real state rather than a frame nobody sees.
         try? await Task.sleep(for: .milliseconds(400))
 
-        struct Seed { let name: String; let category: String; let miles: Double }
+        struct Seed {
+            let name: String
+            let category: String
+            let miles: Double
+            /// The detail sheet shows a phone number and a website. Leaving these nil made every
+            /// recording of it look like a screen with two rows missing.
+            var phone: String = "(718) 555-0148"
+            var site: String = "example.com"
+        }
         let seeds: [Seed]
         switch kind {
         case .restaurant:
@@ -297,8 +317,8 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     latitude: coordinate.latitude + Double(index) * 0.004,
                     longitude: coordinate.longitude,
                     distanceMiles: seed.miles,
-                    phone: nil,
-                    website: nil
+                    phone: seed.phone,
+                    website: URL(string: "https://\(seed.site)")
                 )
             }
     }

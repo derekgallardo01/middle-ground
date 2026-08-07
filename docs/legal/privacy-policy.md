@@ -164,6 +164,10 @@ a distance you choose, up to 25 miles.
   for or where you were when you searched.
 - **You can skip location entirely.** Typing a place name works with no location permission at
   all, and so does typing the name of somewhere into **Where?** as before.
+- **The pictures are Apple's too.** Tapping a result shows a photograph of the street outside it
+  where Apple has one, and a map of where it is where Apple does not. Both are drawn by iOS from
+  the place's coordinate. We use no photo service, so there is no second company receiving
+  anything, and no picture of you or of anyone else is involved.
 
 If you tap through to Google Maps or Yelp to look at reviews, that opens their site or app and
 you are then their visitor, under their privacy policy — the same as any link.

@@ -2,6 +2,9 @@ import SwiftUI
 
 struct CreateRequestView: View {
     @State private var viewModel: CreateRequestViewModel
+    /// The place being looked at. `nil` means the sheet is closed — `item:` rather than a boolean
+    /// and a separate selection, which is how a sheet ends up showing the previously tapped place.
+    @State private var inspectedPlace: DiscoveredPlace?
     @Environment(\.dismiss) private var dismiss
     var onCreated: ((Request) -> Void)?
 
@@ -137,6 +140,11 @@ struct CreateRequestView: View {
                 Button("OK") { viewModel.errorMessage = nil }
             } message: {
                 Text(viewModel.errorMessage ?? "")
+            }
+        }
+        .sheet(item: $inspectedPlace) { place in
+            PlaceDetailView(place: place) { chosen in
+                viewModel.choose(chosen)
             }
         }
         .task {
@@ -282,7 +290,10 @@ struct CreateRequestView: View {
     /// A found place: its name, and what it is and how far, so the choice is informed.
     private func nearbyChip(_ place: DiscoveredPlace) -> some View {
         Button {
-            viewModel.choose(place)
+            // Opens rather than chooses. A name, a category and a distance are enough to recognise
+            // somewhere you already know and not enough to pick somewhere you do not — the picture,
+            // the address and the phone number are behind this tap, and choosing is one more.
+            inspectedPlace = place
             Haptics.shared.impact(.light)
         } label: {
             VStack(alignment: .leading, spacing: 2) {
@@ -306,7 +317,7 @@ struct CreateRequestView: View {
         }
         .buttonStyle(ScaleButtonStyle())
         .accessibilityLabel("\(place.name), \(place.subtitle)")
-        .accessibilityHint("Sets where you're going")
+        .accessibilityHint("Shows more about this place")
         // A stable handle for tests. Matching on the name alone collided with a request card in
         // the feed behind the sheet — the fixtures include a plan called "Dinner at Lucia's".
         .accessibilityIdentifier("nearbyPlace")

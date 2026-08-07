@@ -120,6 +120,17 @@ final class NearbyTourVideo: XCTestCase {
             recipient.localizedCaseInsensitiveContains(plan.recipient),
             "\(plan.kind): addressed to \(recipient), expected \(plan.recipient)"
         )
+        // And what kind of plan it is, which follows from who it is for. Asserted rather than
+        // left to the eye: this opened as "Relationship" for everybody, group plans included,
+        // and it took watching a recording to notice.
+        let expectedType = plan.toGroup ? "Friends" : "Relationship"
+        let chosenType = app.buttons[expectedType]
+        if chosenType.waitForExistence(timeout: 5) {
+            XCTAssertTrue(
+                chosenType.isSelected,
+                "\(plan.kind) to \(plan.recipient): \(expectedType) is not the selected kind"
+            )
+        }
         pause(1.1)
 
         // What it is about, typed before the place so the sheet reads as a plan being written.

@@ -69,6 +69,20 @@ final class GroupRecipientTests: XCTestCase {
         XCTAssertEqual(viewModel.category, .travel, "a deliberate choice was overwritten")
     }
 
+    /// SwiftUI writes a binding back with its own current value routinely. Counting that as a
+    /// decision would lock the suggestion out before it ever ran — the fix would be in the code,
+    /// the tests would pass, and every group plan would still open as a relationship request.
+    func testAWriteOfTheSameCategoryIsNotADecision() async {
+        let viewModel = await loaded()
+        let opened = viewModel.category
+
+        viewModel.chooseCategory(opened)
+        viewModel.selectedRelationshipID = "rel_2"
+        viewModel.suggestCategoryFromRecipient()
+
+        XCTAssertEqual(viewModel.category, .friends, "a no-op write blocked the suggestion")
+    }
+
     func testEveryKindOfGroupSuggestsSomething() {
         for type in RelationshipType.allCases {
             // Every branch is reachable and none falls through to a catch-all default, which is

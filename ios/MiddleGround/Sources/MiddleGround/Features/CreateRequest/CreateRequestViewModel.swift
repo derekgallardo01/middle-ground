@@ -186,6 +186,10 @@ final class CreateRequestViewModel {
 
     /// A deliberate choice, which outranks anything suggested from here on.
     func chooseCategory(_ chosen: RequestCategory) {
+        // Choosing what is already chosen is not a decision. SwiftUI writes a binding back with
+        // its current value often enough that treating every write as a choice would lock the
+        // suggestion out before it ever ran.
+        guard chosen != category else { return }
         category = chosen
         categoryWasChosenByHand = true
     }

@@ -13,6 +13,8 @@ change, so the launch itself stays in shot.
     python3 Scripts/trim-tour.py video.mp4
 """
 
+from typing import Optional
+
 import os
 import subprocess
 import sys
@@ -24,7 +26,7 @@ LEAD_IN_SECONDS = 10
 MOTION_THRESHOLD = 5
 
 
-def grey_frame(video: str, second: int) -> bytes | None:
+def grey_frame(video: str, second: int) -> Optional[bytes]:
     subprocess.run(
         ["ffmpeg", "-loglevel", "error", "-ss", str(second), "-i", video,
          "-frames:v", "1", "-vf", "scale=80:-1", "-f", "rawvideo",

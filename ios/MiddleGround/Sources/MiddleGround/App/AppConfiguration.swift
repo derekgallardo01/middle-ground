@@ -14,6 +14,17 @@ enum AppConfiguration {
     static var useMockRepositories: Bool =
         ProcessInfo.processInfo.arguments.contains(mockModeLaunchArgument)
 
+    /// Starts compose addressed to a group rather than the first relationship.
+    ///
+    /// For recordings and screenshots that need to show a group plan. Driving the recipient picker
+    /// through its menu proved unreliable enough to lose three takes — the tap lands, the sheet
+    /// goes away, and what the video shows is a bug in the tour rather than the feature.
+    ///
+    /// Same family as `-MGTestUser` and `-MGSeedTyping`: it changes which fixture is selected, not
+    /// what the app does with it.
+    static var prefersGroupRecipient: Bool =
+        ProcessInfo.processInfo.arguments.contains("-MGComposeGroup")
+
     /// Seeds a live "typing" flag in mock mode, for the tests that assert the indicator.
     ///
     /// Off by default: typing is momentary, and a permanent indicator in a screenshot claims

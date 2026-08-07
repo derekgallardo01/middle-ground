@@ -10,7 +10,8 @@
 set -euo pipefail
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../App" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$SCRIPT_DIR/../App" && pwd)"
 DEVICE="${1:-iPhone 17 Pro}"
 OUT="${MG_TOUR_OUT:-/tmp/mg-tour}"
 mkdir -p "$OUT"
@@ -63,9 +64,12 @@ fi
 
 # Cut the dead head. See Scripts/trim-tour.py for why there is one.
 TRIMMED="${VIDEO%.mp4}-trimmed.mp4"
-START=$(python3 "$(dirname "${BASH_SOURCE[0]}")/trim-tour.py" "$VIDEO")
-ffmpeg -loglevel error -ss "$START" -i "$VIDEO" -c:v libx264 -crf 23 -preset veryfast \
-  -movflags +faststart "$TRIMMED" -y
+START=$(python3 "$SCRIPT_DIR/trim-tour.py" "$VIDEO")
+if ! ffmpeg -loglevel error -ss "$START" -i "$VIDEO" -c:v libx264 -crf 23 -preset veryfast \
+     -movflags +faststart "$TRIMMED" -y; then
+  echo "Trim failed. The untrimmed recording is at $VIDEO" >&2
+  exit 1
+fi
 
 SIZE=$(du -h "$TRIMMED" | cut -f1)
 LENGTH=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$TRIMMED")

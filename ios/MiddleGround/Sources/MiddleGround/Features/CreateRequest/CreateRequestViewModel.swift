@@ -183,11 +183,32 @@ final class CreateRequestViewModel {
         currentUser = await authService.currentUser()
         if let userID = currentUser?.id {
             do {
+                // Ordered, because the repository's order is not one. It returned the group
+                // before the couple here and could return either first tomorrow, which makes
+                // "who is this addressed to when the sheet opens" unpredictable — and made a
+                // recording of the couple show the group instead.
+                //
+                // Pairs first, then groups, each alphabetically: the common case leads, and a
+                // list of names does not reshuffle itself between launches.
                 relationships = try await relationshipService.relationships(for: userID)
+                    .sorted { first, second in
+                        if first.participantIDs.count != second.participantIDs.count {
+                            return first.participantIDs.count < second.participantIDs.count
+                        }
+                        return first.id < second.id
+                    }
                 displayLabels = await relationshipService.displayLabels(for: relationships, currentUserID: userID)
                 // The first relationship with somebody else in it. A group counts.
-                if let first = relationships.first(where: { $0.participantIDs.contains { $0 != userID } }) {
-                    selectedRelationshipID = first.id
+                let usable = relationships.filter { relationship in
+                    relationship.participantIDs.contains { $0 != userID }
+                }
+                // A recording that needs to show a group starts on one; see
+                // `AppConfiguration.prefersGroupRecipient`.
+                let preferred = AppConfiguration.prefersGroupRecipient
+                    ? usable.first { $0.participantIDs.count > 2 } ?? usable.first
+                    : usable.first
+                if let preferred {
+                    selectedRelationshipID = preferred.id
                 }
             } catch {
                 errorMessage = "Couldn't load partners."

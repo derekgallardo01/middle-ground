@@ -35,6 +35,16 @@ final class GroupRecipientTests: XCTestCase {
 
     /// The two fixtures must be separately selectable, which is exactly what a shared tag
     /// prevented.
+    /// The repository returned the group before the couple, and could return either first
+    /// tomorrow. An unordered picker makes "who is this addressed to on open" a coin flip.
+    func testPairsAreListedBeforeGroups() async {
+        let viewModel = await loaded()
+
+        let sizes = viewModel.relationships.map(\.participantIDs.count)
+        XCTAssertEqual(sizes, sizes.sorted(), "the list must not reshuffle between launches")
+        XCTAssertEqual(viewModel.relationships.first?.id, "rel_1")
+    }
+
     func testACoupleAndAGroupAreDistinctChoices() async {
         let viewModel = await loaded()
 
@@ -81,6 +91,26 @@ final class GroupRecipientTests: XCTestCase {
             Set(created?.allParticipantIDs ?? []),
             Set([User.preview.id, User.preview2.id, User.preview3.id])
         )
+    }
+
+    /// `-MGComposeGroup` exists so a recording can start on a group without driving the picker
+    /// menu, which lost three takes. Verified here rather than by watching a video.
+    func testTheGroupLaunchArgumentSelectsTheGroup() async {
+        AppConfiguration.prefersGroupRecipient = true
+        defer { AppConfiguration.prefersGroupRecipient = false }
+
+        let viewModel = await loaded()
+
+        XCTAssertEqual(viewModel.selectedRelationshipID, "rel_2", "it did not start on the group")
+        XCTAssertEqual(Set(viewModel.recipients), Set([User.preview2.id, User.preview3.id]))
+    }
+
+    func testWithoutTheArgumentItStartsOnTheFirstRelationship() async {
+        AppConfiguration.prefersGroupRecipient = false
+
+        let viewModel = await loaded()
+
+        XCTAssertEqual(viewModel.selectedRelationshipID, "rel_1", "a couple should lead")
     }
 
     func testNothingCanBeSentUntilSomebodyIsChosen() async {

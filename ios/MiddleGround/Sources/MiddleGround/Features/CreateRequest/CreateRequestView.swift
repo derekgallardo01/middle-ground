@@ -98,10 +98,13 @@ struct CreateRequestView: View {
                         // start over. Sharing happens inline instead.
                         InvitePrompt(code: viewModel.inviteCode, compact: true)
                     } else {
-                        Picker("Recipient", selection: $viewModel.recipientID) {
+                        // Tagged by relationship, not by a participant. Tagging by "the first
+                        // person who is not me" gave a couple and a group containing that same
+                        // person identical tags, so the group could not be chosen at all.
+                        Picker("Recipient", selection: $viewModel.selectedRelationshipID) {
                             ForEach(viewModel.relationships) { relationship in
                                 Text(viewModel.label(for: relationship))
-                                    .tag(partnerID(from: relationship) ?? "")
+                                    .tag(relationship.id)
                             }
                         }
                     }
@@ -142,7 +145,7 @@ struct CreateRequestView: View {
         }
         // The recipient decides which group's availability applies, so switching person changes
         // the answer.
-        .onChange(of: viewModel.recipientID) { _, _ in
+        .onChange(of: viewModel.selectedRelationshipID) { _, _ in
             Task { await viewModel.loadGroupAvailability() }
         }
     }
@@ -370,10 +373,6 @@ struct CreateRequestView: View {
         }
     }
 
-    private func partnerID(from relationship: Relationship) -> String? {
-        guard let currentUserID = viewModel.currentUser?.id else { return nil }
-        return relationship.participantIDs.first { $0 != currentUserID }
-    }
 }
 
 #Preview {

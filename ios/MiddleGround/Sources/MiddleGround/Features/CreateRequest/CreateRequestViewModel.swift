@@ -119,12 +119,14 @@ final class CreateRequestViewModel {
     ///
     /// Best-effort throughout: a failure here costs the warning, never the ability to make a plan.
     func loadGroupAvailability() async {
-        guard let viewerID = currentUser?.id, !recipientID.isEmpty else {
+        guard let viewerID = currentUser?.id, !selectedRelationshipID.isEmpty else {
             groupAvailability = []
             groupMembers = []
             return
         }
-        guard let group = relationships.first(where: { $0.participantIDs.contains(recipientID) }) else {
+        // Looked up by id rather than by "which group contains this person", which was ambiguous
+        // the moment somebody was in both a couple and a group with the same partner.
+        guard let group = relationships.first(where: { $0.id == selectedRelationshipID }) else {
             groupAvailability = []
             groupMembers = []
             return
@@ -139,7 +141,28 @@ final class CreateRequestViewModel {
         groupNames = names
     }
 
-    var recipientID: String = ""
+    /// Which relationship the plan is being sent to — a couple or a group.
+    ///
+    /// Was `recipientID`, a single person, and the picker tagged each row with "the first
+    /// participant who is not me". With a couple of [me, Sam] and a group of [me, Sam, Priya] that
+    /// is `Sam` twice: two rows, one tag, and SwiftUI keeping whichever it saw last. The group was
+    /// unselectable, and had it been selectable the plan would have gone to Sam alone under the
+    /// group's name.
+    ///
+    /// Keyed by relationship, because that is what the person is actually choosing.
+    var selectedRelationshipID: String = ""
+
+    /// Everybody on the chosen relationship except the person composing.
+    ///
+    /// One name for a couple, everyone else for a group. `Request.recipientIDs` has always been a
+    /// list and the security rules have always worked in `allParticipantIDs`; only compose was
+    /// sending to one person.
+    var recipients: [String] {
+        guard let viewerID = currentUser?.id,
+              let relationship = relationships.first(where: { $0.id == selectedRelationshipID })
+        else { return [] }
+        return relationship.participantIDs.filter { $0 != viewerID }
+    }
 
     var isLoading = false
     var isLoadingPartners = false
@@ -152,7 +175,7 @@ final class CreateRequestViewModel {
     }
 
     var canSubmit: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty && !recipientID.isEmpty
+        !title.trimmingCharacters(in: .whitespaces).isEmpty && !recipients.isEmpty
     }
 
     func loadCurrentUserAndPartners() async {
@@ -162,8 +185,9 @@ final class CreateRequestViewModel {
             do {
                 relationships = try await relationshipService.relationships(for: userID)
                 displayLabels = await relationshipService.displayLabels(for: relationships, currentUserID: userID)
-                if let firstPartner = relationships.compactMap({ $0.partnerID(excluding: userID) }).first {
-                    recipientID = firstPartner
+                // The first relationship with somebody else in it. A group counts.
+                if let first = relationships.first(where: { $0.participantIDs.contains { $0 != userID } }) {
+                    selectedRelationshipID = first.id
                 }
             } catch {
                 errorMessage = "Couldn't load partners."
@@ -215,7 +239,7 @@ final class CreateRequestViewModel {
 
         let request = Request(
             creatorID: currentUser.id,
-            recipientIDs: [recipientID],
+            recipientIDs: recipients,
             category: category,
             title: title.trimmingCharacters(in: .whitespaces),
             details: details.isEmpty ? nil : details,

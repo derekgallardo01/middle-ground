@@ -11,6 +11,10 @@ actually does — every item below corresponds to real behaviour in the app.
 ## The short version
 
 - We collect the minimum needed to show your requests to the people you paired with.
+- **Location is only ever used when you tap for it.** Two things use it, both a tap: sharing
+  where you are on a plan you already agreed to, and finding somewhere nearby to go. Searching
+  nearby goes to **Apple's Maps service** and is not stored anywhere; sharing on a plan is
+  described below. Nothing runs in the background and you are never tracked.
 - **Location is shared only when you tap to share it**, only on a plan you already agreed to, and
   only around the time it happens. It is deleted when the plan is over. Nothing runs in the
   background and you are never tracked.
@@ -89,6 +93,10 @@ Crash diagnostics are collected by **Firebase Crashlytics**, also part of Google
 reports crashes only — stack traces and device/OS/app-version details. It does not see request
 titles, notes, or messages.
 
+**Apple's Maps service** answers the nearby search described under Location, using the search
+built into iOS. Apple receives the area being searched; we receive only the results. See
+<https://www.apple.com/legal/privacy/>.
+
 These are the only third parties involved. Usage events are recorded in our own Firestore
 database — there are no advertising, attribution, or third-party marketing-analytics SDKs in the
 app, and no usage data is shared with anyone else.
@@ -140,8 +148,28 @@ choose, and Firestore deletes it automatically when that expiry passes; the app 
 that have lapsed. Nothing is written to any other plan, and there is no record of where you have
 been.
 
+### Finding somewhere nearby
+
+There is a second thing location is used for, and it is also a tap. When you are putting a plan
+together you can look for somewhere nearby — food, drinks, somewhere to stay, or a venue — within
+a distance you choose, up to 25 miles.
+
+- **It never searches on its own.** Nothing happens when the screen appears; it happens when you
+  tap **Nearby**.
+- **The search is Apple's.** It uses the Maps search built into iOS, so your coordinate goes to
+  Apple's mapping service and to nowhere else. We do not send it to a restaurant listing service,
+  a booking site, or any other third party, and there is no key or account of ours involved.
+- **Nothing is stored.** The coordinate is used for that one search and discarded. It is not
+  written to our database, not attached to the plan, and there is no record of what you searched
+  for or where you were when you searched.
+- **You can skip location entirely.** Typing a place name works with no location permission at
+  all, and so does typing the name of somewhere into **Where?** as before.
+
+If you tap through to Google Maps or Yelp to look at reviews, that opens their site or app and
+you are then their visitor, under their privacy policy — the same as any link.
+
 Declining location permission does not limit anything else in the app. Every other feature works
-exactly the same.
+exactly the same, and you can still name a place yourself.
 
 ## Calendar
 

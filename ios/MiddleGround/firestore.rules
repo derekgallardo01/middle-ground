@@ -387,6 +387,38 @@ service cloud.firestore {
         && immutable('planInviteSeats');
     }
 
+    /// Somebody saying they are still coming to a plan that has not happened yet.
+    ///
+    /// The mirror of `isConfirmingAttendance()` on the other side of the date: that one requires
+    /// `proposedTime` to have passed, this one requires it to be ahead. Neither may touch what
+    /// the other decides.
+    ///
+    /// `get('stillOn', {})` rather than a direct read, for the reason spelled out above: every
+    /// request written before this shipped has no `stillOn` field at all, and reading a missing
+    /// property is an evaluation *error*, not a false — an error that would escape this branch
+    /// and deny the whole update, so an older plan could not be cancelled because a rule about
+    /// commitment blew up deciding something unrelated.
+    function isSayingStillOn() {
+      return resource.data.status == 'accepted'
+        && resource.data.get('proposedTime', null) != null
+        && resource.data.get('proposedTime', request.time) > request.time
+        && request.resource.data.stillOn.diff(
+             resource.data.get('stillOn', {})
+           ).affectedKeys() == [uid()].toSet()
+        && immutable('creatorID')
+        && immutable('recipientIDs')
+        && immutable('allParticipantIDs')
+        && immutable('proposedTime')
+        && immutable('title')
+        && immutable('status')
+        && immutable('negotiationChain')
+        // Whether it happened is settled after the fact and nothing here may pre-empt it.
+        && immutable('confirmations')
+        && immutable('stake')
+        && immutable('planInviteCode')
+        && immutable('planInviteSeats');
+    }
+
     match /requests/{requestId} {
       allow get, list: if (signedIn() && uid() in resource.data.allParticipantIDs) || isAdmin();
 
@@ -423,6 +455,7 @@ service cloud.firestore {
                             && immutable('planInviteCode')
                             && immutable('planInviteSeats'))
                           || isConfirmingAttendance()
+                          || isSayingStillOn()
                           || isCancelling()
                           || isStaking()
                           || isManagingPlanInvite()

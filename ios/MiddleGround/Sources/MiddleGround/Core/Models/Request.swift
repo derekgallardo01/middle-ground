@@ -110,6 +110,17 @@ struct Request: Identifiable, Hashable, Codable {
     var negotiationChain: [NegotiationMessage]
     /// What each participant said about whether the plan happened, keyed by user ID.
     var confirmations: [String: ConfirmationOutcome]
+    /// When each participant last said they are still coming, keyed by user ID.
+    ///
+    /// Distinct from `confirmations`, which is about afterwards. This is the answer to the
+    /// question the app has been asking since `remindBeforePlan` shipped — its push is titled
+    /// "Still on?" — and could not record, because nothing anywhere meant "yes, I'm still in".
+    ///
+    /// A map on the document rather than a subcollection, deliberately. `availability` is keyed by
+    /// uid under its parent, which puts it beyond a collection-group query and makes it outlive
+    /// the parent, so it needs its own line in `purge.js`. This rides the read that already
+    /// happens and is deleted with the request.
+    var stillOn: [String: Date]
     /// Why this was called off, when it was.
     var cancellationReason: CancellationReason?
     /// Points both people have riding on this actually happening.
@@ -139,6 +150,7 @@ struct Request: Identifiable, Hashable, Codable {
          status: RequestStatus = .pending,
          negotiationChain: [NegotiationMessage] = [],
          confirmations: [String: ConfirmationOutcome] = [:],
+         stillOn: [String: Date] = [:],
          cancellationReason: CancellationReason? = nil,
          stake: Stake? = nil,
          planInviteCode: String? = nil,
@@ -156,6 +168,7 @@ struct Request: Identifiable, Hashable, Codable {
         self.status = status
         self.negotiationChain = negotiationChain
         self.confirmations = confirmations
+        self.stillOn = stillOn
         self.cancellationReason = cancellationReason
         self.stake = stake
         self.planInviteCode = planInviteCode
@@ -182,6 +195,8 @@ struct Request: Identifiable, Hashable, Codable {
         confirmations = try container.decodeIfPresent(
             [String: ConfirmationOutcome].self, forKey: .confirmations
         ) ?? [:]
+        // Every request written before this shipped has no `stillOn` at all.
+        stillOn = try container.decodeIfPresent([String: Date].self, forKey: .stillOn) ?? [:]
         cancellationReason = try container.decodeIfPresent(
             CancellationReason.self, forKey: .cancellationReason
         )
@@ -362,6 +377,17 @@ struct Request: Identifiable, Hashable, Codable {
     var isAwaitingAttendance: Bool {
         guard status == .accepted, let time = proposedTime else { return false }
         return time < Date()
+    }
+
+    /// Whether this person can say they are still coming.
+    ///
+    /// Mirrors `isSayingStillOn()` in firestore.rules — the client must not offer a button the
+    /// backend will refuse. Only an agreed, dated, still-future plan, and only somebody on it.
+    func canSayStillOn(as userID: String, at now: Date = Date()) -> Bool {
+        guard status == .accepted, isParticipant(userID), let time = proposedTime else {
+            return false
+        }
+        return time > now
     }
 
     /// Whether this person still owes an answer about whether it happened.

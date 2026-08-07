@@ -16,6 +16,8 @@ struct RequestDTO: Codable, Identifiable {
     var negotiationChain: [NegotiationMessageDTO]
     /// Optional so requests written before attendance was recorded still decode.
     var confirmations: [String: String]?
+    /// Optional for the same reason: every request written before "still on?" shipped lacks it.
+    var stillOn: [String: Timestamp]?
     /// Optional: only set when a plan was called off.
     var cancellationReason: String?
     /// Optional: only set once someone proposes points on the plan.
@@ -38,6 +40,7 @@ struct RequestDTO: Codable, Identifiable {
         self.status = request.status.rawValue
         self.negotiationChain = request.negotiationChain.map { NegotiationMessageDTO(from: $0) }
         self.confirmations = request.confirmations.mapValues(\.rawValue)
+        self.stillOn = request.stillOn.mapValues { Timestamp(date: $0) }
         self.cancellationReason = request.cancellationReason?.rawValue
         self.stake = request.stake
         self.planInviteCode = request.planInviteCode
@@ -73,6 +76,7 @@ struct RequestDTO: Codable, Identifiable {
             // An unrecognised outcome is dropped rather than failing the whole request, for the
             // same reason an unknown category no longer does.
             confirmations: (confirmations ?? [:]).compactMapValues(ConfirmationOutcome.init(rawValue:)),
+            stillOn: (stillOn ?? [:]).mapValues { $0.dateValue() },
             cancellationReason: cancellationReason.flatMap(CancellationReason.init(rawValue:)),
             stake: stake,
             planInviteCode: planInviteCode,

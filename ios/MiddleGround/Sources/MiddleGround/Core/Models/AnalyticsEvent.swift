@@ -60,6 +60,12 @@ enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
     case requestCancelled = "request_cancelled"
     /// Someone said whether an accepted plan actually happened.
     case requestConfirmed = "request_confirmed"
+    /// Someone said they are still coming to a plan that had gone quiet.
+    ///
+    /// Kept apart from `requestConfirmed`: that is about a plan that has happened, this is about
+    /// one that still might. Folding them together would make the follow-through figure count
+    /// intentions as attendance.
+    case requestStillOn = "request_still_on"
     case appOpened = "app_opened"
 
     var id: String { rawValue }
@@ -78,6 +84,7 @@ enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
         case .requestResponded: return "Responded"
         case .requestCancelled: return "Cancelled a request"
         case .requestConfirmed: return "Confirmed a plan"
+        case .requestStillOn: return "Said still on"
         case .appOpened: return "Opened the app"
         }
     }
@@ -96,6 +103,7 @@ enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
         case .requestResponded: return "arrowshape.turn.up.left"
         case .requestCancelled: return "xmark.circle"
         case .requestConfirmed: return "checkmark.circle"
+        case .requestStillOn: return "hand.raised.fill"
         case .appOpened: return "iphone"
         }
     }

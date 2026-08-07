@@ -15,6 +15,13 @@ final class RequestEntity {
     var negotiationChainData: Data?
     /// Optional so SwiftData stores created before attendance existed still load.
     var confirmationsData: Data?
+    /// Optional, and appended, so SwiftData migrates existing stores on its own.
+    ///
+    /// This repository is remote-then-local — `fetchLocal` is what the app actually reads — so a
+    /// field that is not persisted here is invisible everywhere even when the network fetch
+    /// succeeded. That is how a group lost its name (`9ff2d97`), and `seats` is still losing that
+    /// way today.
+    var stillOnData: Data?
     var cancellationReasonRaw: String?
     var stakeData: Data?
     var planInviteCode: String?
@@ -38,6 +45,7 @@ final class RequestEntity {
         self.needsSync = false
         self.negotiationChainData = try? JSONEncoder().encode(request.negotiationChain)
         self.confirmationsData = try? JSONEncoder().encode(request.confirmations)
+        self.stillOnData = try? JSONEncoder().encode(request.stillOn)
         self.cancellationReasonRaw = request.cancellationReason?.rawValue
         self.stakeData = request.stake.flatMap { try? JSONEncoder().encode($0) }
         self.planInviteCode = request.planInviteCode
@@ -57,6 +65,7 @@ final class RequestEntity {
         self.updatedAt = request.updatedAt
         self.negotiationChainData = try? JSONEncoder().encode(request.negotiationChain)
         self.confirmationsData = try? JSONEncoder().encode(request.confirmations)
+        self.stillOnData = try? JSONEncoder().encode(request.stillOn)
         self.cancellationReasonRaw = request.cancellationReason?.rawValue
         self.stakeData = request.stake.flatMap { try? JSONEncoder().encode($0) }
         self.planInviteCode = request.planInviteCode
@@ -88,6 +97,13 @@ final class RequestEntity {
             confirmations = [:]
         }
 
+        let stillOn: [String: Date]
+        if let data = stillOnData {
+            stillOn = (try? JSONDecoder().decode([String: Date].self, from: data)) ?? [:]
+        } else {
+            stillOn = [:]
+        }
+
         return Request(
             id: id,
             creatorID: creatorID,
@@ -100,6 +116,7 @@ final class RequestEntity {
             status: status,
             negotiationChain: negotiationChain,
             confirmations: confirmations,
+            stillOn: stillOn,
             cancellationReason: cancellationReasonRaw.flatMap(CancellationReason.init(rawValue:)),
             stake: stakeData.flatMap { try? JSONDecoder().decode(Stake.self, from: $0) },
             planInviteCode: planInviteCode,

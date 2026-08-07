@@ -445,6 +445,90 @@ describe('staking points on a plan', () => {
   });
 });
 
+// Saying you are still coming to a plan that has not happened yet — the mirror of confirming
+// attendance, on the other side of the date. `remindBeforePlan` has been asking this since it
+// shipped and nothing could record the answer.
+describe('saying still on', () => {
+  const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  const upcoming = (overrides = {}) =>
+    request({ status: 'accepted', proposedTime: future, stillOn: {}, ...overrides });
+
+  beforeEach(() => seed((db) => setDoc(doc(db, 'requests/r_soon'), upcoming())));
+
+  test('a participant can say they are still coming', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_soon'), { stillOn: { [BOB]: new Date() } }),
+    );
+  });
+
+  test('a participant cannot answer for somebody else', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_soon'), { stillOn: { [ALICE]: new Date() } }),
+    );
+  });
+
+  test('a non-participant cannot answer at all', async () => {
+    await assertFails(
+      updateDoc(doc(asMallory(), 'requests/r_soon'), { stillOn: { [MALLORY]: new Date() } }),
+    );
+  });
+
+  test('a plan that has already happened is attendance, not commitment', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_gone'), upcoming({ proposedTime: past })));
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_gone'), { stillOn: { [BOB]: new Date() } }),
+    );
+  });
+
+  test('saying still on cannot be used to edit the plan itself', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_soon'), {
+        stillOn: { [BOB]: new Date() },
+        title: 'Something else entirely',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_soon'), {
+        stillOn: { [BOB]: new Date() },
+        proposedTime: past,
+      }),
+    );
+  });
+
+  test('it cannot pre-empt whether the plan happened', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_soon'), {
+        stillOn: { [BOB]: new Date() },
+        confirmations: { [BOB]: 'happened' },
+      }),
+    );
+  });
+
+  // The regression this rule is most likely to cause. Every request written before `stillOn`
+  // existed has no such field, and a *direct* read of a missing property is an evaluation error
+  // rather than a false — an error that escapes the branch and denies the whole update. The same
+  // mistake once made an undated request impossible to cancel.
+  test('a request with no stillOn field can still be cancelled', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_legacy'), request({ status: 'accepted', proposedTime: future })),
+    );
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_legacy'), { status: 'cancelled' }),
+    );
+  });
+
+  test('a request with no stillOn field can still be answered', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_legacy2'), request({ status: 'accepted', proposedTime: future })),
+    );
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_legacy2'), { stillOn: { [BOB]: new Date() } }),
+    );
+  });
+});
+
 // Recording whether an accepted plan actually happened — the only write permitted on a settled
 // request, and the signal every reliability idea is computed from.
 describe('confirming attendance', () => {

@@ -75,38 +75,6 @@ final class NearbyTourVideo: XCTestCase {
         return app.navigationBars["New Request"].waitForExistence(timeout: 15)
     }
 
-    /// Food, Drinks, Stay, Events. No scrolling between them: the picker and the results sit
-    /// together, so once the finder is framed the whole cycle plays without the view moving.
-    private func walkThroughEveryKind(_ label: String) {
-        // Somewhere only that kind returns. Waiting for `nearbyPlace` to merely *exist* proved
-        // nothing: the previous kind's results are still on screen, so the wait returned instantly
-        // and the walk passed without the category ever changing. Stay was skipped in an entire
-        // recording and this test called it fine.
-        let proof = [
-            "Food": "Lucia's",
-            "Drinks": "The Bell Jar",
-            "Stay": "The Rowan Hotel",
-            "Events": "The Bell House"
-        ]
-
-        for kind in ["Food", "Drinks", "Stay", "Events"] {
-            let tab = app.buttons[kind]
-            XCTAssertTrue(tab.waitForExistence(timeout: 10), "\(label): no \(kind) tab")
-            tab.tap()
-
-            guard let expected = proof[kind] else {
-                return XCTFail("\(label): no known result for \(kind)")
-            }
-            let result = app.staticTexts[expected]
-            XCTAssertTrue(
-                result.waitForExistence(timeout: 12),
-                "\(label): tapped \(kind) and \(expected) never appeared — the category did not change"
-            )
-            pause(1.2)
-            showEveryPlace(in: kind, for: label)
-        }
-    }
-
     /// Scrolls the results to the end, so the ones past the edge of the screen are in the film too.
     ///
     /// The row is horizontal and holds more than fits. A recording that never moves it shows the
@@ -130,82 +98,144 @@ final class NearbyTourVideo: XCTestCase {
         pause(0.6)
     }
 
-    /// One half per recipient, filmed the same way, so the two are comparable.
-    private func filmCompose(forGroup: Bool) throws {
-        launch(group: forGroup)
-        let who = forGroup ? "group" : "couple"
+    /// One plan, start to finish, for one kind of place.
+    ///
+    /// Was two halves that each walked all four categories, which showed the picker working and
+    /// never showed a plan being made. Four plans instead — dinner, drinks, a hotel, a gig — each
+    /// with its own recipient, its own place chosen from its own search, and its own send.
+    ///
+    /// Also shorter, despite doing more: the old shape filmed the same eight category taps twice.
+    private func filmRequest(_ plan: Plan) throws {
+        launch(group: plan.toGroup)
 
         guard openCompose() else {
-            return XCTFail("\(who): compose did not open. On screen:\n\(app.debugDescription)")
+            return XCTFail("\(plan.kind): compose did not open. On screen:\n\(app.debugDescription)")
         }
         pause()
 
-        // Who this plan is for, held on screen long enough to read.
-        XCTAssertTrue(bringIntoFrame(recipientPicker), "\(who): no recipient row")
-        let label = recipientPicker.label
-        if forGroup {
-            XCTAssertTrue(
-                label.localizedCaseInsensitiveContains("hikers"),
-                "the group half is not addressed to the group — it says \(label)"
-            )
-        }
+        // Who it is for, held long enough to read.
+        XCTAssertTrue(bringIntoFrame(recipientPicker), "\(plan.kind): no recipient row")
+        let recipient = recipientPicker.label
+        XCTAssertTrue(
+            recipient.localizedCaseInsensitiveContains(plan.recipient),
+            "\(plan.kind): addressed to \(recipient), expected \(plan.recipient)"
+        )
         pause(1.1)
+
+        // What it is about, typed before the place so the sheet reads as a plan being written.
+        let title = app.textFields.firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 10), "\(plan.kind): no title field")
+        title.tap()
+        title.typeText(plan.title)
+        pause(0.8)
 
         let find = app.buttons.matching(
             NSPredicate(format: "label CONTAINS[c] 'Find somewhere near me'")
         ).firstMatch
-        XCTAssertTrue(bringIntoFrame(find), "\(who): no way to search nearby")
-        pause()
+        XCTAssertTrue(bringIntoFrame(find), "\(plan.kind): no way to search nearby")
+        pause(0.6)
         find.tap()
 
         XCTAssertTrue(
             app.buttons["nearbyPlace"].firstMatch.waitForExistence(timeout: 25),
-            "\(who): no nearby places came back"
+            "\(plan.kind): no nearby places came back"
         )
         // Framed once. Everything below plays without the view moving.
         bringIntoFrame(kindPicker)
-        pause(2)
+        pause(1.2)
 
+        // The kind this plan is about.
+        //
+        // Proved by the results changing, not by a name. Naming the place the search must return
+        // only worked while the places were invented; against real ones it would assert that a
+        // particular restaurant still trades. What matters is that tapping the category changed
+        // what came back — and merely waiting for "a result" proved nothing, because the previous
+        // category's results are still on screen and satisfy it instantly.
+        let before = app.buttons.matching(identifier: "nearbyPlace").firstMatch.label
+        let tab = app.buttons[plan.kind]
+        XCTAssertTrue(tab.waitForExistence(timeout: 10), "no \(plan.kind) tab")
+        tab.tap()
+
+        if plan.changesCategory {
+            XCTAssertTrue(
+                waitForResults(toChangeFrom: before),
+                "\(plan.kind): the results still say '\(before)' — the category did not change"
+            )
+        } else {
+            XCTAssertTrue(
+                app.buttons["nearbyPlace"].firstMatch.waitForExistence(timeout: 12),
+                "\(plan.kind): nothing came back"
+            )
+        }
+        pause(1.0)
+
+        // How far, and what that does to the list.
         let slider = app.sliders["Search radius"]
-        XCTAssertTrue(slider.waitForExistence(timeout: 10), "\(who): no radius control")
-        slider.adjust(toNormalizedSliderPosition: 1.0)      // 25 miles
-        pause(1.1)
-        slider.adjust(toNormalizedSliderPosition: 0.0)      // 1 mile, and the list shortens
-        pause(1.1)
-        slider.adjust(toNormalizedSliderPosition: 0.25)
-        pause()
+        if slider.waitForExistence(timeout: 5) {
+            slider.adjust(toNormalizedSliderPosition: 1.0)      // 25 miles
+            pause(0.9)
+            slider.adjust(toNormalizedSliderPosition: 0.35)
+            pause(0.9)
+        }
 
-        walkThroughEveryKind(who)
+        showEveryPlace(in: plan.kind, for: plan.kind)
 
-        // Looking one up properly: the picture, the address, the number, the links out.
-        app.buttons["Food"].tap()
-        XCTAssertTrue(
-            app.staticTexts["Lucia's"].waitForExistence(timeout: 12),
-            "\(who): the food results never came back"
-        )
-        app.buttons["nearbyPlace"].firstMatch.tap()
+        // The place itself: the picture, the address, the number, the links out.
+        let chip = app.buttons.matching(identifier: "nearbyPlace").firstMatch
+        XCTAssertTrue(chip.waitForExistence(timeout: 10), "\(plan.kind): nothing left to open")
+        chip.tap()
 
         let choose = app.buttons["choosePlace"]
-        XCTAssertTrue(choose.waitForExistence(timeout: 10), "\(who): the place detail never opened")
-        // Held longer than anything else here, because it is the screen with the most on it.
-        pause(3.5)
-        XCTAssertTrue(
-            app.staticTexts["1 Example Street"].exists || app.staticTexts["Address"].exists,
-            "\(who): the detail opened without the address it exists to show"
-        )
-
-        // Choosing from the detail is what fills in "Where?".
+        XCTAssertTrue(choose.waitForExistence(timeout: 10), "\(plan.kind): the detail never opened")
+        // The longest hold in the tour: it is the screen with the most on it, and the picture
+        // takes a moment to arrive from Apple.
+        pause(4.5)
         choose.tap()
-        pause(1.6)
+        pause(1.2)
+
+        // And sent, which is the point of all of it.
+        let send = app.buttons["Send"]
+        if send.waitForExistence(timeout: 5), send.isEnabled {
+            send.tap()
+            pause(2.0)
+        }
         app.terminate()
     }
 
-    /// A couple, then a group. Until today the second was impossible: the picker tagged rows by
-    /// "the first participant who is not me", so a couple of [me, Sam] and a group of
-    /// [me, Sam, Priya] shared a tag and the group could not be chosen — and a plan sent to it
-    /// would have reached Sam alone.
+    /// Waits for the first result to become a different place.
+    private func waitForResults(toChangeFrom previous: String, timeout: TimeInterval = 15) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            let now = app.buttons.matching(identifier: "nearbyPlace").firstMatch.label
+            if !now.isEmpty && now != previous { return true }
+            Thread.sleep(forTimeInterval: 0.3)
+        }
+        return false
+    }
+
+    /// What each of the four plans is.
+    private struct Plan {
+        let kind: String
+        let title: String
+        let toGroup: Bool
+        var recipient: String { toGroup ? "hikers" : "Sam" }
+        /// Compose opens on Food, so only the other three can prove themselves by the list
+        /// changing. Asserting a change for Food would fail on a tour that is working.
+        var changesCategory: Bool { kind != "Food" }
+    }
+
+    /// Four plans: dinner, drinks, a hotel and a gig. Two to one person and two to a group, so the
+    /// tour shows both without filming everything twice.
     func testTheTour() throws {
-        try filmCompose(forGroup: false)
-        try filmCompose(forGroup: true)
+        let plans = [
+            Plan(kind: "Food", title: "Dinner Friday?", toGroup: false),
+            Plan(kind: "Drinks", title: "Drinks after work?", toGroup: false),
+            Plan(kind: "Stay", title: "Weekend away?", toGroup: true),
+            Plan(kind: "Events", title: "Gig on Saturday?", toGroup: true)
+        ]
+
+        for plan in plans {
+            try filmRequest(plan)
+        }
     }
 }

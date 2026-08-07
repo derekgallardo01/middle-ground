@@ -206,11 +206,17 @@ extension Container {
     /// before a plan exists, that one is after. Swapping in Google Places later is a change here
     /// and nowhere else.
     var placeDiscoveryProvider: Factory<PlaceDiscoveryProvider> {
-        Factory(self) {
-            AppConfiguration.useMockRepositories
-                ? MockPlaceDiscoveryProvider() as PlaceDiscoveryProvider
-                : MapKitPlaceDiscoveryProvider()
-        }
+        // Real places, even in mock mode — like `placeImageProvider`, and for the same reason.
+        //
+        // The fixtures invented a name, an address, a phone number and a website, then sat them on
+        // a coordinate chosen separately. So a place captioned "88 Dean Street, Brooklyn" stood in
+        // Manhattan, under a photograph of the actual building there, next to a number nobody can
+        // ring. Three sources of truth about one place, none of them agreeing.
+        //
+        // Asking Apple gives one: the name, the address, the number, the site and the picture all
+        // describe the same building. Mock mode still fixes *where* the phone is, so a screenshot
+        // does not depend on which city this machine is in.
+        Factory(self) { MapKitPlaceDiscoveryProvider() }
     }
 
     /// Pictures of the places discovery found. Apple's own imagery in both tiers, so this stays a

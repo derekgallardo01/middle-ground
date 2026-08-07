@@ -264,10 +264,15 @@ enum PlaceLookup: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Fixed nearby places for previews, screenshots and UI tests.
+/// Fixed nearby places for unit tests.
 ///
-/// Real ones would make every screenshot depend on where the machine running it happens to be,
-/// and `MKLocalSearch` needs a network that a test should not.
+/// Deliberately *not* what the app uses in mock mode any more. These are invented — the name, the
+/// address, the number and the site are all made up, and pairing them with a real coordinate and
+/// a real photograph of the building standing there produced a screen where nothing agreed with
+/// anything else. The app asks Apple instead; this stays for tests that must not need a network.
+///
+/// The numbers are `555` and the domains are `.example` on purpose: both are reserved for fiction
+/// precisely so invented contact details cannot reach a real person.
 struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
     private func radians(_ degrees: Double) -> Double { degrees * .pi / 180 }
 

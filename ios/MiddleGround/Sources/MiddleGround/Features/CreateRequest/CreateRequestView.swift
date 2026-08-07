@@ -36,7 +36,12 @@ struct CreateRequestView: View {
                 }
 
                 Section("What kind of request?") {
-                    RequestTypePicker(selected: $viewModel.category)
+                    // Through `chooseCategory` rather than straight at the property, so the
+                    // view model can tell a person's choice from its own suggestion.
+                    RequestTypePicker(selected: Binding(
+                        get: { viewModel.category },
+                        set: { viewModel.chooseCategory($0) }
+                    ))
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
@@ -154,6 +159,7 @@ struct CreateRequestView: View {
         // The recipient decides which group's availability applies, so switching person changes
         // the answer.
         .onChange(of: viewModel.selectedRelationshipID) { _, _ in
+            viewModel.suggestCategoryFromRecipient()
             Task { await viewModel.loadGroupAvailability() }
         }
     }

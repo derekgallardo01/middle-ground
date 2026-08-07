@@ -41,6 +41,11 @@ final class CreateRequestViewModel {
     }
 
     var category: RequestCategory
+    /// Whether a person picked the category, as opposed to it being suggested from the recipient.
+    ///
+    /// Once somebody has chosen, changing who the plan is for must not quietly change what kind of
+    /// plan it is underneath them.
+    private(set) var categoryWasChosenByHand = false
 
     // Clamped on assignment rather than checked at submit time, so the cap applies no matter
     // which view binds to it and the user sees the limit as they type instead of losing a
@@ -179,6 +184,23 @@ final class CreateRequestViewModel {
         !title.trimmingCharacters(in: .whitespaces).isEmpty && !recipients.isEmpty
     }
 
+    /// A deliberate choice, which outranks anything suggested from here on.
+    func chooseCategory(_ chosen: RequestCategory) {
+        category = chosen
+        categoryWasChosenByHand = true
+    }
+
+    /// Seeds the category from whoever the plan is addressed to.
+    ///
+    /// Called when the sheet opens and whenever the recipient changes, because "who" is the best
+    /// evidence of "what kind" the app has before anybody types anything.
+    func suggestCategoryFromRecipient() {
+        guard !categoryWasChosenByHand,
+              let relationship = relationships.first(where: { $0.id == selectedRelationshipID })
+        else { return }
+        category = relationship.type.suggestedRequestCategory
+    }
+
     func loadCurrentUserAndPartners() async {
         isLoadingPartners = true
         currentUser = await authService.currentUser()
@@ -210,6 +232,7 @@ final class CreateRequestViewModel {
                     : usable.first
                 if let preferred {
                     selectedRelationshipID = preferred.id
+                    suggestCategoryFromRecipient()
                 }
             } catch {
                 errorMessage = "Couldn't load partners."

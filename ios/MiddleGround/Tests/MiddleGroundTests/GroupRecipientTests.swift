@@ -34,6 +34,51 @@ final class GroupRecipientTests: XCTestCase {
         return viewModel
     }
 
+    // MARK: - What kind of plan it is
+
+    /// Compose opened every plan as "Relationship" whoever it was for, so a night out with the
+    /// hiking group was filed as a relationship request. Visible on the sheet, and carried into
+    /// `plan_outcomes`, where the category is the only thing telling one kind of plan from another.
+    func testAPlanToAGroupOfFriendsIsNotARelationshipRequest() async {
+        let viewModel = await loaded()
+
+        viewModel.selectedRelationshipID = "rel_2"
+        viewModel.suggestCategoryFromRecipient()
+
+        XCTAssertEqual(viewModel.category, .friends)
+    }
+
+    func testAPlanToTheOtherHalfOfACoupleStaysARelationshipRequest() async {
+        let viewModel = await loaded()
+
+        viewModel.selectedRelationshipID = "rel_1"
+        viewModel.suggestCategoryFromRecipient()
+
+        XCTAssertEqual(viewModel.category, .relationship)
+    }
+
+    /// A suggestion must never overrule a decision. Changing who a plan is for after picking the
+    /// kind would otherwise change the kind back underneath them.
+    func testChangingTheRecipientDoesNotUndoAChosenCategory() async {
+        let viewModel = await loaded()
+
+        viewModel.chooseCategory(.travel)
+        viewModel.selectedRelationshipID = "rel_2"
+        viewModel.suggestCategoryFromRecipient()
+
+        XCTAssertEqual(viewModel.category, .travel, "a deliberate choice was overwritten")
+    }
+
+    func testEveryKindOfGroupSuggestsSomething() {
+        for type in RelationshipType.allCases {
+            // Every branch is reachable and none falls through to a catch-all default, which is
+            // how a new kind of group would silently inherit somebody else's category.
+            XCTAssertFalse(type.suggestedRequestCategory.rawValue.isEmpty)
+        }
+        XCTAssertEqual(RelationshipType.roommates.suggestedRequestCategory, .daily)
+        XCTAssertEqual(RelationshipType.parents.suggestedRequestCategory, .family)
+    }
+
     // MARK: - What a group is called
 
     /// The cache dropped `name`, and `CachedRelationshipRepository` reads from the cache, so

@@ -129,38 +129,42 @@ if [ -n "$LAUNCH_STAMP" ]; then
   fi
 fi
 START=$(python3 "$SCRIPT_DIR/trim-tour.py" "$VIDEO" "$FLOOR")
-# The tail is cut further down, against the re-encoded file rather than this one. Measuring it
-# here put the cut two minutes late and left the home screen in anyway: the capture's timestamps
-# do not run at wall-clock rate, so a second measured in it is not a second in the output.
+# Re-time by frame index, then cut to where the app is actually on screen.
 #
-# `-fps_mode cfr -r 30` is not a nicety. simctl records variable-rate and writes nothing while the
-# screen is still, so re-encoding without it produced a "video" of **twelve frames stretched over
-# 144 seconds** — a slideshow that reported a sane duration and a sane file size, and that looked,
-# when scrubbed, exactly like a tour stuck on one screen. That is what "it swipes on the same
-# screen" was. A constant rate fills the gaps and makes the file seekable.
-if ! ffmpeg -loglevel error -ss "$START" -i "$VIDEO" \
-     -c:v libx264 -crf 23 -preset veryfast \
-     -fps_mode cfr -r 30 -movflags +faststart "$TRIMMED" -y; then
-  echo "Trim failed. The untrimmed recording is at $VIDEO" >&2
+# `-fps_mode cfr` samples the source by its timestamps, and this capture's timestamps are not
+# wall-clock: on one run that sampling threw away nearly every frame of the app and held the home
+# screen instead, producing a 73-second film of a wallpaper from a recording that did contain the
+# tour. `setpts=N/(30*TB)` renumbers each decoded frame in order at 30fps and ignores the source
+# clock entirely, so no frame can be dropped or duplicated by a bad one.
+#
+# The consequence worth knowing: the output runs faster than real time, because simctl captured
+# roughly ten frames a second of a three-minute tour. Every frame it did capture is in there.
+ALLFRAMES="${VIDEO%.mp4}-allframes.mp4"
+if ! ffmpeg -loglevel error -i "$VIDEO" -vf "setpts=N/(30*TB)" -r 30 \
+     -c:v libx264 -crf 23 -preset veryfast -movflags +faststart "$ALLFRAMES" -y; then
+  echo "Re-timing failed. The raw recording is at $VIDEO" >&2
   exit 1
 fi
 
-# Now cut the tail, against a file that is constant-rate and seekable, so a second is a second.
-# The tour terminates the app and xcodebuild spends another minute or two tearing down, all of it
-# recorded — a film that stopped after a minute and sat on a home screen for the rest, which reads
-# as broken rather than as finished.
-ENDS=$(python3 "$SCRIPT_DIR/trim-tour.py" "$TRIMMED" 0 --end)
-if [ -n "$ENDS" ] && [ "$ENDS" -gt 10 ]; then
-  if ffmpeg -loglevel error -t "$ENDS" -i "$TRIMMED" -c copy "${TRIMMED%.mp4}.cut.mp4" -y; then
-    mv "${TRIMMED%.mp4}.cut.mp4" "$TRIMMED"
-  fi
+# Head and tail together, by brightness: the app is a light UI, the home screen is a wallpaper.
+read -r ASTART AEND <<<"$(python3 "$SCRIPT_DIR/trim-tour.py" "$ALLFRAMES" --window)"
+if [ "${AEND:-0}" -le "${ASTART:-0}" ]; then
+  echo "Could not find the app in the recording — see $ALLFRAMES" >&2
+  exit 1
 fi
+
+if ! ffmpeg -loglevel error -ss "$ASTART" -t "$(( AEND - ASTART ))" -i "$ALLFRAMES" \
+     -c copy -movflags +faststart "$TRIMMED" -y; then
+  echo "Trim failed. The re-timed recording is at $ALLFRAMES" >&2
+  exit 1
+fi
+rm -f "$ALLFRAMES"
 
 SIZE=$(du -h "$TRIMMED" | cut -f1)
 LENGTH=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$TRIMMED")
 FRAMES=$(ffprobe -v error -select_streams v -count_frames \
   -show_entries stream=nb_read_frames -of default=nw=1:nk=1 "$TRIMMED")
-echo "Video: $TRIMMED  ($SIZE, ${LENGTH}s, ${FRAMES} frames, from ${START}s, ${ENDS}s of action)"
+echo "Video: $TRIMMED  ($SIZE, ${LENGTH}s, ${FRAMES} frames, app on screen ${ASTART}s–${AEND}s)"
 
 # A duration and a file size both looked right on a twelve-frame file. The frame count is the
 # number that would have caught it, so it is checked rather than merely printed.

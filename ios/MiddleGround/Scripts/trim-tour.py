@@ -46,6 +46,36 @@ def grey_frame(video: str, second: int) -> Optional[bytes]:
     return open(FRAME, "rb").read()
 
 
+def mean_brightness(video: str, second: int) -> Optional[float]:
+    frame = grey_frame(video, second)
+    return None if frame is None else sum(frame) / len(frame)
+
+
+# The app is a light UI; the simulator's home screen is a mid-blue wallpaper. On a 0-255 grey
+# scale that is ~200-230 against a flat ~162, which separates them far more reliably than "did
+# anything change" — waking the display changes things, and so does a clock digit.
+APP_BRIGHTNESS = 175
+
+
+def app_window(video: str, limit_seconds: int = 3600) -> tuple:
+    """First and last second the app is on screen.
+
+    Motion detection put the head cut in the wrong place twice and the tail cut two minutes late.
+    Brightness asks the question that actually matters — is this the app or the home screen —
+    rather than a proxy for it.
+    """
+    seconds = []
+    for second in range(0, limit_seconds, STEP_SECONDS):
+        value = mean_brightness(video, second)
+        if value is None:
+            break
+        if value > APP_BRIGHTNESS:
+            seconds.append(second)
+    if not seconds:
+        return (0, 0)
+    return (max(0, seconds[0] - 2), seconds[-1] + LEAD_IN_SECONDS)
+
+
 def first_motion(video: str, floor_seconds: int = 0, limit_seconds: int = 1800) -> int:
     previous = None
     for second in range(floor_seconds, limit_seconds, STEP_SECONDS):
@@ -85,8 +115,12 @@ def last_motion(video: str, floor_seconds: int = 0, limit_seconds: int = 3600) -
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         raise SystemExit("usage: trim-tour.py <video.mp4> [search-from-second]")
-    floor = int(sys.argv[2]) if len(sys.argv) > 2 else 0
-    if "--end" in sys.argv:
+    args = [a for a in sys.argv[2:] if not a.startswith("--")]
+    floor = int(args[0]) if args else 0
+    if "--window" in sys.argv:
+        start, end = app_window(sys.argv[1])
+        print(f"{start} {end}")
+    elif "--end" in sys.argv:
         print(last_motion(sys.argv[1], floor_seconds=floor))
     else:
         print(first_motion(sys.argv[1], floor_seconds=floor))

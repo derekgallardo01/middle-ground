@@ -232,6 +232,13 @@ the user, none used for tracking:
 
 Answer **No** to "Do you or your third-party partners use data for tracking?"
 
+**Nearby search does not add a row, and this is deliberate rather than an oversight.** Apple
+defines collection as transmitting data off the device in a way that lets you access it *for
+longer than it takes to service the request in real time*. A `MKLocalSearch` region is consumed by
+Apple to answer that query and never reaches us, so the Location row above is still there for
+plan-scoped sharing alone. Do not add a second entry for it — an over-declaration invites a
+reviewer to ask what is stored, and the honest answer is nothing.
+
 ### ⏳ Timing: answer this WITH the next submission, not before it
 
 Verified rather than assumed: location landed in commit `2d59e2e` on 1 August 17:59, and version
@@ -266,6 +273,11 @@ What the reviewer should be told, and what is true:
   `requestLocation()`, which returns one fix and stops.
 - Authorisation is **When In Use** only. There is no `Always` request and no background location
   mode in the entitlements.
+- **Finding somewhere nearby uses the same permission and is also a tap.** It runs `MKLocalSearch`
+  — Apple's own Maps search — so the coordinate goes to Apple to answer that one query and to
+  nobody else. There is no API key, no server of ours in the path, and nothing is stored: the fix
+  is used for the search and discarded, never written to Firestore and never attached to a plan.
+  Typing a place name works with no location permission at all.
 - A shared point is readable only by the participants of that one plan, and only while the plan is
   inside its window — an hour before its time until four hours after. This is enforced in
   `firestore.rules` against the server clock, not just in the app.

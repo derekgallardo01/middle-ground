@@ -34,8 +34,6 @@ final class GroupRecipientTests: XCTestCase {
         return viewModel
     }
 
-    /// The two fixtures must be separately selectable, which is exactly what a shared tag
-    /// prevented.
     // MARK: - What a group is called
 
     /// The cache dropped `name`, and `CachedRelationshipRepository` reads from the cache, so
@@ -86,6 +84,8 @@ final class GroupRecipientTests: XCTestCase {
         XCTAssertEqual(viewModel.relationships.first?.id, "rel_1")
     }
 
+    /// The two fixtures must be separately selectable, which is exactly what a shared tag
+    /// prevented.
     func testACoupleAndAGroupAreDistinctChoices() async {
         let viewModel = await loaded()
 

@@ -39,10 +39,40 @@ xcodebuild build-for-testing -project MiddleGround.xcodeproj -scheme MiddleGroun
   -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath "$OUT/dd" \
   -allowProvisioningUpdates > "$OUT/build.log" 2>&1
 
+# Warm the app before the tape rolls.
+#
+# simctl writes frames only when the screen changes, and under load it stops writing at all: a
+# cold first launch — installing, creating the SwiftData store, the first location fix, the first
+# search, the first Look Around fetch — put **two minutes of the tour into ten seconds of video**.
+# The footage was not trimmed away or mistimed; those frames were never captured. Everything after
+# the app had warmed up recorded fine.
+#
+# So the expensive first run happens off camera.
+APP=$(find "$OUT/dd/Build/Products" -name "MiddleGround.app" -maxdepth 3 2>/dev/null | head -1)
+if [ -n "$APP" ]; then
+  echo "==> warming up"
+  xcrun simctl install "$UDID" "$APP" >/dev/null 2>&1 || true
+  xcrun simctl launch "$UDID" app.middleground.MiddleGround -MGMockMode >/dev/null 2>&1 || true
+  sleep 25
+  xcrun simctl terminate "$UDID" app.middleground.MiddleGround >/dev/null 2>&1 || true
+  sleep 3
+fi
+
 rm -f "$VIDEO"
 echo "==> recording"
 xcrun simctl io "$UDID" recordVideo --codec h264 --force "$VIDEO" &
 RECORDER=$!
+
+# Recording either started or it did not, and finding out now costs three seconds. A killed
+# recorder can leave the simulator believing one is still in progress — "Host recording is already
+# in progress" — and the run then executed the whole tour against a device that was writing
+# nothing, three minutes to reach a file that never existed.
+sleep 3
+if ! kill -0 "$RECORDER" 2>/dev/null; then
+  echo "The recorder did not start. Usually a previous one is still holding the device:" >&2
+  echo "  xcrun simctl shutdown $UDID && xcrun simctl boot $UDID" >&2
+  exit 1
+fi
 # When the tape started rolling, so the dead head can be measured rather than guessed at.
 RECORD_EPOCH=$(date +%s)
 sleep 2
@@ -99,13 +129,20 @@ if [ -n "$LAUNCH_STAMP" ]; then
   fi
 fi
 START=$(python3 "$SCRIPT_DIR/trim-tour.py" "$VIDEO" "$FLOOR")
+# And where it stops. The tour terminates the app and xcodebuild then spends a minute or two
+# tearing down, all of it recorded — a film that ended after two minutes and sat on a home screen
+# for the rest, which reads as a broken video rather than a finished tour.
+END=$(python3 "$SCRIPT_DIR/trim-tour.py" "$VIDEO" "$START" --end)
+DURATION=$(( END - START ))
+[ "$DURATION" -lt 10 ] && DURATION=
 #
 # `-fps_mode cfr -r 30` is not a nicety. simctl records variable-rate and writes nothing while the
 # screen is still, so re-encoding without it produced a "video" of **twelve frames stretched over
 # 144 seconds** — a slideshow that reported a sane duration and a sane file size, and that looked,
 # when scrubbed, exactly like a tour stuck on one screen. That is what "it swipes on the same
 # screen" was. A constant rate fills the gaps and makes the file seekable.
-if ! ffmpeg -loglevel error -ss "$START" -i "$VIDEO" -c:v libx264 -crf 23 -preset veryfast \
+if ! ffmpeg -loglevel error -ss "$START" -t "$DURATION" -i "$VIDEO" \
+     -c:v libx264 -crf 23 -preset veryfast \
      -fps_mode cfr -r 30 -movflags +faststart "$TRIMMED" -y; then
   echo "Trim failed. The untrimmed recording is at $VIDEO" >&2
   exit 1
@@ -115,7 +152,7 @@ SIZE=$(du -h "$TRIMMED" | cut -f1)
 LENGTH=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$TRIMMED")
 FRAMES=$(ffprobe -v error -select_streams v -count_frames \
   -show_entries stream=nb_read_frames -of default=nw=1:nk=1 "$TRIMMED")
-echo "Video: $TRIMMED  ($SIZE, ${LENGTH}s, ${FRAMES} frames, trimmed from ${START}s)"
+echo "Video: $TRIMMED  ($SIZE, ${LENGTH}s, ${FRAMES} frames, ${START}s–${END}s of the capture)"
 
 # A duration and a file size both looked right on a twelve-frame file. The frame count is the
 # number that would have caught it, so it is checked rather than merely printed.

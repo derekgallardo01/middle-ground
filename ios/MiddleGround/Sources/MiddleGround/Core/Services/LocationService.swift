@@ -160,7 +160,12 @@ final class LocationService: NSObject, LocationProviding, CLLocationManagerDeleg
 
 /// Fixed coordinates for previews and tests, so nothing depends on the host machine's location.
 struct MockLocationService: LocationProviding {
-    var coordinate = CLLocationCoordinate2D(latitude: 40.7128, longitude: -74.0060)
+    /// Midtown Manhattan, chosen for Look Around coverage rather than for being famous.
+    ///
+    /// This was 40.7128,-74.0060 — the coordinate everyone uses for "New York" — and Apple has no
+    /// street-level imagery there, so every place in every screenshot fell back to a map of where
+    /// it is. A probe confirmed the imagery itself works; it was the spot that had none.
+    var coordinate = CLLocationCoordinate2D(latitude: 40.7580, longitude: -73.9855)
     var error: LocationError?
 
     func currentCoordinate() async throws -> CLLocationCoordinate2D {

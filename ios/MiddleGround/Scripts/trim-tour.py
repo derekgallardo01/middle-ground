@@ -15,7 +15,10 @@ works this out from the wall clock in xcodebuild's log, and it matters because t
 obliges with "motion" long before the app appears — waking the display counts. On its own this
 detector once left a quarter of the film sitting on a home screen.
 
-    python3 Scripts/trim-tour.py video.mp4 [search-from-second]
+    python3 Scripts/trim-tour.py video.mp4 [search-from-second] [--end]
+
+With `--end` it reports where the action stops instead, so the trailing minutes of teardown can be
+cut too.
 """
 
 from typing import Optional
@@ -57,8 +60,33 @@ def first_motion(video: str, floor_seconds: int = 0, limit_seconds: int = 1800) 
     return floor_seconds
 
 
+def last_motion(video: str, floor_seconds: int = 0, limit_seconds: int = 3600) -> int:
+    """The second after which nothing moves again.
+
+    The tour terminates the app and xcodebuild then spends a minute or two tearing down, all of it
+    recorded. Trimming only the head left a film that stopped after two minutes and sat on a home
+    screen for the rest — which reads as a broken video, not as a finished tour.
+    """
+    previous = None
+    last = floor_seconds
+    for second in range(floor_seconds, limit_seconds, STEP_SECONDS):
+        frame = grey_frame(video, second)
+        if frame is None:
+            break
+        if previous is not None and len(frame) == len(previous):
+            change = sum(abs(a - b) for a, b in zip(frame, previous)) / len(frame)
+            if change > MOTION_THRESHOLD:
+                last = second
+        previous = frame
+    # A breath after the last thing that happened, rather than a hard cut on it.
+    return last + LEAD_IN_SECONDS
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         raise SystemExit("usage: trim-tour.py <video.mp4> [search-from-second]")
     floor = int(sys.argv[2]) if len(sys.argv) > 2 else 0
-    print(first_motion(sys.argv[1], floor_seconds=floor))
+    if "--end" in sys.argv:
+        print(last_motion(sys.argv[1], floor_seconds=floor))
+    else:
+        print(first_motion(sys.argv[1], floor_seconds=floor))

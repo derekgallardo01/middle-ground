@@ -27,7 +27,7 @@ struct PlaceImage: Sendable {
     let image: UIImage
     let kind: Kind
 
-    enum Kind: Sendable {
+    enum Kind: Sendable, Equatable {
         /// Apple's street-level photography of this spot.
         case lookAround
         /// A map of where it is. Shown when there is no photography, never captioned as a photo.

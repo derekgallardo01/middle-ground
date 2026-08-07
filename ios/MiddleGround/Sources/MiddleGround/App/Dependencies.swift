@@ -216,11 +216,13 @@ extension Container {
     /// Pictures of the places discovery found. Apple's own imagery in both tiers, so this stays a
     /// keyless feature — see `PlaceImageProvider` for why a photo API was not worth the trade.
     var placeImageProvider: Factory<PlaceImageProviding> {
-        Factory(self) {
-            AppConfiguration.useMockRepositories
-                ? MockPlaceImageProvider() as PlaceImageProviding
-                : MapKitPlaceImageProvider()
-        }
+        // Not switched on mock mode, unlike everything around it. The fixture places sit on real
+        // Manhattan coordinates, so Apple has actual imagery for them — and a screenshot or a
+        // recording of this screen is worth nothing if the picture in it is a flat rectangle.
+        // Both tiers are read-only lookups against Apple, so there is no fixture to protect.
+        //
+        // Tests that must not touch the network inject `MockPlaceImageProvider` themselves.
+        Factory(self) { MapKitPlaceImageProvider() }
     }
 
     var reservationProvider: Factory<ReservationProvider> {

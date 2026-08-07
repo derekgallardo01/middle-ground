@@ -50,12 +50,17 @@ struct PlaceDetailView: View {
                     Button("Close") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
+                    // Prominent and explicitly tinted. Left to the default it rendered pale grey
+                    // inside the toolbar's glass capsule — beside a legible "Close" it read as
+                    // disabled, which is the one thing the primary action on this screen must not.
                     Button("Choose") {
                         onChoose(place)
                         Haptics.shared.impact(.light)
                         dismiss()
                     }
-                    .fontWeight(.semibold)
+                    .buttonStyle(.borderedProminent)
+                    .tint(MGColors.indigo)
+                    .foregroundStyle(.white)
                     .accessibilityIdentifier("choosePlace")
                 }
             }
@@ -101,7 +106,9 @@ struct PlaceDetailView: View {
                     .padding(.horizontal, MGSpacing.sm)
                     .padding(.vertical, 4)
                     .background(.black.opacity(0.55), in: Capsule())
-                    .padding(MGSpacing.sm)
+                    // Clear of the corner. At the previous inset the capsule sat inside the
+                    // radius and the clip cut it in half.
+                    .padding(MGSpacing.md)
             }
         }
         .frame(height: 200)

@@ -124,4 +124,34 @@ final class PlaceDetailTests: XCTestCase {
         XCTAssertNotNil(first.telephoneURL, "the phone row would be missing from every screenshot")
         XCTAssertNotNil(first.website)
     }
+
+    /// Filled is not the same as right. Every fixture shared one address, one number and one
+    /// domain, so the detail sheet read "1 Example Street" whichever place you opened — which
+    /// looks exactly like a screen ignoring what you tapped.
+    func testEachPlaceHasItsOwnDetails() async throws {
+        var addresses: Set<String> = []
+        var phones: Set<String> = []
+        var sites: Set<String> = []
+        var count = 0
+
+        for kind in PlaceKind.allCases {
+            let places = try await MockPlaceDiscoveryProvider().places(
+                near: MockLocationService().coordinate,
+                radiusMiles: 25,
+                kind: kind,
+                matching: nil
+            )
+            for place in places {
+                count += 1
+                addresses.insert(try XCTUnwrap(place.address))
+                phones.insert(try XCTUnwrap(place.phone))
+                sites.insert(try XCTUnwrap(place.website).absoluteString)
+            }
+        }
+
+        XCTAssertGreaterThan(count, 5, "not enough fixtures to tell them apart")
+        XCTAssertEqual(addresses.count, count, "two places share an address")
+        XCTAssertEqual(phones.count, count, "two places share a phone number")
+        XCTAssertEqual(sites.count, count, "two places share a website")
+    }
 }

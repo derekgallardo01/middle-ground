@@ -282,27 +282,110 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
             let name: String
             let category: String
             let miles: Double
-            /// The detail sheet shows a phone number and a website. Leaving these nil made every
-            /// recording of it look like a screen with two rows missing.
-            var phone: String = "(718) 555-0148"
-            var site: String = "example.com"
+            /// Its own address, number and site — not a shared default.
+            ///
+            /// These began as one placeholder repeated across every fixture, so the detail sheet
+            /// said "1 Example Street" and "(718) 555-0148" whichever place you opened. The screen
+            /// looked like it was ignoring which place you tapped, which is exactly what a bug
+            /// here would look like.
+            let address: String
+            let phone: String
+            let site: String
         }
         let seeds: [Seed]
         switch kind {
         case .restaurant:
-            seeds = [Seed(name: "Lucia's", category: "Restaurant", miles: 0.4),
-                     Seed(name: "Copper & Oak", category: "Restaurant", miles: 0.9),
-                     Seed(name: "The Daily Grind", category: "Cafe", miles: 1.2),
-                     Seed(name: "Fen Bakery", category: "Bakery", miles: 2.1)]
+            seeds = [
+                Seed(
+                    name: "Lucia's",
+                    category: "Restaurant",
+                    miles: 0.4,
+                    address: "214 Smith Street, Brooklyn",
+                    phone: "(718) 555-0148",
+                    site: "luciasbrooklyn.example"
+                ),
+                Seed(
+                    name: "Copper & Oak",
+                    category: "Restaurant",
+                    miles: 0.9,
+                    address: "77 Atlantic Avenue, Brooklyn",
+                    phone: "(718) 555-0231",
+                    site: "copperandoak.example"
+                ),
+                Seed(
+                    name: "The Daily Grind",
+                    category: "Cafe",
+                    miles: 1.2,
+                    address: "6 Bergen Street, Brooklyn",
+                    phone: "(718) 555-0396",
+                    site: "dailygrind.example"
+                ),
+                Seed(
+                    name: "Fen Bakery",
+                    category: "Bakery",
+                    miles: 2.1,
+                    address: "158 Court Street, Brooklyn",
+                    phone: "(718) 555-0574",
+                    site: "fenbakery.example"
+                )
+            ]
         case .bar:
-            seeds = [Seed(name: "The Bell Jar", category: "Nightlife", miles: 0.6),
-                     Seed(name: "Foxglove Brewing", category: "Brewery", miles: 1.8)]
+            seeds = [
+                Seed(
+                    name: "The Bell Jar",
+                    category: "Nightlife",
+                    miles: 0.6,
+                    address: "42 Wythe Avenue, Brooklyn",
+                    phone: "(718) 555-0612",
+                    site: "thebelljar.example"
+                ),
+                Seed(
+                    name: "Foxglove Brewing",
+                    category: "Brewery",
+                    miles: 1.8,
+                    address: "301 Nostrand Avenue, Brooklyn",
+                    phone: "(718) 555-0789",
+                    site: "foxglovebrewing.example"
+                )
+            ]
         case .stay:
-            seeds = [Seed(name: "The Rowan Hotel", category: "Hotel", miles: 1.1),
-                     Seed(name: "Harbour Inn", category: "Hotel", miles: 3.4)]
+            seeds = [
+                Seed(
+                    name: "The Rowan Hotel",
+                    category: "Hotel",
+                    miles: 1.1,
+                    address: "88 Dean Street, Brooklyn",
+                    phone: "(718) 555-0925",
+                    site: "rowanhotel.example"
+                ),
+                Seed(
+                    name: "Harbour Inn",
+                    category: "Hotel",
+                    miles: 3.4,
+                    address: "5 Pier Lane, Brooklyn",
+                    phone: "(718) 555-1043",
+                    site: "harbourinn.example"
+                )
+            ]
         case .event:
-            seeds = [Seed(name: "The Bell House", category: "Music Venue", miles: 0.8),
-                     Seed(name: "Regent Theatre", category: "Theater", miles: 2.6)]
+            seeds = [
+                Seed(
+                    name: "The Bell House",
+                    category: "Music Venue",
+                    miles: 0.8,
+                    address: "149 7th Street, Brooklyn",
+                    phone: "(718) 555-1177",
+                    site: "thebellhouse.example"
+                ),
+                Seed(
+                    name: "Regent Theatre",
+                    category: "Theater",
+                    miles: 2.6,
+                    address: "23 Flatbush Avenue, Brooklyn",
+                    phone: "(718) 555-1288",
+                    site: "regenttheatre.example"
+                )
+            ]
         }
 
         return seeds
@@ -313,8 +396,10 @@ struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                     id: "mock-\(kind.rawValue)-\(index)",
                     name: seed.name,
                     category: seed.category,
-                    address: "\(index + 1) Example Street",
-                    latitude: coordinate.latitude + Double(index) * 0.004,
+                    address: seed.address,
+                    // ~130m apart along the avenue, so each place is a different view and all of
+                    // them stay inside Look Around coverage. At 0.004 they walked out of it.
+                    latitude: coordinate.latitude + Double(index) * 0.0012,
                     longitude: coordinate.longitude,
                     distanceMiles: seed.miles,
                     phone: seed.phone,

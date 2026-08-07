@@ -283,6 +283,10 @@ struct CreateRequestView: View {
                     }
                     .padding(.vertical, 2)
                 }
+                // A stable handle for the row itself. Scrolling it by grabbing the first chip
+                // works exactly once — after that the chip is offscreen and the gesture fails
+                // with "visible frame is empty".
+                .accessibilityIdentifier("nearbyPlaces")
             }
         }
     }

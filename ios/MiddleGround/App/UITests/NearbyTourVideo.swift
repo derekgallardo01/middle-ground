@@ -116,8 +116,13 @@ final class NearbyTourVideo: XCTestCase {
         let count = chips.count
         XCTAssertGreaterThan(count, 0, "\(label): \(kind) returned nothing to show")
 
-        // Every place the row holds, one nudge at a time, rather than one flick past all of them.
-        let row = chips.element(boundBy: 0)
+        // The row, not a chip in it. Swiping the first chip scrolls it out of view and every
+        // later swipe then fails on an element with an empty frame — which is how this took a
+        // recording to notice.
+        let row = app.scrollViews["nearbyPlaces"]
+        guard row.waitForExistence(timeout: 5) else {
+            return XCTFail("\(label): the results row has no handle to scroll")
+        }
         for _ in 0..<max(0, count - 2) {
             row.swipeLeft(velocity: .slow)
             pause(0.4)

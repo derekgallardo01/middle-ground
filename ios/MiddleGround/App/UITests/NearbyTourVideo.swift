@@ -224,14 +224,26 @@ final class NearbyTourVideo: XCTestCase {
         var changesCategory: Bool { kind != "Food" }
     }
 
-    /// Four plans: dinner, drinks, a hotel and a gig. Two to one person and two to a group, so the
-    /// tour shows both without filming everything twice.
+    /// Every kind of place, to each kind of recipient: eight plans, in four adjacent pairs.
+    ///
+    /// Was four, one kind each, with two going to a person and two to a group — which showed each
+    /// kind once and never let the two audiences be compared on the same kind. The pairs are
+    /// adjacent on purpose: dinner-for-two is followed immediately by dinner-for-the-group, so the
+    /// only thing that differs between them is the thing being demonstrated.
+    ///
+    /// The recording is split back into these eight clips afterwards, on the home screen each one
+    /// ends on — see `Scripts/record-tour.sh`, where the names below are repeated. Their order is
+    /// what pairs a clip with its name, so this list and that one have to stay in step.
     func testTheTour() throws {
         let plans = [
             Plan(kind: "Food", title: "Dinner Friday?", toGroup: false),
+            Plan(kind: "Food", title: "Dinner, all of us?", toGroup: true),
             Plan(kind: "Drinks", title: "Drinks after work?", toGroup: false),
-            Plan(kind: "Stay", title: "Weekend away?", toGroup: true),
-            Plan(kind: "Events", title: "Gig on Saturday?", toGroup: true)
+            Plan(kind: "Drinks", title: "Drinks, everyone?", toGroup: true),
+            Plan(kind: "Stay", title: "Weekend away?", toGroup: false),
+            Plan(kind: "Stay", title: "Weekend away, all of us?", toGroup: true),
+            Plan(kind: "Events", title: "Gig on Saturday?", toGroup: false),
+            Plan(kind: "Events", title: "Gig on Saturday, everyone?", toGroup: true)
         ]
 
         for plan in plans {

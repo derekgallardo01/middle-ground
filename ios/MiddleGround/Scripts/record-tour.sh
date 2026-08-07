@@ -166,6 +166,40 @@ FRAMES=$(ffprobe -v error -select_streams v -count_frames \
   -show_entries stream=nb_read_frames -of default=nw=1:nk=1 "$TRIMMED")
 echo "Video: $TRIMMED  ($SIZE, ${LENGTH}s, ${FRAMES} frames, app on screen ${ASTART}s–${AEND}s)"
 
+# One clip per walkthrough.
+#
+# Each plan ends by terminating the app, so the home screen between two of them is the seam. The
+# names below are the order the plans run in — see `testTheTour` in App/UITests/NearbyTourVideo.swift,
+# where the same order is written down. If the two ever drift, the count check below is what says so
+# rather than eight clips quietly carrying the wrong names.
+LABELS=(food-couple food-group drinks-couple drinks-group stay-couple stay-group events-couple events-group)
+
+CLIPS="$OUT/walkthroughs"
+rm -rf "$CLIPS"; mkdir -p "$CLIPS"
+
+SEGMENTS=$(python3 "$SCRIPT_DIR/trim-tour.py" "$TRIMMED" --segments)
+FOUND=$(printf '%s\n' "$SEGMENTS" | grep -c . || true)
+
+if [ "$FOUND" -ne "${#LABELS[@]}" ]; then
+  echo "Found $FOUND walkthroughs, expected ${#LABELS[@]} — not splitting, because clip N would" >&2
+  echo "not be plan N and the names would be wrong. The whole film is still at $TRIMMED." >&2
+else
+  INDEX=0
+  while read -r SEG_START SEG_END; do
+    [ -z "$SEG_START" ] && continue
+    NAME="${LABELS[$INDEX]}"
+    ffmpeg -loglevel error -ss "$SEG_START" -to "$SEG_END" -i "$TRIMMED" \
+      -c:v libx264 -crf 23 -preset veryfast -movflags +faststart \
+      "$CLIPS/$NAME.mp4" -y || echo "  could not cut $NAME" >&2
+    INDEX=$(( INDEX + 1 ))
+  done <<< "$SEGMENTS"
+  echo "Walkthroughs: $CLIPS"
+  for f in "$CLIPS"/*.mp4; do
+    printf '  %-22s %ss\n' "$(basename "$f")" \
+      "$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$f" | cut -d. -f1)"
+  done
+fi
+
 # A duration and a file size both looked right on a twelve-frame file. The frame count is the
 # number that would have caught it, so it is checked rather than merely printed.
 MIN_FRAMES=$(python3 -c "print(int(float('${LENGTH:-0}') * 10))")

@@ -32,7 +32,14 @@ extension CreateRequestViewModel {
 
         let coordinate: CLLocationCoordinate2D
         do {
-            coordinate = try await locationService.currentCoordinate()
+            // Once per sheet. Asking again on every category tap and every mile of the slider was
+            // both slow and more location-taking than the feature needs.
+            if let known = nearbyOrigin {
+                coordinate = known
+            } else {
+                coordinate = try await locationService.currentCoordinate()
+                nearbyOrigin = coordinate
+            }
         } catch {
             // A refusal is not a failure worth an alert — typing a place still works, and saying
             // so is more useful than an error.
@@ -64,7 +71,28 @@ extension CreateRequestViewModel {
     /// the slider would ask for location without anybody having asked for anything.
     func radiusChanged() async {
         guard hasSearchedNearby else { return }
-        await findNearby()
+        await searchAgainShortly()
+    }
+
+    /// Waits for the changes to stop, then searches once.
+    ///
+    /// The radius is a stepped slider: a drag from 1 to 25 fired twenty-four searches, and the
+    /// results flickered through all of them. Cancelling the pending one means a drag costs one
+    /// search, and it is the *last* radius that gets searched rather than whichever reply happens
+    /// to land last.
+    func searchAgainShortly() async {
+        nearbySearchTask?.cancel()
+
+        // The spinner is deliberately left to `findNearby`. Raising it here would strand it: a
+        // cancelled task never reaches the `defer` that lowers it, and a spinner that never stops
+        // is a worse lie than 350ms of nothing.
+        let task = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled, let self else { return }
+            await self.findNearby()
+        }
+        nearbySearchTask = task
+        await task.value
     }
 
     /// Chooses a place: it becomes the plan's "Where?".

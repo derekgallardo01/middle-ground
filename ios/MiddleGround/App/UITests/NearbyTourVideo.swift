@@ -75,12 +75,30 @@ final class NearbyTourVideo: XCTestCase {
     /// Food, Drinks, Stay, Events. No scrolling between them: the picker and the results sit
     /// together, so once the finder is framed the whole cycle plays without the view moving.
     private func walkThroughEveryKind(_ label: String) {
+        // Somewhere only that kind returns. Waiting for `nearbyPlace` to merely *exist* proved
+        // nothing: the previous kind's results are still on screen, so the wait returned instantly
+        // and the walk passed without the category ever changing. Stay was skipped in an entire
+        // recording and this test called it fine.
+        let proof = [
+            "Food": "Lucia's",
+            "Drinks": "The Bell Jar",
+            "Stay": "The Rowan Hotel",
+            "Events": "The Bell House"
+        ]
+
         for kind in ["Food", "Drinks", "Stay", "Events"] {
             let tab = app.buttons[kind]
             XCTAssertTrue(tab.waitForExistence(timeout: 10), "\(label): no \(kind) tab")
             tab.tap()
-            // Results, or a line saying there are none. Either is worth holding on.
-            _ = app.buttons["nearbyPlace"].firstMatch.waitForExistence(timeout: 12)
+
+            guard let expected = proof[kind] else {
+                return XCTFail("\(label): no known result for \(kind)")
+            }
+            let result = app.staticTexts[expected]
+            XCTAssertTrue(
+                result.waitForExistence(timeout: 12),
+                "\(label): tapped \(kind) and \(expected) never appeared — the category did not change"
+            )
             pause(1.8)
         }
     }

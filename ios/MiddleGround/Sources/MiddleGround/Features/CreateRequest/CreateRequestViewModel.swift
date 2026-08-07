@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import Factory
 
@@ -243,6 +244,17 @@ final class CreateRequestViewModel {
     var hasSearchedNearby = false
     /// The place taken from the list, kept so a booking link can use its coordinate later.
     var chosenPlace: DiscoveredPlace?
+    /// Where the first search was made from, reused by every later one in this sheet.
+    ///
+    /// Each search asked iOS for a fresh fix, so changing category or nudging the radius by a mile
+    /// took another one. That is slower, and it is more location-taking than the feature needs:
+    /// nobody moves far enough between two taps of a segmented control to matter.
+    var nearbyOrigin: CLLocationCoordinate2D?
+    /// The pending re-search, cancelled by whatever changes next.
+    ///
+    /// The radius is a stepped slider, so dragging it from 1 to 25 fired twenty-four separate
+    /// searches — each with its own location request — and the list flickered through every one.
+    var nearbySearchTask: Task<Void, Never>?
 
     /// The ones worth offering for what is being planned right now.
     var suggestedVenues: [Venue] {

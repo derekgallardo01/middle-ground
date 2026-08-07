@@ -181,6 +181,24 @@ final class CreateRequestViewModel {
     /// failed or slow read costs a nicety rather than the ability to say where you're going.
     private(set) var venues: [Venue] = []
 
+    // MARK: - Nearby, see CreateRequestViewModel+Nearby
+
+    let placeDiscovery: PlaceDiscoveryProvider = Container.shared.placeDiscoveryProvider()
+    let locationService = Container.shared.locationService()
+
+    var nearbyPlaces: [DiscoveredPlace] = []
+    var nearbyKind: PlaceKind = .restaurant
+    var nearbyRadiusMiles: Double = CreateRequestViewModel.defaultRadiusMiles
+    var isSearchingNearby = false
+    /// Why there is nothing to show — no location, nothing within the radius, a failed search.
+    /// Distinct from an empty list, which on its own looks like a bug.
+    var nearbyMessage: String?
+    /// Set once a search has actually run, so moving the radius does not ask for location on its
+    /// own. The tap is what asks.
+    var hasSearchedNearby = false
+    /// The place taken from the list, kept so a booking link can use its coordinate later.
+    var chosenPlace: DiscoveredPlace?
+
     /// The ones worth offering for what is being planned right now.
     var suggestedVenues: [Venue] {
         venues.filter { $0.suits(category) }

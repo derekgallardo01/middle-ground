@@ -251,3 +251,49 @@ enum PlaceLookup: String, CaseIterable, Identifiable, Sendable {
         }
     }
 }
+
+/// Fixed nearby places for previews, screenshots and UI tests.
+///
+/// Real ones would make every screenshot depend on where the machine running it happens to be,
+/// and `MKLocalSearch` needs a network that a test should not.
+struct MockPlaceDiscoveryProvider: PlaceDiscoveryProvider {
+    func places(
+        near coordinate: CLLocationCoordinate2D,
+        radiusMiles: Double,
+        kind: PlaceKind,
+        matching term: String?
+    ) async throws -> [DiscoveredPlace] {
+        // A beat, so the loading state is a real state rather than a frame nobody sees.
+        try? await Task.sleep(for: .milliseconds(400))
+
+        let seeds: [(String, String, Double)]
+        switch kind {
+        case .restaurant:
+            seeds = [("Lucia's", "Restaurant", 0.4), ("Copper & Oak", "Restaurant", 0.9),
+                     ("The Daily Grind", "Cafe", 1.2), ("Fen Bakery", "Bakery", 2.1)]
+        case .bar:
+            seeds = [("The Bell Jar", "Nightlife", 0.6), ("Foxglove Brewing", "Brewery", 1.8)]
+        case .stay:
+            seeds = [("The Rowan Hotel", "Hotel", 1.1), ("Harbour Inn", "Hotel", 3.4)]
+        case .event:
+            seeds = [("The Bell House", "Music Venue", 0.8), ("Regent Theatre", "Theater", 2.6)]
+        }
+
+        return seeds
+            .filter { $0.2 <= radiusMiles }
+            .enumerated()
+            .map { index, seed in
+                DiscoveredPlace(
+                    id: "mock-\(kind.rawValue)-\(index)",
+                    name: seed.0,
+                    category: seed.1,
+                    address: "\(index + 1) Example Street",
+                    latitude: coordinate.latitude + Double(index) * 0.004,
+                    longitude: coordinate.longitude,
+                    distanceMiles: seed.2,
+                    phone: nil,
+                    website: nil
+                )
+            }
+    }
+}

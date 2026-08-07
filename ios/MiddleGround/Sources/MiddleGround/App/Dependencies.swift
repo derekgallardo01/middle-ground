@@ -200,6 +200,19 @@ extension Container {
 
     /// The one line a booking partnership changes. Everything above this reads the protocol, so
     /// swapping the implementation is the whole integration — see `ReservationProvider`.
+    /// Places near you, found on the device.
+    ///
+    /// Registered beside the reservation provider so the two moments stay separate: this one is
+    /// before a plan exists, that one is after. Swapping in Google Places later is a change here
+    /// and nowhere else.
+    var placeDiscoveryProvider: Factory<PlaceDiscoveryProvider> {
+        Factory(self) {
+            AppConfiguration.useMockRepositories
+                ? MockPlaceDiscoveryProvider() as PlaceDiscoveryProvider
+                : MapKitPlaceDiscoveryProvider()
+        }
+    }
+
     var reservationProvider: Factory<ReservationProvider> {
         Factory(self) { CuratedVenueReservationProvider(venues: self.venueRepository()) }
     }

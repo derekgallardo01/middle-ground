@@ -55,6 +55,8 @@ struct CreateRequestView: View {
 
                     // Only on an empty field, and only for categories where a venue makes
                     // sense — offering "restaurant" for splitting the chores would be noise.
+                    nearbyFinder
+
                     if viewModel.location.isEmpty {
                         placeSuggestions
                     }
@@ -184,6 +186,127 @@ struct CreateRequestView: View {
                 .padding(.vertical, 2)
             }
         }
+    }
+
+    /// Somewhere near you, on request.
+    ///
+    /// Deliberately a button rather than a search that runs when the sheet opens. The privacy
+    /// policy says location is off unless you ask for it, one time at a time — a screen that
+    /// searches on appear makes that sentence false, and this is the sentence being kept.
+    @ViewBuilder
+    private var nearbyFinder: some View {
+        VStack(alignment: .leading, spacing: MGSpacing.sm) {
+            HStack(spacing: MGSpacing.sm) {
+                Button {
+                    Task {
+                        viewModel.hasSearchedNearby = true
+                        await viewModel.findNearby()
+                    }
+                } label: {
+                    Label(
+                        viewModel.hasSearchedNearby ? "Search again" : "Find somewhere near me",
+                        systemImage: "location.magnifyingglass"
+                    )
+                    .mgFont(.caption, color: MGColors.onAccent)
+                    .padding(.vertical, MGSpacing.xs)
+                    .padding(.horizontal, MGSpacing.md)
+                    .background(MGColors.indigo)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .disabled(viewModel.isSearchingNearby)
+
+                if viewModel.isSearchingNearby {
+                    ProgressView().controlSize(.small)
+                }
+            }
+
+            if viewModel.hasSearchedNearby {
+                // What to look for, and how far. Both only appear once somebody has asked, so the
+                // compose sheet does not open covered in controls nobody wanted yet.
+                Picker("What sort of place", selection: $viewModel.nearbyKind) {
+                    ForEach(PlaceKind.allCases, id: \.self) { kind in
+                        Text(kind.displayName).tag(kind)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: viewModel.nearbyKind) { _, _ in
+                    Task { await viewModel.radiusChanged() }
+                }
+
+                HStack(spacing: MGSpacing.sm) {
+                    Text("Within")
+                        .mgFont(.caption)
+                        .foregroundStyle(MGColors.warm600)
+                    Slider(
+                        value: $viewModel.nearbyRadiusMiles,
+                        in: 1...CreateRequestViewModel.maxRadiusMiles,
+                        step: 1
+                    )
+                    .accessibilityLabel("Search radius")
+                    .accessibilityValue("\(Int(viewModel.nearbyRadiusMiles)) miles")
+                    Text("\(Int(viewModel.nearbyRadiusMiles)) mi")
+                        .mgFont(.caption)
+                        .foregroundStyle(MGColors.slate)
+                        .frame(width: 44, alignment: .trailing)
+                        .monospacedDigit()
+                }
+                .onChange(of: viewModel.nearbyRadiusMiles) { _, _ in
+                    Task { await viewModel.radiusChanged() }
+                }
+            }
+
+            if let message = viewModel.nearbyMessage {
+                // Said out loud rather than left as an empty row, which reads as a broken feature.
+                Text(message)
+                    .mgFont(.caption)
+                    .foregroundStyle(MGColors.warm600)
+            }
+
+            if !viewModel.nearbyPlaces.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: MGSpacing.sm) {
+                        ForEach(viewModel.nearbyPlaces) { place in
+                            nearbyChip(place)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    /// A found place: its name, and what it is and how far, so the choice is informed.
+    private func nearbyChip(_ place: DiscoveredPlace) -> some View {
+        Button {
+            viewModel.choose(place)
+            Haptics.shared.impact(.light)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(place.name)
+                    .mgFont(.caption, color: MGColors.slate)
+                    .lineLimit(1)
+                if !place.subtitle.isEmpty {
+                    Text(place.subtitle)
+                        .mgFont(.caption, color: MGColors.warm600)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.vertical, MGSpacing.sm)
+            .padding(.horizontal, MGSpacing.md)
+            .background(
+                viewModel.location == place.name
+                    ? MGColors.indigo.opacity(0.14)
+                    : MGColors.warm100
+            )
+            .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel("\(place.name), \(place.subtitle)")
+        .accessibilityHint("Sets where you're going")
+        // A stable handle for tests. Matching on the name alone collided with a request card in
+        // the feed behind the sheet — the fixtures include a plan called "Dinner at Lucia's".
+        .accessibilityIdentifier("nearbyPlace")
     }
 
     private func chip(

@@ -371,7 +371,11 @@ service cloud.firestore {
       return resource.data.status == 'accepted'
         && resource.data.get('proposedTime', null) != null
         && resource.data.get('proposedTime', request.time) < request.time
-        && request.resource.data.confirmations.diff(
+        // Guarded on both sides, for the same reason as `stillOn` below: a direct read of a
+        // missing property is an evaluation error that escapes this branch and denies the whole
+        // update. This one has not bitten yet only because every client writes `confirmations`,
+        // which is a fact about today's clients rather than a property of the rule.
+        && request.resource.data.get('confirmations', {}).diff(
              resource.data.get('confirmations', {})
            ).affectedKeys() == [uid()].toSet()
         && immutable('creatorID')
@@ -402,7 +406,14 @@ service cloud.firestore {
       return resource.data.status == 'accepted'
         && resource.data.get('proposedTime', null) != null
         && resource.data.get('proposedTime', request.time) > request.time
-        && request.resource.data.stillOn.diff(
+        // `get(..., {})` on **both** sides. The comment above explains the trap and then this
+        // line walked into it from the other direction: `resource.data` was guarded and
+        // `request.resource.data` was not, so any write whose incoming document lacked `stillOn`
+        // — a cancellation from a build that predates this field, which is every copy of the app
+        // currently installed — hit an evaluation error here and was denied by a rule about
+        // something else entirely. Caught by the regression test written for exactly this, which
+        // only runs in CI because the emulator needs Java.
+        && request.resource.data.get('stillOn', {}).diff(
              resource.data.get('stillOn', {})
            ).affectedKeys() == [uid()].toSet()
         && immutable('creatorID')

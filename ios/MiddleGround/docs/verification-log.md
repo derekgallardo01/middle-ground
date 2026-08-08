@@ -318,6 +318,36 @@ out. Twelve sites use them as foreground. The test records the numbers and delib
 fail on them; darkening the palette changes how the app looks, which is yours to decide.
 
 
+## 2026-08-08 — correctness pass
+
+Five defects, none of which failed a test. Each was found by auditing a claim rather than by
+running the suite, which is the point worth recording.
+
+| Found | Evidence it is real |
+|---|---|
+| A settled plan paid out again after a reinstall | `settledPlanIDs` absent from `GamificationStatsDTO`; the guard restored empty. Mutation-checked: removing the fix fails `testTheWireFormatCarriesEverythingAReinstallNeeds` |
+| The first test written for it proved nothing | It went through `MockGamificationRepository`, which keeps the struct in memory and never converts — it passed with the fix removed |
+| `seats` dropped by the relationship cache | Third field caught this way; survived the `name` fix in `9ff2d97` |
+| Cache and server disagreed on legacy groups | The entity passed a missing value through and `Relationship.init` read it as the *type's* limit — eight, where the rules enforce two |
+| `invite_shared` fired from 1 share button of 8 | It is the funnel denominator, so reported pairing conversion was far too high |
+| `invitedBy` written since pairing shipped, read by nothing | Now folded out of events the admin panel already loads |
+| A joiner could read others' live location, nobody told | `inPlan()` is membership of `allParticipantIDs`, which `isJoiningPlan` lets a code-holder add themselves to. No function reacted to the write |
+
+Also corrected: Terms said groups hold two people (the code allows eight); the support page said XP
+never leaves the device while the privacy policy said it is mirrored.
+
+**Still unproven here:** the Firestore rules tests do not run on this Mac — the emulator needs Java,
+which is not installed. CI is the only place they run. The rules themselves compile clean against
+Firebase (`deploy-firestore-rules.mjs --dry-run`), which checks syntax and semantics but not
+behaviour.
+
+**Also worth knowing:** CI runs no UI tests. `xcodebuild -scheme MiddleGround test` is the SPM
+package, and `MiddleGroundApp` is only ever built. All 104 UI tests are local-only. And three of the
+five `RealBackendFeatureTests` skip when their fixture is missing, so a green run there is not
+proof — `Scripts/verify-live-features.mjs` is the verdict.
+
+---
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.

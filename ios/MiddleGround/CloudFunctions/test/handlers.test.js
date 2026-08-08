@@ -209,6 +209,52 @@ describe('notifyPlanCancelled', () => {
   });
 });
 
+describe('notifyPlanJoined', () => {
+  test('tells the people already on the plan, not the person who just arrived', async () => {
+    seedUsers(['alice', 'bob', 'dave']);
+
+    await fns.notifyPlanJoined.run(updated(
+      { creatorID: 'alice', allParticipantIDs: ['alice', 'bob'], title: 'Climbing' },
+      { creatorID: 'alice', allParticipantIDs: ['alice', 'bob', 'dave'], title: 'Climbing' },
+      { requestId: 'r1' },
+    ));
+
+    assert.deepEqual(everyoneNotified(), ['alice', 'bob']);
+    assert.equal(sent[0].data.type, 'plan_joined');
+  });
+
+  // The reason this function exists: `inPlan()` is membership of `allParticipantIDs`, so a joiner
+  // can read any live location the others share. Being told is what makes not sharing a choice.
+  test('says who joined, so the others can decide what to do about it', async () => {
+    seedUsers(['alice', 'bob', 'dave']);
+
+    await fns.notifyPlanJoined.run(updated(
+      { creatorID: 'alice', allParticipantIDs: ['alice', 'bob'], title: 'Climbing' },
+      { creatorID: 'alice', allParticipantIDs: ['alice', 'bob', 'dave'], title: 'Climbing' },
+      { requestId: 'r1' },
+    ));
+
+    assert.match(sent[0].notification.title, /joined "Climbing"/);
+  });
+
+  test('an edit that adds nobody says nothing', async () => {
+    seedUsers(['alice', 'bob']);
+    const doc = { creatorID: 'alice', allParticipantIDs: ['alice', 'bob'], title: 'Climbing' };
+    await fns.notifyPlanJoined.run(updated(doc, { ...doc, title: 'Bouldering' }, { requestId: 'r1' }));
+    assert.equal(sent.length, 0);
+  });
+
+  test('somebody leaving is not somebody joining', async () => {
+    seedUsers(['alice', 'bob']);
+    await fns.notifyPlanJoined.run(updated(
+      { creatorID: 'alice', allParticipantIDs: ['alice', 'bob'], title: 'Climbing' },
+      { creatorID: 'alice', allParticipantIDs: ['alice'], title: 'Climbing' },
+      { requestId: 'r1' },
+    ));
+    assert.equal(sent.length, 0);
+  });
+});
+
 // ---------------------------------------------------------------- scheduled
 
 describe('purgeStaleEvents', () => {

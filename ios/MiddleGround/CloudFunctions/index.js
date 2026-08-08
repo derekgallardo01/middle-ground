@@ -182,6 +182,51 @@ exports.notifyRequestResponse = onDocumentUpdated('requests/{requestId}', async 
  * other person's list with no explanation, which is the worst possible way to learn that dinner
  * is off. Only the creator may cancel, so everybody else is told.
  */
+/**
+ * Tells everyone already on a plan when somebody new joins it.
+ *
+ * A plan invite code admits whoever holds it -- `isJoiningPlan` in firestore.rules lets them add
+ * themselves to `allParticipantIDs`. Nothing reacted to that and nothing was appended to the
+ * negotiation chain, so the people already on the plan were never told. The joiner could then read
+ * the plan's details, its whole chat, and -- because `inPlan()` is membership of that array -- any
+ * live location the others shared during the window around it.
+ *
+ * So the creator could admit somebody to a plan other people were already on, and those others'
+ * location reached a stranger they had never heard of. Being told is the minimum; it is what makes
+ * leaving, or not sharing, a choice somebody can actually make.
+ *
+ * Filed under `newRequest` rather than a new type: it is the same question -- who is on this plan
+ * with me -- and a preference switch nobody has seen cannot be used to mute it. A separate type
+ * would default to on for everybody anyway.
+ */
+exports.notifyPlanJoined = onDocumentUpdated('requests/{requestId}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after) return null;
+
+  const was = new Set(before.allParticipantIDs || []);
+  const joiners = (after.allParticipantIDs || []).filter((id) => !was.has(id));
+  if (joiners.length === 0) return null;
+
+  // Everybody who was already here. The joiner does not need telling they arrived.
+  const existing = [...was];
+  if (existing.length === 0) return null;
+
+  const names = await Promise.all(joiners.map((id) => getUserName(id)));
+  const who = names.length === 1 ? names[0] : `${names.length} people`;
+
+  return notifyUsers(existing, {
+    notification: {
+      title: `${who} joined "${after.title}"`,
+      body: 'They can see this plan and its messages.',
+    },
+    data: {
+      request_id: event.params.requestId,
+      type: 'plan_joined',
+    },
+  }, NotificationType.newRequest);
+});
+
 exports.notifyPlanCancelled = onDocumentUpdated('requests/{requestId}', async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();

@@ -56,6 +56,84 @@ final class GamificationMirrorTests: XCTestCase {
         XCTAssertEqual(after.streakDays, 6)
     }
 
+    /// The guard against paying for the same plan twice has to survive a reinstall.
+    ///
+    /// `settledPlanIDs` is not a statistic — it is the idempotence check in
+    /// `GamificationService+Attendance.swift:26`. It was not carried in the mirror, so it restored
+    /// empty and every plan a person had ever settled could be paid out again. Silently, and in
+    /// their favour, which is the direction nobody reports.
+    func testASettledPlanCannotBePaidTwiceAfterAReinstall() async {
+        let mirror = MockGamificationRepository()
+        let banked = GamificationStats(
+            streakDays: 3,
+            relationshipXP: 800,
+            level: 2,
+            growthScore: 20,
+            nextLevelXP: 1000,
+            attendedCount: 4,
+            settledPlanIDs: ["req_settled"]
+        )
+        await mirror.save(banked, for: userID)
+
+        // A new device: nothing local, everything from the mirror.
+        let fresh = GamificationService(store: defaults, mirror: mirror)
+        let outcome = await fresh.restoreFromMirrorIfNeeded(for: userID)
+
+        XCTAssertEqual(outcome, .restored)
+        let restored = await fresh.stats(for: userID)
+        XCTAssertTrue(restored.settledPlanIDs.contains("req_settled"))
+        XCTAssertEqual(restored.attendedCount, 4)
+    }
+
+    /// The one that actually catches it.
+    ///
+    /// The test above goes through `MockGamificationRepository`, which keeps the struct in memory
+    /// and never converts — so it passed with the fix removed and proved nothing. The bug lives in
+    /// the wire mapping, so the wire mapping is what has to be exercised. Verified by deleting the
+    /// two fields again and watching this fail.
+    func testTheWireFormatCarriesEverythingAReinstallNeeds() {
+        let banked = GamificationStats(
+            streakDays: 3,
+            relationshipXP: 800,
+            level: 2,
+            growthScore: 20,
+            nextLevelXP: 1000,
+            attendedCount: 4,
+            settledPlanIDs: ["req_settled"],
+            categoryXP: ["friends": 120]
+        )
+
+        let onTheWire = GamificationStatsDTO(from: banked)
+        let restored = onTheWire.toModel()
+
+        XCTAssertEqual(
+            restored.settledPlanIDs,
+            ["req_settled"],
+            "the payout guard is not on the wire — every settled plan pays out again on reinstall"
+        )
+        XCTAssertEqual(restored.attendedCount, 4)
+        XCTAssertEqual(restored.categoryXP, ["friends": 120])
+        XCTAssertEqual(restored.relationshipXP, 800)
+        XCTAssertEqual(restored.streakDays, 3)
+    }
+
+    /// A mirror written before these fields existed must still load.
+    func testAnOlderMirrorStillDecodes() throws {
+        // A mirror document from before these fields existed.
+        let fields = [
+            #""streakDays":2"#, #""relationshipXP":100"#, #""level":1"#,
+            #""growthScore":5"#, #""nextLevelXP":500"#, #""acceptedCount":1"#,
+            #""negotiatedCount":0"#, #""weekendAcceptedCount":0"#
+        ]
+        let json = "{\(fields.joined(separator: ","))}"
+        let data = try XCTUnwrap(json.data(using: .utf8))
+
+        let dto = try JSONDecoder().decode(GamificationStatsDTO.self, from: data)
+
+        XCTAssertEqual(dto.toModel().settledPlanIDs, [])
+        XCTAssertEqual(dto.toModel().attendedCount, 0)
+    }
+
     /// The server was reached and holds nothing. Zeroes are the truth here, and saying
     /// "unavailable" would put an error in front of every new user's first visit.
     func testAnEmptyMirrorIsNotAnOutage() async {

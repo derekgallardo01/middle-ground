@@ -300,6 +300,7 @@ struct OnboardingView: View {
                         Label("Share invite", systemImage: "square.and.arrow.up")
                             .mgFont(.body)
                     }
+                    .tracksInviteShare()
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity)

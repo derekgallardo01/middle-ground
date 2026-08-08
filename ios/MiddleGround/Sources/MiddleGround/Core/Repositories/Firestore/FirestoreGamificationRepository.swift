@@ -54,7 +54,10 @@ actor FirestoreGamificationRepository: GamificationRepository {
     }
 }
 
-private struct GamificationStatsDTO: Codable {
+/// Internal rather than private, like every DTO in `FirestoreDTOs.swift`, so the mapping can be
+/// tested. It could not be, and a field missing from it was invisible: the mock repository stores
+/// the struct in memory and never converts, so a test through the mock passes whatever this does.
+struct GamificationStatsDTO: Codable {
     var streakDays: Int
     var relationshipXP: Int
     var level: Int
@@ -66,6 +69,16 @@ private struct GamificationStatsDTO: Codable {
     var lastResponseDate: Timestamp?
     /// Optional so mirrors written before per-category progression still decode.
     var categoryXP: [String: Int]?
+    /// How many plans actually happened — the number this product is really about, and it was
+    /// not being carried, so a reinstall reported zero.
+    var attendedCount: Int?
+    /// Which plans have already been paid out.
+    ///
+    /// This is not a statistic, it is the idempotence guard in
+    /// `GamificationService+Attendance.swift:26`. Left out of the mirror it restored empty, so
+    /// every plan a person had ever settled could be **paid out a second time** after a reinstall
+    /// — silently, and in their favour, which is the direction nobody reports.
+    var settledPlanIDs: [String]?
 
     init(from stats: GamificationStats) {
         self.streakDays = stats.streakDays
@@ -78,6 +91,8 @@ private struct GamificationStatsDTO: Codable {
         self.weekendAcceptedCount = stats.weekendAcceptedCount
         self.lastResponseDate = stats.lastResponseDate.map { Timestamp(date: $0) }
         self.categoryXP = stats.categoryXP
+        self.attendedCount = stats.attendedCount
+        self.settledPlanIDs = stats.settledPlanIDs
     }
 
     func toModel() -> GamificationStats {
@@ -94,6 +109,8 @@ private struct GamificationStatsDTO: Codable {
             // Mirrored, so per-category progression survives a reinstall along with the rest of
             // the stats. Achievements and the activity feed ride in the same document via
             // MirroredHistoryDTO.
+            attendedCount: attendedCount ?? 0,
+            settledPlanIDs: settledPlanIDs ?? [],
             categoryXP: categoryXP ?? [:]
         )
     }
@@ -104,7 +121,7 @@ private struct GamificationStatsDTO: Codable {
 /// Both fields are optional so a mirror written before history was carried still decodes — the
 /// same tolerance every other stored type in this app needs, and for the same reason: a schema
 /// addition must never make older data unreadable.
-private struct MirroredHistoryDTO: Codable {
+struct MirroredHistoryDTO: Codable {
     var achievements: [Achievement]?
     var activities: [Activity]?
 

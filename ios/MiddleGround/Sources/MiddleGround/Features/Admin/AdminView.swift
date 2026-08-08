@@ -336,8 +336,54 @@ struct AdminView: View {
 
     // MARK: - Events
 
+    /// Whose invites bring people in.
+    ///
+    /// `RelationshipService.join` has written `metadata["invitedBy"]` on every group join since
+    /// pairing shipped, and until now nothing read it — the answer to "who is bringing people
+    /// here" was in the database and invisible.
+    private var referralCard: some View {
+        adminCard {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Who brings people in").mgFont(.h3)
+
+                if viewModel.referrals.inviters.isEmpty {
+                    Text("No attributed joins in this window yet.")
+                        .mgFont(.caption)
+                        .foregroundStyle(MGColors.warm600)
+                } else {
+                    ForEach(viewModel.referrals.inviters.prefix(10)) { inviter in
+                        HStack {
+                            Text(inviter.userID)
+                                .mgFont(.caption)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Text("\(inviter.joins)")
+                                .mgFont(.bodySmall)
+                                .monospacedDigit()
+                        }
+                    }
+                }
+
+                // Said out loud rather than folded into the totals: a hidden remainder makes the
+                // rest look like the whole.
+                if viewModel.referrals.unattributed > 0 {
+                    Text("\(viewModel.referrals.unattributed) join(s) with no inviter recorded — "
+                         + "plan codes, and group joins from before the edge was kept.")
+                        .mgFont(.caption)
+                        .foregroundStyle(MGColors.warm600)
+                }
+
+                Text(viewModel.referrals.windowNote)
+                    .mgFont(.caption)
+                    .foregroundStyle(MGColors.warm600)
+            }
+        }
+    }
+
     private var eventsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
+            referralCard
             if viewModel.events.isEmpty {
                 emptyNote("No events recorded yet.")
             }

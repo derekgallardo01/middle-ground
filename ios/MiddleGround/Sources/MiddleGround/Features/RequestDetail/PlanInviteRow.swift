@@ -41,6 +41,7 @@ struct PlanInviteRow: View {
                         Label("Share", systemImage: "square.and.arrow.up")
                             .mgFont(.bodySmall)
                     }
+                    .tracksInviteShare(kind: "plan")
                     Spacer()
 
                     Button(role: .destructive) {

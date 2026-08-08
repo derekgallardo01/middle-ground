@@ -113,6 +113,7 @@ struct GroupRow: View {
                 Image(systemName: "square.and.arrow.up")
             }
             .accessibilityLabel("Share the code for \(relationship.label)")
+            .tracksInviteShare(relationshipID: relationship.id)
 
             Spacer()
         }

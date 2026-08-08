@@ -48,6 +48,8 @@ final class AdminViewModel {
     var users: [User] = []
     var requests: [Request] = []
     var events: [AnalyticsEvent] = []
+    /// Whose invites brought somebody in — derived from `events`, so it costs no extra read.
+    var referrals = ReferralSummary(inviters: [], unattributed: 0)
     var auditEntries: [AdminAuditEntry] = []
     var reports: [ContentReport] = []
     var disputes: [PlanDispute] = []
@@ -132,6 +134,10 @@ final class AdminViewModel {
                 outcomeSummary = OutcomeSummary.from(outcomes)
             case .events:
                 events = try await eventRepository.recentEvents(limit: 200)
+                // Free: the referral picture is folded out of the events already in hand. The
+                // `invitedBy` edge has been written on every group join since pairing shipped and
+                // read by nothing until now.
+                referrals = ReferralSummary.from(events: events)
             case .venues:
                 venues = try await venueRepository.venues()
             case .audit:

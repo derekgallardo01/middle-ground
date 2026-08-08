@@ -8,9 +8,9 @@ By using Middle Ground you agree to these terms. If you do not agree, please do 
 
 ## What Middle Ground is
 
-Middle Ground helps two people make everyday shared decisions — dinner plans, date nights,
-weekend logistics — by turning them into requests that the other person can accept, decline,
-negotiate, counter, reschedule, or save for later.
+Middle Ground helps a small group make everyday shared decisions — dinner plans, date nights,
+weekend logistics — by turning them into requests the others can accept, decline, negotiate,
+counter, reschedule, or save for later. Most groups are two people; a group can hold up to eight.
 
 ## Your account
 
@@ -21,9 +21,13 @@ negotiate, counter, reschedule, or save for later.
 
 ## Pairing and invite codes
 
-Middle Ground connects two people through a short invite code. Anyone who has your code can join
-your group, so share it only with the person you intend to pair with. Groups are limited to two
-people.
+Middle Ground connects people through a short invite code. Anyone who has your code can join your
+group, so share it only with the people you intend to plan with. A couple is limited to two people;
+other groups hold up to eight. The limit is set when the group is created and cannot be raised
+afterwards.
+
+A plan can also carry its own single-use code, which admits one extra person to **that plan only**
+— they do not join your group and cannot see your other plans.
 
 ## Your content
 

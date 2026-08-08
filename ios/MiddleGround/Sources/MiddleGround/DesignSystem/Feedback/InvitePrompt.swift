@@ -10,6 +10,9 @@ import SwiftUI
 struct InvitePrompt: View {
     /// The code to share. Nil when the user has no group at all yet.
     let code: String?
+    /// Which group the code belongs to, so a share can be attributed. Optional because several
+    /// callers only have a code to hand.
+    var relationshipID: String?
     /// Shown when there is no code — the caller decides where "set up" leads.
     var onSetUp: (() -> Void)?
     /// `compact` drops the illustration and body copy for use inside a form section.
@@ -64,6 +67,7 @@ struct InvitePrompt: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(MGColors.indigo)
+                .tracksInviteShare(relationshipID: relationshipID)
             } else if let onSetUp {
                 Button(action: onSetUp) {
                     Text("Set up pairing")

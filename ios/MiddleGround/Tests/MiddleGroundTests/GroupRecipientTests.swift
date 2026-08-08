@@ -104,6 +104,36 @@ final class GroupRecipientTests: XCTestCase {
         XCTAssertEqual(entity.toModel()?.name, "Sunday hikers", "the cache lost the group's name")
     }
 
+    /// The third field this has caught, and the one that survived the fix for the second.
+    ///
+    /// `name` was dropped in `9ff2d97`; `seats` was dropped the same way and stayed dropped. With
+    /// no `seats` on the entity, `toModel()` omitted the argument and `Relationship.init` fell back
+    /// to `type.seatLimit` — so a friends group created with 2 seats read back as 8, and `hasRoom`
+    /// offered six places the server would refuse to fill.
+    func testAGroupKeepsItsSeatCountThroughTheCache() {
+        let twoSeats = Relationship(
+            id: "rel_small",
+            participantIDs: ["user_1", "user_2"],
+            type: .friends,     // seat limit 8 — the fallback that was masking this
+            seats: 2
+        )
+
+        let restored = RelationshipEntity(from: twoSeats).toModel()
+
+        XCTAssertEqual(restored?.seatCount, 2, "the cache reported room that does not exist")
+        XCTAssertFalse(restored?.hasRoom ?? true, "a full group looked joinable")
+    }
+
+    /// Absence still means two, for every group written before seats existed.
+    func testAGroupCachedBeforeSeatsExistedStillMeansTwo() {
+        let entity = RelationshipEntity(
+            from: Relationship(id: "rel_old", participantIDs: ["user_1"], type: .friends)
+        )
+        entity.seats = nil
+
+        XCTAssertEqual(entity.toModel()?.seatCount, 2)
+    }
+
     func testRenamingSurvivesTheCacheToo() {
         let entity = RelationshipEntity(from: .previewGroup)
         var renamed = Relationship.previewGroup

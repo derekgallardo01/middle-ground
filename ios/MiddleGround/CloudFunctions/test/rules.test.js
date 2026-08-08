@@ -514,8 +514,12 @@ describe('saying still on', () => {
     await seed((db) =>
       setDoc(doc(db, 'requests/r_legacy'), request({ status: 'accepted', proposedTime: future })),
     );
+    // Alice, because `isCancelling` requires the creator and the fixture's creator is Alice.
+    // Written as Bob first, which denied for that reason and looked like the `get(_, null)` bug
+    // this test exists to catch — a test failing for the wrong reason is worth as little as one
+    // passing for the wrong reason.
     await assertSucceeds(
-      updateDoc(doc(asBob(), 'requests/r_legacy'), { status: 'cancelled' }),
+      updateDoc(doc(asAlice(), 'requests/r_legacy'), { status: 'cancelled' }),
     );
   });
 

@@ -105,6 +105,17 @@ struct Request: Identifiable, Hashable, Codable {
     var title: String
     var details: String?
     var proposedTime: Date?
+    /// When a plan that spans days finishes.
+    ///
+    /// `proposedTime` is the start and has always been the only moment a plan had, which is why a
+    /// trip could not be expressed: "Barcelona, 12–16 May" is not a time, it is a range. Optional,
+    /// and absent on every plan that exists, so a dinner stays exactly what it was — one moment,
+    /// with `isMultiDay` false and every existing behaviour untouched.
+    ///
+    /// Deliberately an end rather than a duration. A duration invites arithmetic at every read and
+    /// gets it wrong across a daylight-saving boundary, which a five-day trip is quite likely to
+    /// cross.
+    var endTime: Date?
     var location: String?
     var status: RequestStatus
     var negotiationChain: [NegotiationMessage]
@@ -146,6 +157,7 @@ struct Request: Identifiable, Hashable, Codable {
          title: String,
          details: String? = nil,
          proposedTime: Date? = nil,
+         endTime: Date? = nil,
          location: String? = nil,
          status: RequestStatus = .pending,
          negotiationChain: [NegotiationMessage] = [],
@@ -164,6 +176,7 @@ struct Request: Identifiable, Hashable, Codable {
         self.title = title
         self.details = details
         self.proposedTime = proposedTime
+        self.endTime = endTime
         self.location = location
         self.status = status
         self.negotiationChain = negotiationChain
@@ -187,6 +200,8 @@ struct Request: Identifiable, Hashable, Codable {
         title = try container.decode(String.self, forKey: .title)
         details = try container.decodeIfPresent(String.self, forKey: .details)
         proposedTime = try container.decodeIfPresent(Date.self, forKey: .proposedTime)
+        // Absent on every plan written before trips existed, which is all of them.
+        endTime = try container.decodeIfPresent(Date.self, forKey: .endTime)
         location = try container.decodeIfPresent(String.self, forKey: .location)
         status = try container.decode(RequestStatus.self, forKey: .status)
         negotiationChain = try container.decodeIfPresent(

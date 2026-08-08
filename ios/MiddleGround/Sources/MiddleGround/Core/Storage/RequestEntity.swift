@@ -10,6 +10,11 @@ final class RequestEntity {
     var title: String
     var details: String?
     var proposedTime: Date?
+    /// Optional and appended, so SwiftData migrates existing stores on its own. Persisted because
+    /// this repository is remote-then-local: a field the entity does not carry is invisible to the
+    /// whole app even when the network fetch worked. That is how `name` was lost, and `seats`
+    /// after it.
+    var endTime: Date?
     var location: String?
     var statusRaw: String
     var negotiationChainData: Data?
@@ -38,6 +43,7 @@ final class RequestEntity {
         self.title = request.title
         self.details = request.details
         self.proposedTime = request.proposedTime
+        self.endTime = request.endTime
         self.location = request.location
         self.statusRaw = request.status.rawValue
         self.createdAt = request.createdAt
@@ -59,6 +65,7 @@ final class RequestEntity {
         self.title = request.title
         self.details = request.details
         self.proposedTime = request.proposedTime
+        self.endTime = request.endTime
         self.location = request.location
         self.statusRaw = request.status.rawValue
         self.createdAt = request.createdAt
@@ -112,6 +119,7 @@ final class RequestEntity {
             title: title,
             details: details,
             proposedTime: proposedTime,
+            endTime: endTime,
             location: location,
             status: status,
             negotiationChain: negotiationChain,

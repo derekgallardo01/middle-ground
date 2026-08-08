@@ -90,6 +90,27 @@ final class GroupEnergyTests: XCTestCase {
         XCTAssertEqual(energy.upcomingCount, 1)
     }
 
+    /// Read off a screenshot: "Going strong" printed directly above "You have not been out yet".
+    /// Booking things is not the same as doing them, and this measure exists because those two
+    /// come apart.
+    func testAGroupThatHasNeverMetIsNotGoingStrong() {
+        let requests = [upcoming(inDays: 3), upcoming(inDays: 9), upcoming(inDays: 20)]
+
+        let energy = GroupEnergy.from(relationship: group, requests: requests, now: now)
+
+        XCTAssertEqual(energy.level, .steady, "three bookings and no history is promising, not proven")
+        XCTAssertLessThan(energy.level, .warm)
+    }
+
+    /// The lift is real once there is something behind it.
+    func testSomethingBookedLiftsAGroupThatHasMet() {
+        let requests = [happened(daysAgo: 45), upcoming(inDays: 5)]
+
+        let energy = GroupEnergy.from(relationship: group, requests: requests, now: now)
+
+        XCTAssertEqual(energy.level, .warm)
+    }
+
     // MARK: - Built from what happened, not from noise
 
     func testSeeingEachOtherRecentlyReadsAsWarm() {

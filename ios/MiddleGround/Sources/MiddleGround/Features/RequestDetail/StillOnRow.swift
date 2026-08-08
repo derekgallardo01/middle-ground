@@ -14,23 +14,32 @@ struct StillOnRow: View {
     let hasAnswered: Bool
     let stillOnNames: [String]
     let notYetNames: [String]
+    /// Hidden until somebody has actually answered — see `showsStillOnRoster`.
+    let showsRoster: Bool
     let isSending: Bool
     let onSayStillOn: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: MGSpacing.md) {
+            // The heading follows the state, because answering changes it. Saying "this has gone
+            // quiet" directly above "last talked about today" is the row arguing with itself —
+            // somebody just spoke, and it was the person reading it.
             Label {
-                Text("This has gone quiet")
+                Text(hasAnswered ? "Who's still coming" : "This has gone quiet")
                     .mgFont(.h3)
             } icon: {
-                Image(systemName: "wind")
+                Image(systemName: hasAnswered ? "hand.raised.fill" : "wind")
                     .foregroundStyle(MGColors.warm600)
             }
 
-            Text(reason)
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
-                .fixedSize(horizontal: false, vertical: true)
+            // And the reason only while it is the reason. Once you have answered, the silence it
+            // describes is over and the sentence is about a state that no longer holds.
+            if !hasAnswered {
+                Text(reason)
+                    .mgFont(.bodySmall)
+                    .foregroundStyle(MGColors.warm600)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             if hasAnswered {
                 // Nothing to tap. Leaving an enabled button that re-sends the same answer invites
@@ -56,7 +65,9 @@ struct StillOnRow: View {
                 .accessibilityIdentifier("sayStillOn")
             }
 
-            answers
+            if showsRoster {
+                answers
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -76,9 +87,9 @@ struct StillOnRow: View {
 
             if !notYetNames.isEmpty {
                 Label {
-                    // "Not heard from" rather than "waiting on": the second makes somebody late
-                    // for something they were never told about.
-                    Text("Not heard from \(notYetNames.formatted(.list(type: .and))) yet")
+                    // "Not heard back from" rather than "waiting on": the second makes somebody
+                    // late for something they were never told about.
+                    Text("Not heard back from \(notYetNames.formatted(.list(type: .and))) yet")
                         .mgFont(.bodySmall)
                         .foregroundStyle(MGColors.warm600)
                 } icon: {
@@ -90,10 +101,14 @@ struct StillOnRow: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// The verb has to agree, or it reads as broken English on exactly the plans this is for.
+    /// The verb has to agree, and counting names is not how you decide that.
+    ///
+    /// Keying off `count == 1` produced **"You is still in"**, because "You" is one name and a
+    /// plural verb. It agrees with the subject, not the arithmetic.
     private var inLine: String {
         let names = stillOnNames.formatted(.list(type: .and))
-        return stillOnNames.count == 1 ? "\(names) is still in" : "\(names) are still in"
+        let singular = stillOnNames.count == 1 && stillOnNames.first != "You"
+        return singular ? "\(names) is still in" : "\(names) are still in"
     }
 }
 
@@ -103,7 +118,8 @@ struct StillOnRow: View {
             reason: "Agreed 12 days ago. Nothing since. 8 days to go.",
             hasAnswered: false,
             stillOnNames: [],
-            notYetNames: ["You", "Priya", "Sam"],
+            notYetNames: ["Priya", "Sam"],
+            showsRoster: false,
             isSending: false
         ) {}
         StillOnRow(
@@ -111,6 +127,7 @@ struct StillOnRow: View {
             hasAnswered: true,
             stillOnNames: ["You", "Sam"],
             notYetNames: ["Priya"],
+            showsRoster: true,
             isSending: false
         ) {}
     }

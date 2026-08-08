@@ -211,6 +211,56 @@ final class PlanMomentumTests: XCTestCase {
         XCTAssertTrue(momentum.wantsCheckIn)
     }
 
+    // MARK: - The sentences have to be English
+
+    /// Read off a screenshot: "Last talked about today ago. 7 days to go." `phrase` answers
+    /// "today" under a day, and composing that with "ago" made a phrase no person would say. None
+    /// of the assertions above looked at the words for a plan touched the same day.
+    func testAPlanTouchedTodayDoesNotSayTodayAgo() {
+        let momentum = PlanMomentum.from(
+            request: plan(agreedDaysAgo: 9, inDays: 11, lastTouchedDaysAgo: 0),
+            now: now
+        )
+
+        XCTAssertFalse(momentum.reason.contains("today ago"), momentum.reason)
+        XCTAssertEqual(momentum.reason, "Last talked about today. 11 days to go.")
+    }
+
+    /// A named shape rather than a three-wide tuple, which SwiftLint refuses and which reads as
+    /// three unlabelled numbers at the call site anyway.
+    private struct Scenario {
+        let agreedDaysAgo: Double
+        let inDays: Double
+        var lastTouchedDaysAgo: Double?
+    }
+
+    func testEveryReasonReadsAsASentence() {
+        let cases = [
+            Scenario(agreedDaysAgo: 0.25, inDays: 2),
+            Scenario(agreedDaysAgo: 9, inDays: 11, lastTouchedDaysAgo: 0),
+            Scenario(agreedDaysAgo: 6, inDays: 24, lastTouchedDaysAgo: 3),
+            Scenario(agreedDaysAgo: 12, inDays: 8),
+            Scenario(agreedDaysAgo: 6, inDays: 2),
+            Scenario(agreedDaysAgo: 20, inDays: 60)
+        ]
+
+        for scenario in cases {
+            let reason = PlanMomentum.from(
+                request: plan(
+                    agreedDaysAgo: scenario.agreedDaysAgo,
+                    inDays: scenario.inDays,
+                    lastTouchedDaysAgo: scenario.lastTouchedDaysAgo
+                ),
+                now: now
+            ).reason
+            guard !reason.isEmpty else { continue }
+
+            XCTAssertFalse(reason.contains("today ago"), reason)
+            XCTAssertFalse(reason.contains("  "), "double space in: \(reason)")
+            XCTAssertTrue(reason.hasSuffix("."), "not a sentence: \(reason)")
+        }
+    }
+
     // MARK: - It has to survive the cache
 
     /// The repository is remote-then-local: `fetchLocal` is what the app actually reads, so a

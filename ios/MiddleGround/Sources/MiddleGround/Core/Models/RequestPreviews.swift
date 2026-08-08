@@ -231,6 +231,34 @@ extension Request {
         updatedAt: Date().addingTimeInterval(-20_000)
     )
 
+    /// A group plan that everybody agreed to a fortnight ago and nobody has mentioned since.
+    ///
+    /// The state the whole "still on?" feature exists for, and **no other fixture reaches it** —
+    /// every plan here was agreed minutes ago in fixture time, so `PlanMomentum` reported them all
+    /// healthy and the card appeared in no screenshot, no UI test and no recording. A feature that
+    /// only ever renders on a plan nothing generates is a feature nobody would have seen fail.
+    static let previewGoneQuiet = Request(
+        id: "req_7",
+        creatorID: User.preview.id,
+        recipientIDs: [User.preview2.id, User.preview3.id],
+        category: .friends,
+        title: "Climbing on the 20th?",
+        details: "The one out past the reservoir.",
+        proposedTime: Date().addingTimeInterval(86_400 * 8),
+        location: "Fen Wall",
+        status: .accepted,
+        negotiationChain: [
+            NegotiationMessage(
+                senderID: User.preview2.id,
+                responseType: .accept,
+                text: "Yes! Been meaning to go back.",
+                timestamp: Date().addingTimeInterval(-86_400 * 12)
+            )
+        ],
+        createdAt: Date().addingTimeInterval(-86_400 * 13),
+        updatedAt: Date().addingTimeInterval(-86_400 * 12)
+    )
+
     static let previewAccepted = Request(
         id: "req_3",
         creatorID: User.preview.id,

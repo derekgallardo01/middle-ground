@@ -12,13 +12,18 @@ extension RequestDetailViewModel {
         PlanMomentum.from(request: request)
     }
 
-    /// Whether to offer the check-in at all.
+    /// Whether to show the check-in at all.
     ///
-    /// Only on a plan that has actually gone quiet. Offering it on a healthy plan is how a useful
-    /// prompt becomes furniture people stop reading.
+    /// Two reasons to be here, and the second was missing. A plan that has gone quiet needs the
+    /// prompt — but a plan somebody has already answered needs the *answers*, and saying you are
+    /// still in resets the silence, so `wantsCheckIn` turns false the instant anybody taps. The
+    /// row therefore vanished on tap: no acknowledgement that it registered, and the ticks saying
+    /// who is coming disappeared with it. The `hasAnswered` branch was unreachable.
+    ///
+    /// Found by a UI test, not by reading this. It is exactly the shape that looks right.
     var showsStillOn: Bool {
-        guard let currentUserID else { return false }
-        return momentum.wantsCheckIn && request.canSayStillOn(as: currentUserID)
+        guard let currentUserID, request.canSayStillOn(as: currentUserID) else { return false }
+        return momentum.wantsCheckIn || !request.stillOn.isEmpty
     }
 
     /// Whether *this* person has already answered the current round.
@@ -34,12 +39,37 @@ extension RequestDetailViewModel {
     /// character. It is one fact about one evening, with no score attached and nothing carried
     /// forward, which is what keeps it clear of the rule that couples are never ranked.
     var stillOnNames: [String] {
-        namesFor(request.allParticipantIDs.filter { request.hasCurrentStillOn(from: $0) })
+        // Everyone but you. Your own answer is the tick above the list — listing you as well
+        // printed "You said you're still in" and "You are still in", one under the other.
+        namesFor(
+            request.allParticipantIDs.filter {
+                $0 != currentUserID && request.hasCurrentStillOn(from: $0)
+            }
+        )
     }
 
-    /// And everyone who has not answered this round yet.
+    /// Everyone else who has not answered this round.
+    ///
+    /// You are excluded, deliberately. The first version listed the viewer among the people it
+    /// had not heard from, directly above a button asking them — which reads as the app not
+    /// knowing who it is talking to. Your own state is the button, or the tick that replaces it.
     var notYetSaidNames: [String] {
-        namesFor(request.allParticipantIDs.filter { !request.hasCurrentStillOn(from: $0) })
+        namesFor(
+            request.allParticipantIDs.filter {
+                $0 != currentUserID && !request.hasCurrentStillOn(from: $0)
+            }
+        )
+    }
+
+    /// Whether to list who is in at all.
+    ///
+    /// Not until somebody has answered. Before that the list is every name on the plan under a
+    /// heading saying nobody has replied, and it landed directly above `GroupStatusRow` saying
+    /// "You and Sam are in" — two rows on one screen appearing to contradict each other, because
+    /// one is about agreeing to the plan and the other about still coming to it. Once there is a
+    /// real answer the distinction is obvious; before that it is just noise.
+    var showsStillOnRoster: Bool {
+        !request.stillOn.isEmpty
     }
 
     func sayStillOn() async {

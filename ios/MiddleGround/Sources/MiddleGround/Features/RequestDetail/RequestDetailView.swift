@@ -53,6 +53,7 @@ struct RequestDetailView: View {
                             hasAnswered: viewModel.hasSaidStillOn,
                             stillOnNames: viewModel.stillOnNames,
                             notYetNames: viewModel.notYetSaidNames,
+                            showsRoster: viewModel.showsStillOnRoster,
                             isSending: viewModel.isSending
                         ) {
                             Task { await viewModel.sayStillOn() }

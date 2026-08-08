@@ -86,12 +86,12 @@ struct PlanMomentum: Equatable, Sendable {
             if silence < minimumSilence && now.timeIntervalSince(agreedAt) < minimumSilence {
                 return PlanMomentum(
                     state: .early,
-                    reason: "Agreed \(phrase(forDays: days(now.timeIntervalSince(agreedAt)))) ago. \(away) to go."
+                    reason: "\(agreedPhrase(days(now.timeIntervalSince(agreedAt)))) \(away) to go."
                 )
             }
             return PlanMomentum(
                 state: .warm,
-                reason: "Last talked about \(phrase(forDays: days(silence))) ago. \(away) to go."
+                reason: "\(lastSpoken(days(silence))) \(away) to go."
             )
         }
 
@@ -104,12 +104,27 @@ struct PlanMomentum: Equatable, Sendable {
         }
         return PlanMomentum(
             state: .fading,
-            reason: "Agreed \(phrase(forDays: days(now.timeIntervalSince(agreedAt)))) ago. "
+            reason: "\(agreedPhrase(days(now.timeIntervalSince(agreedAt)))) "
                 + "Nothing since. \(away) to go."
         )
     }
 
     // MARK: - Words
+
+    // Anything of the form "<phrase> ago" has to go through one of these two.
+    //
+    // `phrase` answers "today" for anything under a day, so pasting "ago" after it produced
+    // "Last talked about today ago" — and then, once that was fixed in one branch and not the
+    // other, "Agreed today ago". A sweeping test over every state found the second; the first
+    // was found on a screenshot. Two call sites, one rule, so there is no third.
+
+    private static func lastSpoken(_ count: Int) -> String {
+        count == 0 ? "Last talked about today." : "Last talked about \(phrase(forDays: count)) ago."
+    }
+
+    private static func agreedPhrase(_ count: Int) -> String {
+        count == 0 ? "Agreed today." : "Agreed \(phrase(forDays: count)) ago."
+    }
 
     private static func days(_ interval: TimeInterval) -> Int {
         max(0, Int((interval / 86_400).rounded(.down)))

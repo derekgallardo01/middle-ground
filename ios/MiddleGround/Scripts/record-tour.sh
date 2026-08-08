@@ -48,7 +48,14 @@ xcodebuild build-for-testing -project MiddleGround.xcodeproj -scheme MiddleGroun
 # the app had warmed up recorded fine.
 #
 # So the expensive first run happens off camera.
-APP=$(find "$OUT/dd/Build/Products" -name "MiddleGround.app" -maxdepth 3 2>/dev/null | head -1)
+# The bundle is "Middle Ground.app", with a space — the product name, not the target name. Looking
+# for MiddleGround.app matched nothing, and because the whole warm-up sat behind `if [ -n "$APP" ]`
+# it was skipped in silence on every run that claimed to do it.
+APP=$(find "$OUT/dd/Build/Products" -name "*.app" -maxdepth 3 2>/dev/null \
+  | grep -v UITests-Runner | head -1)
+if [ -z "$APP" ]; then
+  echo "No app bundle under $OUT/dd — not warming up, expect the first plan to drop frames." >&2
+fi
 if [ -n "$APP" ]; then
   echo "==> warming up"
   xcrun simctl install "$UDID" "$APP" >/dev/null 2>&1 || true

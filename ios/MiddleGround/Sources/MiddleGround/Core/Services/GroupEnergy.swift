@@ -106,7 +106,12 @@ struct GroupEnergy: Equatable, Sendable {
 
         // Something in the diary is worth a step: a group with a date set is not cooling, whatever
         // the gap behind it says.
-        if upcoming > 0, level < .warm {
+        //
+        // Only for a group that has actually been out. Without that condition, one that had never
+        // met and had three plans booked came out as "Going strong" above the words "You have not
+        // been out yet" — the label arguing with its own sentence, and the measure rating
+        // intentions, which is the one thing it was built not to do.
+        if upcoming > 0, lastTogether != nil, level < .warm {
             level = Level(rawValue: level.rawValue + 1) ?? .warm
         }
 

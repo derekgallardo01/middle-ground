@@ -81,6 +81,46 @@ final class MultiDayPlanTests: XCTestCase {
         XCTAssertEqual(plan(endingAfter: 0).effectiveEndTime, start)
     }
 
+    // MARK: - Sharing where you are, on a trip
+
+    private func trip(days: Double) -> Request {
+        var request = plan(endingAfter: days)
+        request.status = .accepted
+        return request
+    }
+
+    /// The window used to close four hours into the first morning and stay shut for the rest of
+    /// the holiday — a trip being exactly when people most want to find each other.
+    func testLocationCanBeSharedOnDayFourOfATrip() {
+        let dayFour = start.addingTimeInterval(3.5 * 86_400)
+
+        XCTAssertTrue(trip(days: 5).isWithinLocationWindow(at: dayFour))
+    }
+
+    func testTheWindowStillClosesAfterATripEnds() {
+        let wellAfter = start.addingTimeInterval(5 * 86_400 + 6 * 3600)
+
+        XCTAssertFalse(trip(days: 5).isWithinLocationWindow(at: wellAfter))
+    }
+
+    /// The expiry has to match the pin in `isWellFormed()`, or the server refuses the write and
+    /// sharing appears to work while writing nothing.
+    func testTheExpiryIsMeasuredFromTheEndOfATrip() throws {
+        let expiry = try XCTUnwrap(trip(days: 5).locationExpiry)
+
+        XCTAssertGreaterThan(expiry, start.addingTimeInterval(5 * 86_400))
+    }
+
+    /// And none of that may change for the plans that exist today.
+    func testASingleMomentPlanKeepsItsOldWindow() {
+        var dinner = plan(endingAfter: nil)
+        dinner.status = .accepted
+
+        XCTAssertTrue(dinner.isWithinLocationWindow(at: start.addingTimeInterval(3600)))
+        XCTAssertFalse(dinner.isWithinLocationWindow(at: start.addingTimeInterval(6 * 3600)))
+        XCTAssertEqual(dinner.locationExpiry, start.addingTimeInterval(4 * 3600))
+    }
+
     // MARK: - It has to survive the cache
 
     /// The repository is remote-then-local, so a field the entity does not persist is invisible

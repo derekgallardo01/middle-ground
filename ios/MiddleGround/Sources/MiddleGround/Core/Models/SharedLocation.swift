@@ -37,10 +37,19 @@ extension Request {
     /// The scope is the point of the feature. Location is not something the app knows about you;
     /// it is something you can hand over for a few hours around one agreed plan, and only when
     /// that plan is actually happening. An undated request has no window and never qualifies.
+    /// Open from an hour before the start until four hours after it **finishes**.
+    ///
+    /// The close follows `effectiveEndTime`, so a five-day trip can share location on day four.
+    /// Anchored to the start it would have shut four hours into the first morning and stayed shut
+    /// for the rest of the holiday — a trip being exactly when people most want to find each
+    /// other. Mirrors `planIsLive()` in firestore.rules; if the two disagree the app offers a
+    /// button the server refuses.
     func isWithinLocationWindow(at now: Date = Date()) -> Bool {
-        guard status == .accepted, let time = proposedTime else { return false }
+        guard status == .accepted, let time = proposedTime, let finish = effectiveEndTime else {
+            return false
+        }
         return now >= time.addingTimeInterval(-Self.locationWindowBefore)
-            && now <= time.addingTimeInterval(Self.locationWindowAfter)
+            && now <= finish.addingTimeInterval(Self.locationWindowAfter)
     }
 
     func canShareLocation(as userID: String, at now: Date = Date()) -> Bool {
@@ -48,7 +57,11 @@ extension Request {
     }
 
     /// When a point shared right now should disappear.
+    ///
+    /// Measured from the finish, matching the pin in `isWellFormed()`. Derived from the start
+    /// instead, every point shared after the first afternoon of a trip would carry an expiry
+    /// already in the past and be refused — sharing would appear to work and write nothing.
     var locationExpiry: Date? {
-        proposedTime?.addingTimeInterval(Self.locationWindowAfter)
+        effectiveEndTime?.addingTimeInterval(Self.locationWindowAfter)
     }
 }

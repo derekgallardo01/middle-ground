@@ -359,6 +359,93 @@ describe('promptForAttendance and remindBeforePlan', () => {
     assert.equal(sent.length, 0);
   });
 
+  // A trip finishes at its `endTime`. Asking on the first morning of a five-day holiday whether
+  // it happened is asking about something that is still happening.
+  test('a trip is asked about when it ends, not when it starts', async () => {
+    seedUsers(['alice', 'bob']);
+    store['requests/r_trip'] = {
+      allParticipantIDs: ['alice', 'bob'],
+      status: 'accepted',
+      title: 'Barcelona',
+      // Started five days ago, finished five hours ago.
+      proposedTime: new Date(Date.now() - 5 * 24 * 3600 * 1000),
+      endTime: new Date(Date.now() - 5 * 3600 * 1000),
+    };
+
+    await fns.promptForAttendance.run({});
+
+    assert.deepEqual(everyoneNotified(), ['alice', 'bob']);
+    assert.equal(sent[0].data.type, 'confirm_plan');
+  });
+
+  test('a trip in progress is not asked about', async () => {
+    seedUsers(['alice', 'bob']);
+    store['requests/r_trip'] = {
+      allParticipantIDs: ['alice', 'bob'],
+      status: 'accepted',
+      title: 'Barcelona',
+      // Began five hours ago and runs for another four days.
+      proposedTime: new Date(Date.now() - 5 * 3600 * 1000),
+      endTime: new Date(Date.now() + 4 * 24 * 3600 * 1000),
+    };
+
+    await fns.promptForAttendance.run({});
+
+    assert.equal(sent.length, 0, 'asked whether something still happening had happened');
+  });
+
+  // The trip's *start* lands in the first band as well, so without the filter everybody would be
+  // asked twice — days apart, and the first time about nothing.
+  test('a trip is asked about once, not twice', async () => {
+    seedUsers(['alice', 'bob']);
+    store['requests/r_trip'] = {
+      allParticipantIDs: ['alice', 'bob'],
+      status: 'accepted',
+      title: 'Barcelona',
+      proposedTime: new Date(Date.now() - 5 * 3600 * 1000),
+      endTime: new Date(Date.now() - 5 * 3600 * 1000 + 60 * 1000),
+    };
+
+    await fns.promptForAttendance.run({});
+
+    assert.equal(sent.length, 2, 'one message each for alice and bob, not two each');
+  });
+
+  // Every plan in production has no `endTime`, and none of their behaviour may change.
+  test('a plan with no end is still asked about at its time', async () => {
+    seedUsers(['alice', 'bob']);
+    store['requests/r1'] = {
+      allParticipantIDs: ['alice', 'bob'],
+      status: 'accepted',
+      title: 'Coffee',
+      proposedTime: new Date(Date.now() - 5 * 3600 * 1000),
+    };
+
+    await fns.promptForAttendance.run({});
+
+    assert.deepEqual(everyoneNotified(), ['alice', 'bob']);
+  });
+
+  // The reminder is about turning up, and you turn up at the start — so a trip is reminded about
+  // before it begins, not before it ends. Only attendance moved.
+  test('a trip is reminded about before it starts', async () => {
+    seedUsers(['alice', 'bob']);
+    store['requests/r_trip'] = {
+      allParticipantIDs: ['alice', 'bob'],
+      status: 'accepted',
+      title: 'Barcelona',
+      proposedTime: new Date(Date.now() + 16 * 3600 * 1000),
+      endTime: new Date(Date.now() + 5 * 24 * 3600 * 1000),
+    };
+
+    await fns.remindBeforePlan.run({});
+
+    for (const message of sent) {
+      assert.ok(recipientsOf(message).every((id) => ['alice', 'bob'].includes(id)));
+      assert.equal(message.data.type, 'plan_reminder');
+    }
+  });
+
   test('a plan inside the reminder window is reminded about', async () => {
     seedUsers(['alice', 'bob']);
     store['requests/r1'] = {

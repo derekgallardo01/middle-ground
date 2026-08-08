@@ -239,6 +239,7 @@ service cloud.firestore {
         && immutable('allParticipantIDs')
         && immutable('title')
         && immutable('proposedTime')
+        && immutable('endTime')
         && immutable('status')
         && immutable('negotiationChain')
         && immutable('confirmations')
@@ -265,6 +266,7 @@ service cloud.firestore {
         && immutable('creatorID')
         && immutable('title')
         && immutable('proposedTime')
+        && immutable('endTime')
         && immutable('status')
         && immutable('negotiationChain')
         && immutable('confirmations')
@@ -308,6 +310,7 @@ service cloud.firestore {
         && immutable('status')
         && immutable('title')
         && immutable('proposedTime')
+        && immutable('endTime')
         && immutable('negotiationChain')
         && immutable('confirmations')
         && immutable('createdAt');
@@ -343,6 +346,7 @@ service cloud.firestore {
         && immutable('allParticipantIDs')
         && immutable('title')
         && immutable('proposedTime')
+        && immutable('endTime')
         && immutable('negotiationChain')
         && immutable('stake')
         && immutable('planInviteCode')
@@ -382,6 +386,7 @@ service cloud.firestore {
         && immutable('recipientIDs')
         && immutable('allParticipantIDs')
         && immutable('proposedTime')
+        && immutable('endTime')
         && immutable('title')
         && immutable('negotiationChain')
         // The stake settles by derivation from these confirmations, so nothing writes it here.
@@ -420,6 +425,7 @@ service cloud.firestore {
         && immutable('recipientIDs')
         && immutable('allParticipantIDs')
         && immutable('proposedTime')
+        && immutable('endTime')
         && immutable('title')
         && immutable('status')
         && immutable('negotiationChain')
@@ -620,13 +626,30 @@ service cloud.firestore {
         return signedIn() && uid() in plan().allParticipantIDs;
       }
 
+      // When the plan is over: its end if it spans days, its start otherwise.
+      //
+      // An end that is not after the start is a typo or a bad row rather than a range, and taking
+      // it at face value would *shrink* the window to before the plan began — closing location
+      // sharing for a plan that is happening.
+      function planFinish() {
+        return (plan().get('endTime', null) is timestamp
+                 && plan().get('endTime', plan().proposedTime) > plan().proposedTime)
+          ? plan().get('endTime', plan().proposedTime)
+          : plan().proposedTime;
+      }
+
       // Only an accepted, dated plan, and only around the time it is meant to happen. Opening an
       // hour early is deliberate: "I'm five minutes away" is said on the way, not on arrival.
+      //
+      // The close is measured from the *finish*, so a five-day trip can share location on day
+      // four. Anchored to the start it would have shut four hours into the first morning and
+      // stayed shut for the rest of the holiday — the trip being exactly when people most want to
+      // find each other.
       function planIsLive() {
         return plan().status == 'accepted'
           && plan().proposedTime is timestamp
           && request.time >= plan().proposedTime - duration.value(1, 'h')
-          && request.time <= plan().proposedTime + duration.value(4, 'h');
+          && request.time <= planFinish() + duration.value(4, 'h');
       }
 
       // Pinned so a coordinate cannot be written with an expiry of its own choosing — otherwise
@@ -637,7 +660,11 @@ service cloud.firestore {
           && request.resource.data.latitude is number
           && request.resource.data.longitude is number
           && request.resource.data.expiresAt is timestamp
-          && request.resource.data.expiresAt <= plan().proposedTime + duration.value(4, 'h');
+          // Measured from the finish, like the window above. Pinned to the *start* it would have
+          // refused every point shared after the first afternoon of a trip: the only expiry the
+          // rule would accept was already in the past, so location sharing would have appeared to
+          // work and written nothing for the rest of the holiday.
+          && request.resource.data.expiresAt <= planFinish() + duration.value(4, 'h');
       }
 
       // No admin read, unlike gamification and events. Nothing in the admin panel wants this,

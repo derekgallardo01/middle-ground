@@ -562,6 +562,24 @@ describe('confirming attendance', () => {
     );
   });
 
+  // Every branch that pins the start now pins the end too, or that action becomes a way to move
+  // a trip's finish — and with it the window in which location can be shared.
+  test('confirming cannot be used to move when a trip ends', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_trip_past'), accepted({
+        proposedTime: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        endTime: past,
+      })),
+    );
+
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_trip_past'), {
+        confirmations: { [BOB]: 'happened' },
+        endTime: future,
+      }),
+    );
+  });
+
   test('a plan that has not happened yet cannot be confirmed', async () => {
     await seed((db) =>
       setDoc(doc(db, 'requests/r_future'), accepted({ proposedTime: future })),
@@ -1430,6 +1448,65 @@ describe('shared locations', () => {
     await seed((db) => setDoc(doc(db, 'requests/r5'), request({ proposedTime: planTime })));
 
     await assertFails(setDoc(doc(asAlice(), 'requests/r5/locations/alice'), pointFor(planTime)));
+  });
+
+  // A trip's window has to run to its end. Anchored to the start it shut four hours into the
+  // first morning and stayed shut for the rest of the holiday.
+  test('a trip can share a location on a later day', async () => {
+    const startedThreeDaysAgo = new Date(Date.now() - 3 * 24 * HOUR);
+    const endsTomorrow = new Date(Date.now() + 24 * HOUR);
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_trip'), request({
+        status: 'accepted',
+        proposedTime: startedThreeDaysAgo,
+        endTime: endsTomorrow,
+      })),
+    );
+
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'requests/r_trip/locations/alice'), {
+        latitude: 40.7128,
+        longitude: -74.006,
+        sharedAt: at(0),
+        // Derived from the finish, matching the pin in `isWellFormed`.
+        expiresAt: new Date(endsTomorrow.getTime() + 4 * HOUR),
+      }),
+    );
+  });
+
+  test('a trip that finished long ago has no window', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_over'), request({
+        status: 'accepted',
+        proposedTime: new Date(Date.now() - 10 * 24 * HOUR),
+        endTime: new Date(Date.now() - 5 * 24 * HOUR),
+      })),
+    );
+
+    await assertFails(
+      setDoc(doc(asAlice(), 'requests/r_over/locations/alice'), {
+        latitude: 40.7128,
+        longitude: -74.006,
+        sharedAt: at(0),
+        expiresAt: new Date(Date.now() + 4 * HOUR),
+      }),
+    );
+  });
+
+  // An end before the start is a typo, not a range — taking it at face value would shrink the
+  // window to before the plan began and close sharing for a plan that is happening.
+  test('an end before the start does not shrink the window', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_typo'), request({
+        status: 'accepted',
+        proposedTime: planTime,
+        endTime: new Date(planTime.getTime() - 48 * HOUR),
+      })),
+    );
+
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'requests/r_typo/locations/alice'), pointFor(planTime)),
+    );
   });
 
   test('an undated request has no window', async () => {

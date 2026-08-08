@@ -322,18 +322,42 @@ exports.promptForAttendance = onSchedule(
     const until = new Date(hourStart.getTime() - CONFIRM_AFTER_HOURS * HOUR);
     const since = new Date(until.getTime() - HOUR);
 
-    const snapshot = await db()
-      .collection('requests')
-      .where('status', '==', 'accepted')
-      .where('proposedTime', '>=', since)
-      .where('proposedTime', '<', until)
-      .get();
+    // Two queries, because a plan can finish at a different time from when it starts.
+    //
+    // A trip is over at its `endTime`, and asking on the first morning of a five-day holiday
+    // whether it happened is asking about something still happening. Its *start* lands in the
+    // first band too, so trips are filtered out of that one — otherwise everybody would be asked
+    // twice, days apart, and the first answer would be about nothing.
+    //
+    // A plan with no `endTime` cannot match the second query at all: Firestore range filters skip
+    // documents missing the field. That is exactly the behaviour wanted here, and it is why no
+    // migration is needed for the plans that already exist.
+    const [byStart, byEnd] = await Promise.all([
+      db().collection('requests')
+        .where('status', '==', 'accepted')
+        .where('proposedTime', '>=', since)
+        .where('proposedTime', '<', until)
+        .get(),
+      db().collection('requests')
+        .where('status', '==', 'accepted')
+        .where('endTime', '>=', since)
+        .where('endTime', '<', until)
+        .get(),
+    ]);
 
-    if (snapshot.empty) return;
-    console.log(`Asking about ${snapshot.size} plan(s) that were due between ${since} and ${until}`);
+    const spansDays = (request) =>
+      request.endTime && toMillis(request.endTime) > toMillis(request.proposedTime);
+
+    const docs = [
+      ...byStart.docs.filter((doc) => !spansDays(doc.data())),
+      ...byEnd.docs,
+    ];
+
+    if (docs.length === 0) return;
+    console.log(`Asking about ${docs.length} plan(s) that finished between ${since} and ${until}`);
 
     await Promise.all(
-      snapshot.docs.map(async (doc) => {
+      docs.map(async (doc) => {
         const request = doc.data();
         const confirmations = request.confirmations || {};
         const unanswered = (request.allParticipantIDs || []).filter((id) => !confirmations[id]);
@@ -367,6 +391,10 @@ exports.promptForAttendance = onSchedule(
  * Sixteen hours ahead, floored to the hour, which puts an evening plan into the previous evening
  * and a morning plan into the night before. Close enough to be about tomorrow; far enough that
  * calling it off is still a courtesy rather than an ambush.
+ *
+ * Bands on `proposedTime` and stays that way for a trip: the reminder is about turning up, and
+ * you turn up at the start. Only attendance moved to the end, because that is the only question
+ * whose answer depends on the thing being over.
  *
  * The same windowing trick as `promptForAttendance` and for the same reason: an exactly-one-hour
  * band walked forward each run, rather than a flag on the request. A flag would be dropped the

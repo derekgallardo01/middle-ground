@@ -37,6 +37,11 @@ struct GamificationView: View {
                         }
                         // "Do we make things happen" sits under "do I turn up". Every group,
                         // couples included — see `GroupFollowThrough`.
+                        // Energy first: "are we still doing anything" is the question that decides
+                        // whether the follow-through figure below it is worth reading.
+                        ForEach(viewModel.energy, id: \.group.id) { entry in
+                            GroupEnergyCard(groupName: entry.group.label, energy: entry.energy)
+                        }
                         ForEach(viewModel.followThrough, id: \.group.id) { entry in
                             FollowThroughCard(groupName: entry.group.label, followThrough: entry.rate)
                         }

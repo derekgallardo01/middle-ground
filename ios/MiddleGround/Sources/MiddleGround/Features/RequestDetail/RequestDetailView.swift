@@ -45,6 +45,21 @@ struct RequestDetailView: View {
                             .mgTransition(.opacity)
                     }
 
+                    // Above the group status, because it is asking for something and that is
+                    // reporting. Below the response rows, because deciding beats reviving.
+                    if viewModel.showsStillOn {
+                        StillOnRow(
+                            reason: viewModel.momentum.reason,
+                            hasAnswered: viewModel.hasSaidStillOn,
+                            stillOnNames: viewModel.stillOnNames,
+                            notYetNames: viewModel.notYetSaidNames,
+                            isSending: viewModel.isSending
+                        ) {
+                            Task { await viewModel.sayStillOn() }
+                        }
+                        .mgTransition(.opacity.combined(with: .move(edge: .bottom)))
+                    }
+
                     if viewModel.showsGroupStatus {
                         GroupStatusRow(
                             attendeeNames: viewModel.attendeeNames,

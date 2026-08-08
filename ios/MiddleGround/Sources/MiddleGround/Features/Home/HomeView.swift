@@ -26,6 +26,22 @@ struct HomeView: View {
                         // visibly rewrites itself a beat after opening.
                         header
                             .redacted(reason: viewModel.hasLoaded ? [] : .placeholder)
+
+                        // Above the feed, because the whole problem is that nobody goes back to
+                        // look at the plan itself. Only ever one — see `quietestPlan`.
+                        if let quiet = viewModel.quietestPlan,
+                           let momentum = viewModel.quietestPlanMomentum {
+                            QuietPlanCard(
+                                title: quiet.title,
+                                reason: momentum.reason,
+                                isSending: viewModel.isResponding(to: quiet),
+                                onOpen: { open(quiet) },
+                                onSayStillOn: { Task { await viewModel.sayStillOn(to: quiet) } },
+                                onDismiss: { viewModel.leaveQuietPlanAlone(quiet) }
+                            )
+                            .mgTransition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
                         feedSection
                     }
                     .padding(.horizontal, 16)

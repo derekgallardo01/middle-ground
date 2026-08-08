@@ -20,6 +20,8 @@ final class GamificationViewModel {
 
     /// How often each group's plans happen. Every group, couples included — it ranks nobody.
     private(set) var followThrough: [(group: Relationship, rate: GroupFollowThrough)] = []
+    /// Whether each group is still doing things together — the slower question under follow-through.
+    private(set) var energy: [(group: Relationship, energy: GroupEnergy)] = []
 
     /// Every group, so the screen can tell "nothing earned yet" from "nobody to earn it with".
     private(set) var groups: [Relationship] = []
@@ -115,6 +117,10 @@ final class GamificationViewModel {
         // Follow-through covers every group; the scoreboard does not. One fetch answers both.
         followThrough = allGroups.map { group in
             (group, GroupFollowThrough.from(relationship: group, requests: requests))
+        }
+        // Same requests, same groups, no extra reads.
+        energy = allGroups.map { group in
+            (group, GroupEnergy.from(relationship: group, requests: requests))
         }
 
         let groups = allGroups.filter(GroupScoreboard.isEligible)

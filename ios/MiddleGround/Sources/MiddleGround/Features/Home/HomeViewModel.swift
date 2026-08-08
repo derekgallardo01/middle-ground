@@ -169,6 +169,64 @@ final class HomeViewModel {
 
     var savedCount: Int { requests.filter { $0.status == .saved }.count }
 
+    // MARK: - The plan that has gone quietest
+
+    /// Plans somebody has chosen to leave alone, for this run of the app.
+    ///
+    /// Not persisted, and that is the decision rather than an omission. Remembering it forever
+    /// would mean a plan dismissed once is never mentioned again however close it gets, and the
+    /// case this feature exists for is the plan that quietly rots. Forgetting on relaunch means
+    /// "not now" means not now, and a plan that is still quiet in a week can ask once more.
+    private var leftAlone: Set<String> = []
+
+    func leaveQuietPlanAlone(_ request: Request) {
+        leftAlone.insert(request.id)
+    }
+
+    /// Says you are still coming, from the feed, without opening the plan.
+    func sayStillOn(to request: Request) async {
+        guard let userID, !isResponding(to: request) else { return }
+        respondingTo.insert(request.id)
+        defer { respondingTo.remove(request.id) }
+
+        do {
+            let updated = try await requestService.sayStillOn(request, by: userID)
+            if let index = requests.firstIndex(where: { $0.id == updated.id }) {
+                requests[index] = updated
+            }
+        } catch {
+            responseErrorMessage = UserFacingError.message(for: error)
+                ?? "Couldn't send that just now."
+        }
+    }
+
+    /// The single agreed plan most in need of somebody saying something, or nil.
+    ///
+    /// **One at a time, on purpose.** A feed that opens with four "this has gone quiet" cards is a
+    /// feed nobody reads the top of, and it turns a prompt into wallpaper — which costs the one
+    /// case it existed for. The most urgent gets the slot; the rest are still on their own plans.
+    ///
+    /// Nothing here is fetched. These are the requests the feed already has.
+    var quietestPlan: Request? {
+        requests
+            .filter { !leftAlone.contains($0.id) }
+            .map { ($0, PlanMomentum.from(request: $0)) }
+            .filter { $0.1.wantsCheckIn }
+            // At risk before merely fading, then soonest first: the one with least time left to
+            // rescue is the one worth the slot.
+            .min { first, second in
+                if first.1.state != second.1.state {
+                    return first.1.state == .atRisk
+                }
+                return (first.0.proposedTime ?? .distantFuture)
+                    < (second.0.proposedTime ?? .distantFuture)
+            }?.0
+    }
+
+    var quietestPlanMomentum: PlanMomentum? {
+        quietestPlan.map { PlanMomentum.from(request: $0) }
+    }
+
     /// How many requests are actually waiting on an answer from you.
     ///
     /// The header used to count `isPending`, which is `status == .pending` and so only ever

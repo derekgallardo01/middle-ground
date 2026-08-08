@@ -16,6 +16,83 @@ final class HomeViewModelTests: XCTestCase {
         super.tearDown()
     }
 
+    // MARK: - The plan that has gone quietest
+
+    private func quiet(
+        id: String,
+        agreedDaysAgo: Double,
+        inDays: Double,
+        title: String = "Plan"
+    ) -> Request {
+        let now = Date()
+        var request = Request(
+            id: id,
+            creatorID: User.preview.id,
+            recipientIDs: [User.preview2.id],
+            category: .friends,
+            title: title,
+            proposedTime: now.addingTimeInterval(inDays * 86_400),
+            status: .accepted,
+            negotiationChain: [
+                NegotiationMessage(
+                    senderID: User.preview2.id,
+                    responseType: .accept,
+                    text: nil,
+                    timestamp: now.addingTimeInterval(-agreedDaysAgo * 86_400)
+                )
+            ],
+            updatedAt: now.addingTimeInterval(-agreedDaysAgo * 86_400)
+        )
+        request.status = .accepted
+        return request
+    }
+
+    /// Only ever one card. A feed that opens with four "this has gone quiet" prompts is a feed
+    /// nobody reads the top of, and the prompt becomes wallpaper.
+    func testOnlyOneQuietPlanIsOffered() {
+        let viewModel = HomeViewModel()
+        viewModel.requests = [
+            quiet(id: "a", agreedDaysAgo: 20, inDays: 30),
+            quiet(id: "b", agreedDaysAgo: 20, inDays: 40),
+            quiet(id: "c", agreedDaysAgo: 20, inDays: 50)
+        ]
+
+        XCTAssertNotNil(viewModel.quietestPlan)
+    }
+
+    /// The one with least time left to rescue gets the slot.
+    func testTheMostUrgentQuietPlanWins() {
+        let viewModel = HomeViewModel()
+        viewModel.requests = [
+            quiet(id: "far", agreedDaysAgo: 30, inDays: 40, title: "Far off"),
+            quiet(id: "soon", agreedDaysAgo: 9, inDays: 3, title: "Nearly here")
+        ]
+
+        XCTAssertEqual(viewModel.quietestPlan?.id, "soon")
+    }
+
+    func testAHealthyFeedOffersNothing() {
+        let viewModel = HomeViewModel()
+        viewModel.requests = [
+            quiet(id: "fresh", agreedDaysAgo: 0.5, inDays: 14),
+            quiet(id: "chatty", agreedDaysAgo: 1, inDays: 30)
+        ]
+
+        XCTAssertNil(viewModel.quietestPlan, "nothing here has gone quiet")
+    }
+
+    /// "Leave it" has to mean it, or the card is a snooze button that asks again immediately.
+    func testLeavingAPlanAloneRemovesItFromTheSlot() {
+        let viewModel = HomeViewModel()
+        let plan = quiet(id: "a", agreedDaysAgo: 20, inDays: 30)
+        viewModel.requests = [plan]
+        XCTAssertNotNil(viewModel.quietestPlan)
+
+        viewModel.leaveQuietPlanAlone(plan)
+
+        XCTAssertNil(viewModel.quietestPlan)
+    }
+
     func testLoadCurrentUserPopulatesUser() async {
         let viewModel = HomeViewModel()
         await viewModel.loadCurrentUser()

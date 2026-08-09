@@ -128,6 +128,17 @@ extension Container {
         }
     }
 
+    var itineraryRepository: Factory<ItineraryRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockItineraryRepository()
+            }
+            #endif
+            return FirestoreItineraryRepository()
+        }
+    }
+
     var disputeRepository: Factory<DisputeRepository> {
         Factory(self) {
             #if DEBUG

@@ -601,6 +601,70 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.senderID == uid();
     }
 
+    // ---------------------------------------------------------------- itinerary
+    // What is on which day of a trip.
+    //
+    // A subcollection for the reason `messages` is one: a five-day trip with four people adding
+    // items is exactly the shape that pushes a document towards the 1 MB ceiling, and every read
+    // of the plan would carry the whole itinerary whether or not anybody opened it.
+    //
+    // No day number is stored. Days are derived on the client from the plan's own time zone, so
+    // an item cannot end up filed under a day the trip no longer has — which is what happens the
+    // first time somebody moves the dates.
+    match /requests/{requestId}/itinerary/{itemId} {
+      function plan() {
+        return get(/databases/$(database)/documents/requests/$(requestId)).data;
+      }
+
+      function inPlan() {
+        return signedIn() && uid() in plan().allParticipantIDs;
+      }
+
+      function isWellFormed() {
+        return request.resource.data.keys().hasAll(['authorID', 'title', 'createdAt'])
+          && request.resource.data.keys().hasOnly(
+               ['authorID', 'title', 'at', 'location', 'createdAt']
+             )
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.createdAt is timestamp
+          // Optional, and checked only when present: a direct read of a missing property is an
+          // evaluation error rather than a false, and it would deny the whole write.
+          && (!('at' in request.resource.data) || request.resource.data.at is timestamp)
+          && (!('location' in request.resource.data)
+              || (request.resource.data.location is string
+                  && request.resource.data.location.size() <= 120));
+      }
+
+      // Everyone on the plan reads it — an itinerary only one person can see is a note, not a
+      // plan. Admin-readable on the same terms as the messages, for the same moderation reason.
+      allow get, list: if inPlan() || isAdmin();
+
+      // A called-off plan stops taking items, exactly as it stops taking messages.
+      allow create: if inPlan()
+                    && isWellFormed()
+                    && request.resource.data.authorID == uid()
+                    && !(plan().status in ['cancelled', 'declined']);
+
+      // Editable, unlike a message — a time that moved is a correction, not a revision of
+      // something people read. Only by its author, and neither the author nor the moment it was
+      // added may change: without those two pins an edit is a way to write an item into somebody
+      // else's name, or to reorder a tie by backdating.
+      allow update: if inPlan()
+                    && isWellFormed()
+                    && resource.data.authorID == uid()
+                    && request.resource.data.authorID == resource.data.authorID
+                    && request.resource.data.createdAt == resource.data.createdAt;
+
+      // The author, or the plan's creator tidying up after a change of dates. Deliberately wider
+      // than `messages`, where only the author may delete: a message is somebody's words and an
+      // itinerary item is shared arrangement, and the person who owns the trip has to be able to
+      // remove a booking that no longer exists.
+      allow delete: if signedIn()
+                    && (resource.data.authorID == uid() || plan().creatorID == uid());
+    }
+
     // ---------------------------------------------------------- read receipts
     // How far each person has read a plan. Per plan, not per message, on purpose: "Alex has
     // seen this" answers a real question, while a tick against every line imports the thing that

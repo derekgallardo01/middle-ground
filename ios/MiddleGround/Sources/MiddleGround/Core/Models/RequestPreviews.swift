@@ -6,6 +6,27 @@ import Foundation
 // marketing screenshots were added. They are sample data rather than model behaviour, and
 // reading the model is easier without two hundred lines of them underneath it.
 
+/// Fixture times that are an hour of the day rather than an offset from whenever the app was
+/// launched.
+///
+/// `Date().addingTimeInterval(86_400 * 26 + 3_600 * 11)` is eleven hours after *now*, which is a
+/// different clock time every run — so the Barcelona trip's dinner rendered at 10:38 AM in one
+/// screenshot and 4:38 AM in another. The tests passed either way, because a time is a time. Only
+/// looking at the picture caught it.
+enum PreviewClock {
+
+    /// Barcelona, so the fixture trip's hours read correctly in the zone it is actually in.
+    static let tripZone = TimeZone(identifier: "Europe/Madrid") ?? .current
+
+    /// `hour` o'clock, `daysFromNow` days out, on the trip's own clock.
+    static func trip(daysFromNow: Int, hour: Int, minute: Int = 0) -> Date {
+        var calendar = Calendar.current
+        calendar.timeZone = tripZone
+        let day = calendar.startOfDay(for: Date().addingTimeInterval(Double(daysFromNow) * 86_400))
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+    }
+}
+
 extension Request {
     static let preview = Request(
         id: "req_1",
@@ -270,8 +291,8 @@ extension Request {
         category: .travel,
         title: "Barcelona in May?",
         details: "Four nights, flights not booked yet.",
-        proposedTime: Date().addingTimeInterval(86_400 * 26),
-        endTime: Date().addingTimeInterval(86_400 * 30),
+        proposedTime: PreviewClock.trip(daysFromNow: 26, hour: 14),
+        endTime: PreviewClock.trip(daysFromNow: 30, hour: 11),
         // The zone Apple reports for Barcelona. Set here so the "8:00 PM Spain Time" line reaches
         // a screenshot rather than only a unit test — the same gap that made the quiet-plan card
         // and the trip range invisible until a fixture reached the state they are for.

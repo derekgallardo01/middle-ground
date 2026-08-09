@@ -328,4 +328,29 @@ final class MultiDayPlanTests: XCTestCase {
 
         XCTAssertFalse(typo.isAwaitingAttendance)
     }
+
+    /// Found by putting a realistic time on a fixture: land at 15:40 on the 4th, fly home at
+    /// 11:00 on the 8th, and counting elapsed 24-hour periods gives three — so the card read
+    /// "Sep 4 – 8 · 3 nights" directly under its own "Four nights, flights not booked yet."
+    /// Nights are what a hotel counts, and a hotel counts dates.
+    func testNightsAreCountedByDateNotByElapsedHours() {
+        var landing = plan(endingAfter: nil)
+        var calendar = Calendar.current
+        calendar.timeZone = .current
+        let afternoon = calendar.date(bySettingHour: 15, minute: 40, second: 0, of: start) ?? start
+        landing.proposedTime = afternoon
+        landing.endTime = calendar.date(
+            bySettingHour: 11,
+            minute: 0,
+            second: 0,
+            of: afternoon.addingTimeInterval(4 * 86_400)
+        )
+
+        XCTAssertEqual(landing.nightCount, 4, "a four-night trip reported a different number")
+    }
+
+    /// And a whole number of days still counts the same as it always did.
+    func testAnExactNumberOfDaysIsUnchanged() {
+        XCTAssertEqual(plan(endingAfter: 5).nightCount, 5)
+    }
 }

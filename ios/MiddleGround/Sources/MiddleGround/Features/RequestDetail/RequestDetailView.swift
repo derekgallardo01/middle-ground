@@ -5,6 +5,7 @@ struct RequestDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showCancelConfirmation = false
+    @State private var showAddItineraryItem = false
 
     /// Drives the counter composer at the bottom of the negotiation thread.
     @FocusState private var composerFocused: Bool
@@ -113,6 +114,21 @@ struct RequestDetailView: View {
                         )
                     }
 
+                    if viewModel.showsItinerary {
+                        ItineraryRow(
+                            days: viewModel.itineraryDays,
+                            unscheduled: viewModel.unscheduledItinerary,
+                            stranded: viewModel.strandedItinerary,
+                            dayLabel: viewModel.dayLabel(for:),
+                            timeLabel: viewModel.timeLabel(for:),
+                            canRemove: viewModel.canRemove(_:),
+                            onAdd: { showAddItineraryItem = true },
+                            onRemove: { item in
+                                Task { await viewModel.removeItineraryItem(item) }
+                            }
+                        )
+                    }
+
                     NegotiationView(viewModel: viewModel, composerFocused: $composerFocused)
 
                     Spacer(minLength: 40)
@@ -176,11 +192,19 @@ struct RequestDetailView: View {
             if startComposing, viewModel.canRespond {
                 composerFocused = true
             }
+            // Only fetches on a trip — `loadItinerary` returns immediately otherwise, so every
+            // plan that is not one pays nothing for this.
+            await viewModel.loadItinerary()
         }
         .alert("Oops", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("OK") { viewModel.errorMessage = nil }
         } message: {
             Text(viewModel.errorMessage ?? "")
+        }
+        .sheet(isPresented: $showAddItineraryItem) {
+            AddItineraryItemSheet(dayRange: viewModel.itineraryDayRange) { title, when, place in
+                Task { await viewModel.addItineraryItem(title: title, at: when, location: place) }
+            }
         }
         .sheet(isPresented: $viewModel.showDisputeSheet) {
             DisputeSheet(viewModel: viewModel)

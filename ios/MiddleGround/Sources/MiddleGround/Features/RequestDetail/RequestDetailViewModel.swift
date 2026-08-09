@@ -25,6 +25,8 @@ final class RequestDetailViewModel {
     let readReceiptRepository = Container.shared.planReadReceiptRepository()
     // Not private: the reporting extension is its own file.
     let disputes = Container.shared.disputeRepository()
+    // Not private: the itinerary lives in its own file, and `private` is file-scoped.
+    let itineraryRepository = Container.shared.itineraryRepository()
 
     var request: Request
     var currentUser: User?
@@ -39,6 +41,8 @@ final class RequestDetailViewModel {
     var isSending = false
     var errorMessage: String?
     var partnerName: String?
+    /// What is on which day of a trip. Empty for every plan that is not one.
+    var itineraryItems: [ItineraryItem] = []
     /// Names by participant ID, for the group status row and the transcript.
     private(set) var participantNames: [String: String] = [:]
 

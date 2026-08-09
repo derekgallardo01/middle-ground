@@ -183,6 +183,55 @@ final class TripPlanTests: XCTestCase {
         )
     }
 
+    /// A trip says what is on which day.
+    ///
+    /// The model groups items into days and the rules let people write them; neither puts a word
+    /// on a screen. `invitedBy` was written on every join since pairing shipped and read by
+    /// nothing for months — this is the check that the itinerary is not that.
+    func testATripShowsItsItineraryByDay() {
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40))
+
+        let trip = app.staticTexts["Barcelona in May?"]
+        XCTAssertTrue(trip.waitForExistence(timeout: 20))
+        scrollTo(trip)
+        trip.tap()
+
+        let heading = app.staticTexts["Itinerary"]
+        XCTAssertTrue(scrollUntilItExists(heading), "a trip opened with no itinerary at all")
+        scrollTo(heading)
+
+        // A real item from the fixture, not just the heading — a section that renders its title
+        // and none of its contents is exactly what an empty list looks like.
+        let dinner = app.staticTexts["Dinner at Bar Cañete"]
+        XCTAssertTrue(scrollUntilItExists(dinner), "the itinerary rendered no items")
+
+        // Every day appears, including empty ones: "nothing on Wednesday yet" is information.
+        XCTAssertTrue(app.staticTexts["Day 1"].exists)
+        XCTAssertTrue(scrollUntilItExists(app.staticTexts["Day 5"]), "the later days are missing")
+        attach("trip-itinerary")
+    }
+
+    /// And a plan that is not a trip must not grow an empty one.
+    func testADinnerHasNoItinerary() {
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40))
+
+        // Any plan that is not the Barcelona trip.
+        let dinner = app.staticTexts["Coffee on Monday"]
+        guard dinner.waitForExistence(timeout: 20) else {
+            return XCTFail("no single-day plan in the feed to check")
+        }
+        scrollTo(dinner)
+        dinner.tap()
+
+        for _ in 0..<6 where !app.staticTexts["Itinerary"].exists {
+            app.swipeUp()
+        }
+        XCTAssertFalse(
+            app.staticTexts["Itinerary"].exists,
+            "a one-evening plan was given a day-by-day itinerary"
+        )
+    }
+
     /// The compose sheet has to offer the range, or nobody can make one of these.
     func testComposeOffersADateRange() {
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40))

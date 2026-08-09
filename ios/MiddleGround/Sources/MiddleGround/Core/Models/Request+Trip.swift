@@ -93,6 +93,15 @@ extension Request {
         guard isMultiDay, let proposedTime, let endTime else { return nil }
         var calendar = Calendar.current
         calendar.timeZone = displayTimeZone
-        return calendar.dateComponents([.day], from: proposedTime, to: endTime).day
+        // Between the *days*, not the instants. Counting elapsed 24-hour periods loses a night
+        // for every trip that behaves like a real one: land at 15:40 on the 4th, fly home at
+        // 11:00 on the 8th, and that is three-and-a-bit periods — so a four-night trip reported
+        // "3 nights" beside its own "Four nights" description. Nights are what a hotel counts,
+        // and a hotel counts dates.
+        return calendar.dateComponents(
+            [.day],
+            from: calendar.startOfDay(for: proposedTime),
+            to: calendar.startOfDay(for: endTime)
+        ).day
     }
 }

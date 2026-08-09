@@ -25,6 +25,7 @@ async function purgeUserData(uid) {
     purgeRequests(uid),
     purgeEvents(uid),
     purgeMessages(uid),
+    purgeItinerary(uid),
   ]);
 
   results.forEach((r, i) => {
@@ -51,6 +52,24 @@ async function purgeMessages(uid) {
     .get();
   await Promise.all(snapshot.docs.map((doc) => doc.ref.delete()));
   console.log(`Deleted ${snapshot.size} message(s) by ${uid}`);
+}
+
+/**
+ * Itinerary items this person added to any trip.
+ *
+ * Same reasoning as `purgeMessages`, and the same trap: a subcollection is not deleted with its
+ * parent, so without this an item survives both the account that wrote it and — since the plan's
+ * creator may be somebody else entirely — often the trip it was on. `availability` taught this
+ * lesson the expensive way; every new subcollection needs its own line here or it silently
+ * accumulates.
+ */
+async function purgeItinerary(uid) {
+  const snapshot = await db()
+    .collectionGroup('itinerary')
+    .where('authorID', '==', uid)
+    .get();
+  await Promise.all(snapshot.docs.map((doc) => doc.ref.delete()));
+  console.log(`Deleted ${snapshot.size} itinerary item(s) by ${uid}`);
 }
 
 /**

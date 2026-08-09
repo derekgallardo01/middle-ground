@@ -1932,3 +1932,141 @@ describe('unmatched paths', () => {
     await assertFails(setDoc(doc(asAlice(), 'secrets/s1'), { a: 1 }));
   });
 });
+
+// The itinerary: what is on which day of a trip.
+//
+// A subcollection for the same reason as `messages` — a five-day trip with four people adding
+// items is exactly the shape that pushes a document towards the 1 MB ceiling. No day number is
+// stored: days are derived on the client from the plan's own time zone, so an item cannot end up
+// filed under a day the trip no longer has.
+describe('the itinerary on a trip', () => {
+  const item = (author, overrides = {}) => ({
+    authorID: author,
+    title: 'Train to Girona',
+    at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    createdAt: new Date(),
+    ...overrides,
+  });
+
+  beforeEach(() =>
+    seed((db) =>
+      setDoc(doc(db, 'requests/r_trip_itin'), request({
+        status: 'accepted',
+        proposedTime: new Date(Date.now() + 12 * 60 * 60 * 1000),
+        endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+      })),
+    ),
+  );
+
+  test('anyone on the trip may add something', async () => {
+    await assertSucceeds(
+      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i1'), item(BOB)),
+    );
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'requests/r_trip_itin/itinerary/i2'), item(ALICE)),
+    );
+  });
+
+  // An itinerary only one person can see is a note, not a plan.
+  test('everyone on the trip can read all of it', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i3'), item(ALICE)));
+
+    await assertSucceeds(getDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i3')));
+  });
+
+  test('someone outside the trip can neither read nor write', async () => {
+    await assertFails(
+      setDoc(doc(asMallory(), 'requests/r_trip_itin/itinerary/i4'), item(MALLORY)),
+    );
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i5'), item(ALICE)));
+    await assertFails(getDoc(doc(asMallory(), 'requests/r_trip_itin/itinerary/i5')));
+  });
+
+  test('you cannot add something in someone else name', async () => {
+    await assertFails(
+      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i6'), item(ALICE)),
+    );
+  });
+
+  // An item with no time is a real item — "somewhere for lunch on the 14th" is a thing to agree
+  // on, and forcing a time invents a precision nobody has.
+  test('an item with no time is allowed', async () => {
+    await assertSucceeds(
+      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i7'), item(BOB, { at: undefined })),
+    );
+  });
+
+  test('an item with no title is refused', async () => {
+    await assertFails(
+      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i8'), item(BOB, { title: '' })),
+    );
+  });
+
+  test('an item cannot smuggle in fields nobody validates', async () => {
+    await assertFails(
+      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i9'), item(BOB, { dayNumber: 3 })),
+    );
+  });
+
+  // A time that moved is a correction, not a revision of something people read — so unlike a
+  // message, an item is editable. By its author only.
+  test('the author may correct their own item', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i10'), item(BOB)));
+
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i10'), { title: 'Train at 07:40' }),
+    );
+    await assertFails(
+      updateDoc(doc(asAlice(), 'requests/r_trip_itin/itinerary/i10'), { title: 'Not yours' }),
+    );
+  });
+
+  // Without these two pins an edit is a way to write an item into somebody else's name, or to
+  // win a same-time tie by backdating.
+  test('an edit cannot change the author or when it was added', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i11'), item(BOB)));
+
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i11'), { authorID: ALICE }),
+    );
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i11'), {
+        createdAt: new Date(Date.now() - 60 * 60 * 1000),
+      }),
+    );
+  });
+
+  // Wider than `messages`, where only the author may delete: a message is somebody's words, an
+  // itinerary item is shared arrangement, and whoever owns the trip has to be able to remove a
+  // booking that no longer exists.
+  test('the author or the trip creator may remove an item', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i12'), item(BOB)));
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i13'), item(BOB)));
+
+    await assertSucceeds(deleteDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i12')));
+    // Alice created the request in the `request()` helper.
+    await assertSucceeds(deleteDoc(doc(asAlice(), 'requests/r_trip_itin/itinerary/i13')));
+  });
+
+  test('a stranger cannot remove an item', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i14'), item(BOB)));
+
+    await assertFails(deleteDoc(doc(asMallory(), 'requests/r_trip_itin/itinerary/i14')));
+  });
+
+  // A called-off trip stops taking items, exactly as it stops taking messages. There is nothing
+  // left to arrange.
+  test('a cancelled trip takes no more items', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_cancelled_trip'), request({
+        status: 'cancelled',
+        proposedTime: new Date(Date.now() + 12 * 60 * 60 * 1000),
+        endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+      })),
+    );
+
+    await assertFails(
+      setDoc(doc(asBob(), 'requests/r_cancelled_trip/itinerary/i15'), item(BOB)),
+    );
+  });
+});

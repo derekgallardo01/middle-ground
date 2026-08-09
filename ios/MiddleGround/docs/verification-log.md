@@ -411,6 +411,31 @@ a dark page was already 7.74:1.
 **CI now runs UI tests and checks the website**, neither of which it had ever done.
 
 
+## 2026-08-09 — the itinerary, and what a realistic fixture found
+
+A trip can now say what is on which day: `requests/{id}/itinerary/{itemID}`, a subcollection for
+the reason `messages` is one — a five-day trip with four people adding items is exactly the shape
+that pushes a document towards the 1 MB ceiling. Days are **derived**, never stored, so an item
+cannot end up filed under a day the trip no longer has; they are computed in the plan's own zone,
+which is what `timeZoneID` was for. Items outside the dates are surfaced rather than dropped,
+because moving a trip strands everything already arranged and hiding that loses work people did.
+
+**Two defects came from the screenshot, not the tests.** The first fixture used
+`Date().addingTimeInterval(86_400 * 26 + 3_600 * 11)` — eleven hours after *now*, not eleven
+o'clock — so "Dinner at Bar Cañete" rendered at 10:38 AM in one run and 4:38 AM in another, and
+every test passed both times because a time is a time. Fixed with `PreviewClock.trip(daysFromNow:
+hour:)`.
+
+Realistic hours then exposed a real one: **`nightCount` counted elapsed 24-hour periods**, so a
+trip landing at 15:40 on the 4th and flying home at 11:00 on the 8th reported "3 nights" directly
+under its own "Four nights, flights not booked yet." Nights are what a hotel counts, and a hotel
+counts dates. Now measured between the days.
+
+**CI's UI tests moved to a job of their own.** Bolted onto Build & Test they took it from twenty
+minutes to fifty-eight, in series, for no reason — nothing there depends on the Release build. Run
+alongside it, the wall clock is the slower of the two rather than their sum.
+
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.

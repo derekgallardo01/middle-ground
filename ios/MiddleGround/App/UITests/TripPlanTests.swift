@@ -114,6 +114,75 @@ final class TripPlanTests: XCTestCase {
         attach("trip-time-zone")
     }
 
+    /// A trip fills the calendar for as long as it runs.
+    ///
+    /// The month grid asked whether a plan started on each day, so a four-night trip put one dot on
+    /// the calendar and left the other four days looking free — on the one screen somebody checks
+    /// to find out whether they are free. The model test proves the rule; only this proves the
+    /// grid uses it.
+    ///
+    /// Counting dots is not enough, and the first version of this test proved it: August already
+    /// had seven dotted days from other fixtures, so it passed while the trip sat unexamined in
+    /// September. This one reads the trip's own dates off its card, walks to that month, opens a
+    /// day in the *middle* of the range, and checks the trip is listed on it.
+    func testATripFillsEveryDayItRunsOnTheCalendar() {
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40))
+
+        let range = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS '–'")
+        ).firstMatch
+        XCTAssertTrue(range.waitForExistence(timeout: 20), "no trip in the feed to follow")
+        // "Sep 4 – 8, 2026" → the first two numbers are the days, the third the year.
+        let numbers = range.label.components(separatedBy: CharacterSet.decimalDigits.inverted)
+            .compactMap(Int.init)
+        let months = Calendar.current.monthSymbols
+        guard numbers.count >= 3, let month = months.first(where: {
+            range.label.contains($0.prefix(3))
+        }) else {
+            // A range spanning two months reads differently and this test cannot parse it. Skipped
+            // out loud rather than passed quietly — the fixture is dated relative to the run.
+            return XCTFail("could not read the trip's dates from \"\(range.label)\"")
+        }
+        let middleDay = (numbers[0] + numbers[1]) / 2
+        XCTAssertGreaterThan(numbers[1], numbers[0], "the range is not a range: \(range.label)")
+
+        // Built with the same format style the cell uses, rather than assembled by hand: en-US
+        // says "September 6" and the first attempt at this asked for "6 September", which found
+        // nothing and read as the feature being broken.
+        var parts = DateComponents()
+        parts.year = numbers[2]
+        parts.month = (months.firstIndex(of: month) ?? 0) + 1
+        parts.day = middleDay
+        guard let midDate = Calendar.current.date(from: parts) else {
+            return XCTFail("could not build the middle day of \(range.label)")
+        }
+        let spoken = midDate.formatted(.dateTime.day().month(.wide))
+
+        app.buttons["Calendar"].tap()
+        let nextMonth = app.buttons["Next month"]
+        XCTAssertTrue(nextMonth.waitForExistence(timeout: 20), "no calendar to look at")
+
+        // If the middle of the trip is unmarked, this cell does not exist and the failure names
+        // the day rather than a count.
+        let midTrip = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label == %@", "\(spoken), something planned")
+        ).firstMatch
+        for _ in 0..<3 where !midTrip.exists {
+            nextMonth.tap()
+        }
+        XCTAssertTrue(
+            midTrip.exists,
+            "\(spoken) — the middle of the trip — is unmarked on the calendar"
+        )
+
+        midTrip.tap()
+        attach("calendar-trip-days")
+        XCTAssertTrue(
+            app.staticTexts["Barcelona in May?"].waitForExistence(timeout: 10),
+            "the trip is not listed on a day it runs"
+        )
+    }
+
     /// The compose sheet has to offer the range, or nobody can make one of these.
     func testComposeOffersADateRange() {
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40))

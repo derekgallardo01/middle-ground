@@ -291,6 +291,26 @@ struct DayCell: View {
             }
         }
         .frame(height: rowHeight)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenLabel)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// Everything the two dots mean, said out loud.
+    ///
+    /// The cell rendered a coral dot for "something is planned" and a warm one for "somebody is
+    /// not free", and neither had a label — so a VoiceOver user heard "4" and nothing else, on the
+    /// screen whose entire job is telling you which days are spoken for. Both marks are five
+    /// points across, which is also why they are worth stating rather than left to be seen.
+    private var spokenLabel: String {
+        var parts = [date.formatted(.dateTime.day().month(.wide))]
+        if hasEvents { parts.append("something planned") }
+        if youAreBusy {
+            parts.append("you are not free")
+        } else if someoneIsBusy {
+            parts.append("someone is not free")
+        }
+        return parts.joined(separator: ", ")
     }
 }
 

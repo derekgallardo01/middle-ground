@@ -382,6 +382,21 @@ service cloud.firestore {
     // so nobody can record the other person as absent, backdate an answer, or edit the plan
     // they are being asked about. `get('confirmations', {})` keeps documents written before the
     // field existed evaluable rather than denied.
+    // The moment a plan is over: the end when it is a genuine range, the start otherwise.
+    //
+    // The same rule as `planFinish()` in the locations scope, and as `effectiveEndTime` on the
+    // client — three copies of one fact, because a rules function cannot be shared across match
+    // blocks. Every read uses `get(..., request.time)`: a direct read of a missing property is an
+    // evaluation error rather than a false, and a function body is evaluated when it is called,
+    // so the `!= null` guard at the call site cannot protect what is inside here.
+    function requestFinish() {
+      return (resource.data.get('endTime', null) is timestamp
+               && resource.data.get('endTime', request.time)
+                    > resource.data.get('proposedTime', request.time))
+        ? resource.data.get('endTime', request.time)
+        : resource.data.get('proposedTime', request.time);
+    }
+
     function isConfirmingAttendance() {
       // `get(..., null)` rather than a direct read: a request with no time has no
       // `proposedTime` field at all, and reading a missing property is an evaluation *error*,
@@ -390,7 +405,10 @@ service cloud.firestore {
       // while deciding something unrelated.
       return resource.data.status == 'accepted'
         && resource.data.get('proposedTime', null) != null
-        && resource.data.get('proposedTime', request.time) < request.time
+        // From the finish, not the start. Anchored to the start, a five-night holiday could
+        // be marked as having happened on its first morning — while everybody was still
+        // there — and the client offered the button to match.
+        && requestFinish() < request.time
         // Guarded on both sides, for the same reason as `stillOn` below: a direct read of a
         // missing property is an evaluation error that escapes this branch and denies the whole
         // update. This one has not bitten yet only because every client writes `confirmations`,

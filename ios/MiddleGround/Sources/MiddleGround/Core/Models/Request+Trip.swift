@@ -62,6 +62,29 @@ extension Request {
         return (proposedTime..<endTime).formatted(style)
     }
 
+    /// Whether this plan occupies a given day.
+    ///
+    /// The calendar asked `isDate(proposedTime, inSameDayAs:)`, which is the right question about a
+    /// dinner and the wrong one about a holiday: a four-night trip appeared on its first day and
+    /// nowhere else, so days two, three and four read as free on the one screen people check to
+    /// find out whether they are free.
+    ///
+    /// Days are compared on the plan's own calendar, so a trip abroad occupies the days it does
+    /// there. Ends are inclusive of the start day and exclusive of nothing — a trip that ends at
+    /// 10am on the 16th still occupies the 16th, because somebody is there that morning.
+    func covers(_ day: Date, calendar: Calendar = .current) -> Bool {
+        guard let proposedTime else { return false }
+        var planCalendar = calendar
+        planCalendar.timeZone = displayTimeZone
+
+        guard isMultiDay, let endTime else {
+            return planCalendar.isDate(proposedTime, inSameDayAs: day)
+        }
+        let asked = planCalendar.startOfDay(for: day)
+        return asked >= planCalendar.startOfDay(for: proposedTime)
+            && asked <= planCalendar.startOfDay(for: endTime)
+    }
+
     /// "5 nights" — how long a trip runs, for the places a range is too long to print.
     ///
     /// Counted on the plan's calendar, not the reader's: four nights in Barcelona is four nights

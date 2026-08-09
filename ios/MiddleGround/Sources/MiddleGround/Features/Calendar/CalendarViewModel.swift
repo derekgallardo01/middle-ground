@@ -115,11 +115,13 @@ final class CalendarViewModel {
         hasLoaded = true
     }
 
+    /// A plan occupies every day it runs, not only the day it starts.
+    ///
+    /// This asked `isSameDay(proposedTime)`, which is right about a dinner and wrong about a
+    /// holiday: a four-night trip showed on its first day and nowhere else, so the middle of it
+    /// read as free on the one screen somebody checks to find out whether they are free.
     func events(for date: Date) -> [Request] {
-        events.filter { request in
-            guard let requestDate = request.proposedTime else { return false }
-            return Calendar.current.isDate(requestDate, inSameDayAs: date)
-        }
+        events.filter { $0.covers(date) }
     }
 
 }

@@ -355,9 +355,15 @@ struct Request: Identifiable, Hashable, Codable {
     // in firestore.rules — the client must not offer an answer the backend will refuse.
 
     /// Only a dated plan can be asked about: "split the grocery run" has no moment to confirm.
+    ///
+    /// Measured from the *finish*, not the start. Anchored to the start, a five-night holiday was
+    /// asked "did it happen?" on its first morning — while everybody was still there, with four
+    /// days left to go. `promptForAttendance` was moved to the end when trips shipped; this is the
+    /// screen, which was still asking early, and `isConfirmingAttendance()` in firestore.rules is
+    /// the third copy of the same rule.
     var isAwaitingAttendance: Bool {
-        guard status == .accepted, let time = proposedTime else { return false }
-        return time < Date()
+        guard status == .accepted, let finish = effectiveEndTime else { return false }
+        return finish < Date()
     }
 
     /// Whether this person can say they are still coming.

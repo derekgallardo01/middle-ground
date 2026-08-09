@@ -619,6 +619,49 @@ describe('confirming attendance', () => {
     );
   });
 
+  // Anchored to the start, a five-night holiday could be marked as having happened on its first
+  // morning, while everybody was still there with four days to go.
+  test('a trip in progress cannot be confirmed yet', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_running'), accepted({
+        proposedTime: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        endTime: future,
+      })),
+    );
+
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_running'), { confirmations: { [BOB]: 'happened' } }),
+    );
+  });
+
+  test('a trip that has finished can be confirmed', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_finished'), accepted({
+        proposedTime: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        endTime: past,
+      })),
+    );
+
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_finished'), { confirmations: { [BOB]: 'happened' } }),
+    );
+  });
+
+  // A backwards end is a typo, not a range. Taking it at face value would push the finish before
+  // the start and let a plan be confirmed before it happened.
+  test('an end before the start does not bring the finish forward', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_typo_confirm'), accepted({
+        proposedTime: future,
+        endTime: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      })),
+    );
+
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_typo_confirm'), { confirmations: { [BOB]: 'happened' } }),
+    );
+  });
+
   test('a plan that has not happened yet cannot be confirmed', async () => {
     await seed((db) =>
       setDoc(doc(db, 'requests/r_future'), accepted({ proposedTime: future })),

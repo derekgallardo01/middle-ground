@@ -229,4 +229,103 @@ final class MultiDayPlanTests: XCTestCase {
         XCTAssertFalse(restored.isMultiDay)
         XCTAssertEqual(restored.effectiveEndTime, start)
     }
+
+    // MARK: - Which days a plan occupies
+
+    /// The bug this exists to fix: the calendar asked whether `proposedTime` was the same day, so
+    /// a four-night trip appeared on its first day and nowhere else. The middle of a holiday read
+    /// as free on the one screen somebody checks to find out whether they are free.
+    func testATripOccupiesEveryDayItRuns() {
+        let trip = plan(endingAfter: 4)
+
+        for day in 0...4 {
+            XCTAssertTrue(
+                trip.covers(start.addingTimeInterval(Double(day) * 86_400)),
+                "day \(day) of a four-night trip read as free"
+            )
+        }
+    }
+
+    func testATripDoesNotOccupyTheDayBeforeOrAfter() {
+        let trip = plan(endingAfter: 4)
+
+        XCTAssertFalse(trip.covers(start.addingTimeInterval(-86_400)))
+        XCTAssertFalse(trip.covers(start.addingTimeInterval(5 * 86_400)))
+    }
+
+    /// A trip that finishes at breakfast still occupies that morning — somebody is there.
+    func testTheLastDayCountsEvenWhenItEndsEarly() {
+        var trip = plan(endingAfter: nil)
+        trip.endTime = start.addingTimeInterval(3 * 86_400 + 10 * 3600)
+
+        XCTAssertTrue(trip.covers(start.addingTimeInterval(3 * 86_400 + 12 * 3600)))
+    }
+
+    /// And a dinner is still exactly one day, which is every plan that exists.
+    func testADinnerOccupiesOnlyItsOwnDay() {
+        let dinner = plan(endingAfter: nil)
+
+        XCTAssertTrue(dinner.covers(start))
+        XCTAssertFalse(dinner.covers(start.addingTimeInterval(86_400)))
+        XCTAssertFalse(dinner.covers(start.addingTimeInterval(-86_400)))
+    }
+
+    func testAPlanWithNoTimeOccupiesNothing() {
+        var chore = plan(endingAfter: nil)
+        chore.proposedTime = nil
+
+        XCTAssertFalse(chore.covers(start))
+    }
+
+    /// A backwards end is a typo, not a range — it must not swallow the days between.
+    func testABackwardsEndOccupiesOnlyTheStartDay() {
+        let typo = plan(endingAfter: -2)
+
+        XCTAssertTrue(typo.covers(start))
+        XCTAssertFalse(typo.covers(start.addingTimeInterval(-86_400)))
+    }
+
+    // MARK: - "Did it happen?" on a holiday you are still on
+
+    /// Read off the same rule three times over: the scheduler was moved to the finish when trips
+    /// shipped, the screen was not, and the rules were not either. A five-night holiday asked
+    /// whether it happened on its first morning, with four days left to go.
+    func testATripIsNotAskedWhetherItHappenedWhileItIsHappening() {
+        var running = plan(endingAfter: 5)
+        running.status = .accepted
+        running.proposedTime = Date().addingTimeInterval(-2 * 86_400)
+        running.endTime = Date().addingTimeInterval(3 * 86_400)
+
+        XCTAssertFalse(running.isAwaitingAttendance, "asked mid-holiday whether the holiday happened")
+        XCTAssertFalse(running.needsConfirmation(from: "user_1"))
+    }
+
+    func testATripIsAskedOnceItHasFinished() {
+        var over = plan(endingAfter: 5)
+        over.status = .accepted
+        over.proposedTime = Date().addingTimeInterval(-6 * 86_400)
+        over.endTime = Date().addingTimeInterval(-86_400)
+
+        XCTAssertTrue(over.isAwaitingAttendance)
+    }
+
+    /// And a dinner is asked the moment it is over, exactly as before.
+    func testADinnerIsStillAskedAssoonAsItPasses() {
+        var dinner = plan(endingAfter: nil)
+        dinner.status = .accepted
+        dinner.proposedTime = Date().addingTimeInterval(-3_600)
+
+        XCTAssertTrue(dinner.isAwaitingAttendance)
+    }
+
+    /// A backwards end is a typo, not a range — it must not move the finish earlier and let a
+    /// plan be asked about before it has happened.
+    func testABackwardsEndDoesNotBringTheQuestionForward() {
+        var typo = plan(endingAfter: nil)
+        typo.status = .accepted
+        typo.proposedTime = Date().addingTimeInterval(86_400)
+        typo.endTime = Date().addingTimeInterval(-10 * 86_400)
+
+        XCTAssertFalse(typo.isAwaitingAttendance)
+    }
 }

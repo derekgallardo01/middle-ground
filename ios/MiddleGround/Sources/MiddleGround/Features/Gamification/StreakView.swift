@@ -44,13 +44,20 @@ struct DayPill: View {
 
     var body: some View {
         Text(day)
-            .mgFont(.caption)
-            .fontWeight(.bold)
+            // `mgFont(_:color:)`, not `.mgFont(...).foregroundStyle(...)`. The second spelling
+            // reads perfectly naturally and does nothing: `MGScaledFont` sets its own foreground
+            // style, SwiftUI resolves the *innermost*, and the colour below is discarded. This
+            // shipped that way — the ink was `slate`, which in dark mode inverts to near-white
+            // and sat on pale coral at **1.81:1**, the exact number the comment below was written
+            // to say had been avoided. Found by sampling the pixels of a screenshot, not by any
+            // test: the contrast tests check the colour constants, and the constants were right.
+            //
             // `onLightAccent`, not `onAccent` and not `slate`. Coral is pale in both schemes, so
             // ink that flips is wrong in one of them: white on coral is 2.16:1 in light, and slate
             // goes near-white in dark for 1.81:1. A fixed dark ink is 6.76:1 and 7.74:1. Darkening
             // coral itself would have changed a status colour used in twenty other places.
-            .foregroundStyle(isCompleted ? MGColors.onLightAccent : MGColors.warm600)
+            .mgFont(.caption, color: isCompleted ? MGColors.onLightAccent : MGColors.warm600)
+            .fontWeight(.bold)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .background(isCompleted ? MGColors.coral : MGColors.warm100)

@@ -436,14 +436,51 @@ minutes to fifty-eight, in series, for no reason — nothing there depends on th
 alongside it, the wall clock is the slower of the two rather than their sum.
 
 
+## 2026-08-09 — a colour the code asks for and the screen does not use
+
+`mgFont(_:)` applies its own `foregroundStyle`, and SwiftUI resolves the **innermost** one — so
+
+    Text("S").mgFont(.caption).foregroundStyle(MGColors.onLightAccent)
+
+renders slate and discards the colour. `mgFont(_:color:)` exists for exactly this and says so in
+its own doc comment. **161 sites use the broken spelling**, and two of them were real failures:
+
+| | intended | shipped |
+|---|---|---|
+| Calendar selected day | white on indigo, 4.47:1 | slate on indigo, **2.32:1** |
+| Streak pill, dark mode | 7.74:1 | near-white on pale coral, **1.81:1** |
+
+The comment above the streak pill quotes 1.81:1 as the number it had avoided, while the code
+produced it. The status badge was a third: legible on its 12% tint, but every status rendered
+slate, and the colour *is* the information.
+
+**None of this was findable from the tests.** `ColourContrastTests` checks the colour constants,
+and the constants were correct — the view simply never used them. It was found by sampling the
+pixels of a screenshot: `#334155` where `#1E293B` was asked for. An impression from a downscaled
+image was wrong in both directions, first suggesting a failure that was not there and then missing
+the one that was; the pixel values settled it.
+
+Fixed in the three places where the colour carries meaning. **The remaining ~158 are `warm600`
+rendering as slate** — secondary text looking primary. Legible, so not an accessibility failure,
+but the app does not look as designed. The fix is mechanical; it changes the appearance of most
+screens at once, so it is recorded here rather than done quietly.
+
+**A red that was not a bug.** `test_20_creatorIsOfferedNoResponses` failed once in CI: it asserts
+Accept is absent, and absence is indistinguishable from "the screen has not arrived yet" — so on a
+slow runner it was checking the feed, where a request awaiting you carries its own Accept button.
+`openPlan` now waits for the detail screen.
+
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.
 - App Attest has never produced a verified request. Enforcement stays off until it does.
 - Report moderation, which needs a real report to work through.
-- Two demo plans with a dangling participant; re-seeding the demo data clears them.
 - Seven moderate transitive dependency advisories, to be fixed away from this Mac.
 - The darker teal is computed but not yet eyeballed on a device.
+- ~158 `.mgFont(...).foregroundStyle(...)` sites rendering slate instead of `warm600`. Mechanical
+  to fix (`mgFont(_:color:)`), but it changes how most screens look, so it wants a look first —
+  and a SwiftLint rule afterwards, or it comes straight back.
 - Deep-link destinations, which need a real plan between two real accounts.
 - **Cloudflare Email Routing for `support@seekmiddleground.com`.** The address is published and
   correct; nothing will arrive until the route exists. Cloudflare → seekmiddleground.com → Email →

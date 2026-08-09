@@ -89,9 +89,11 @@ struct StatusBadge: View {
 
     var body: some View {
         Text(status.displayName)
-            .mgFont(.caption)
+            // Same trap: written the other way round the badge lost its colour entirely and every
+            // status read as plain slate. Legible — the fill is a 12% tint — but the colour *is*
+            // the information, which is the whole reason a badge is not just a word.
+            .mgFont(.caption, color: status.badgeForeground)
             .fontWeight(.bold)
-            .foregroundStyle(status.badgeForeground)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(status.color.opacity(0.12))

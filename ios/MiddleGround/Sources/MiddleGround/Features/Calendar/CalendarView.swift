@@ -263,10 +263,18 @@ struct DayCell: View {
                 .fill(isSelected ? MGColors.indigo : Color.clear)
                 .frame(width: selectionSize, height: selectionSize)
 
+            // `mgFont(_:color:)` — the two-step spelling silently discards the colour, and this
+            // is where it cost the most: the selected day rendered `slate` on the indigo circle
+            // at **2.32:1**, under even the 3:1 floor for non-text, on the single most important
+            // affordance of this screen. White on indigo is 4.47:1.
             Text("\(Calendar.current.component(.day, from: date))")
-                .mgFont(.caption)
+                .mgFont(
+                    .caption,
+                    color: isSelected
+                        ? MGColors.onAccent
+                        : (isCurrentMonth ? MGColors.slate : MGColors.warm600)
+                )
                 .fontWeight(.semibold)
-                .foregroundStyle(isSelected ? MGColors.onAccent : (isCurrentMonth ? MGColors.slate : MGColors.warm600))
 
             // Two different facts, so two different marks rather than one ambiguous dot:
             // coral means something is planned, warm means somebody is not free.

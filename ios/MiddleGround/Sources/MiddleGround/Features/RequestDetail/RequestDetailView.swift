@@ -149,6 +149,11 @@ struct RequestDetailView: View {
             }
         }
         .background(MGColors.sand.ignoresSafeArea())
+        // So a test can wait for *this* screen rather than assume the tap landed. Without it,
+        // `openPlan` returned while the feed was still up and the assertions ran against the
+        // feed's own Accept button — which fails as "the creator was offered Accept on their own
+        // request", a product bug that was not happening.
+        .accessibilityIdentifier("requestDetail")
         .navigationTitle(viewModel.request.category.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

@@ -40,6 +40,17 @@ final class ActionCoverageUITests: XCTestCase {
             return false
         }
         cell.tap()
+        // Waiting for the detail screen, not just for the tap to be sent. Several tests here
+        // assert a control is *absent*, and absence is indistinguishable from "the screen has not
+        // arrived yet" — so on a slow runner they were checking the feed, where a request awaiting
+        // you carries its own Accept button. That is how `test_20` failed in CI while passing on
+        // every machine fast enough to have navigated already.
+        guard app.otherElements["requestDetail"].waitForExistence(timeout: 15)
+                || app.descendants(matching: .any)["requestDetail"].waitForExistence(timeout: 5)
+        else {
+            XCTFail("tapped \(title) but the detail screen never appeared", file: file, line: line)
+            return false
+        }
         return true
     }
 

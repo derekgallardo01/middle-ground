@@ -146,7 +146,7 @@ struct RequestDetailView: View {
                         Task { await viewModel.toggleSaved() }
                     } label: {
                         Image(systemName: viewModel.request.status == .saved ? "heart.fill" : "heart")
-                            .foregroundStyle(MGColors.coral)
+                            .foregroundStyle(MGColors.coralText)
                     }
                     .accessibilityLabel(viewModel.request.status == .saved ? "Remove from saved" : "Save for later")
                 }
@@ -326,7 +326,7 @@ struct RequestDetailView: View {
                             .mgFont(.body)
                         Spacer()
                     }
-                    .foregroundStyle(MGColors.coral)
+                    .foregroundStyle(MGColors.coralText)
                 }
                 .disabled(viewModel.isSending)
                 .accessibilityLabel("Cancel request")

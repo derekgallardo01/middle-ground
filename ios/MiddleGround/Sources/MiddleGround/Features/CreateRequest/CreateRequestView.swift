@@ -93,7 +93,7 @@ struct CreateRequestView: View {
                                 } icon: {
                                     Image(systemName: "exclamationmark.triangle")
                                 }
-                                .foregroundStyle(MGColors.coral)
+                                .foregroundStyle(MGColors.coralText)
                                 .accessibilityLabel("The end needs to be after the start")
                             }
                         }

@@ -24,8 +24,28 @@ enum MGColors {
     static let teal = Color(light: 0x0F766E, dark: 0x2DD4BF)
     static let coral = Color(light: 0xFF8FA3, dark: 0xFDA4AF)
 
+    /// Coral, dark enough to read as text or an icon. **Use this for anything a person has to
+    /// make out**; `coral` itself is a fill.
+    ///
+    /// The pale coral is right behind dark ink and wrong in front of a page: `#FF8FA3` on sand is
+    /// **2.00:1**, under even the 3:1 floor for a meaningful icon, and it was the foreground for
+    /// eleven things — the saved heart, the report button, the streak flame, "you are sharing
+    /// your location". Darkening `coral` itself was not an option: it is also the fill behind
+    /// `onLightAccent`, the logo mark and the confetti, all of which need it pale.
+    ///
+    /// rose-700 in light mode (5.82:1 on sand, 6.3:1 on white — clears AA for body text, not just
+    /// the icon floor). Dark mode is unchanged, because pale coral on a dark page is already
+    /// 7.74:1; the failure was only ever in light mode.
+    static let coralText = Color(light: 0xBE123C, dark: 0xFDA4AF)
+
     // Supporting
     static let sunshine = Color(light: 0xFFC857, dark: 0xFDE68A)
+
+    /// Sunshine, dark enough to read. Same split as `coralText`, and a worse starting point:
+    /// `#FFC857` on sand is **1.42:1**, which is very nearly invisible — and it was carrying the
+    /// warning triangle on the error state and the calendar clash row, the two places in the app
+    /// whose entire job is to be noticed. amber-700 in light mode, 4.65:1 on sand.
+    static let sunshineText = Color(light: 0xB45309, dark: 0xFDE68A)
     static let lavender = Color(light: 0xA78BFA, dark: 0xC4B5FD)
     static let sky = Color(light: 0x7DD3FC, dark: 0x7DD3FC)
 

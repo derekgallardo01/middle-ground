@@ -70,6 +70,36 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build | xcbeautify
 
+      # The first UI tests CI has ever run.
+      #
+      # `xcodebuild -scheme MiddleGround test` is the Swift package — unit tests only — and the
+      # app shell was built and never tested, so every UI test in this repo was local-only. That
+      # is the wrong half to skip: five of the defects found by hand this month were visible only
+      # on a screen, and no unit test can fail on a blank one.
+      #
+      # A named subset rather than the whole bundle, and the names say why. The excluded ones are
+      # the screenshot, tour and video harnesses (they exist to produce artefacts, take minutes
+      # each, and have nothing to assert) and the real-backend suites (they need Firebase
+      # credentials CI does not have, and skip themselves without them — a green run that proved
+      # nothing would be worse than not running them).
+      - name: UI tests
+        run: |
+          cd ios/MiddleGround/App
+          set -o pipefail
+          xcodebuild \
+            -project MiddleGround.xcodeproj \
+            -scheme MiddleGroundApp \
+            -destination "$DESTINATION" \
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/.spm" \
+            -resultBundlePath UITestResults.xcresult \
+            -only-testing:MiddleGroundUITests/TripPlanTests \
+            -only-testing:MiddleGroundUITests/QuietPlanTests \
+            -only-testing:MiddleGroundUITests/ActionCoverageUITests \
+            -only-testing:MiddleGroundUITests/FeatureCoverageUITests \
+            -only-testing:MiddleGroundUITests/E2EActionsUITests \
+            CODE_SIGNING_ALLOWED=NO \
+            test | xcbeautify
+
       # The Release configuration had never been compiled anywhere. That matters because it
       # is the only build where the `#if DEBUG` guards actually take effect — the anonymous
       # test-user sign-in, PreviewAuthService, and the mock repository registrations all
@@ -92,7 +122,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: ios/MiddleGround/TestResults.xcresult
+          path: |
+            ios/MiddleGround/TestResults.xcresult
+            ios/MiddleGround/App/UITestResults.xcresult
           retention-days: 7
 
   lint:
@@ -135,3 +167,40 @@ jobs:
       - name: Test security rules and push delivery
         working-directory: ios/MiddleGround
         run: npx --yes firebase-tools emulators:exec --only firestore "cd CloudFunctions && npm test"
+
+  # The website had no CI at all, and it is half of acquisition: the invite link lands there, the
+  # legal pages Apple checks are served from there, and `site/dist` is committed — so a change to
+  # `site/content` that nobody rebuilt would deploy the old page and look fine in review.
+  site:
+    name: Website
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The join page's script is permitted by hash. Change the script without updating the
+      # Caddyfile and the browser silently refuses to run it: the page still renders, the
+      # fallback copy is still there, and the only symptom is that the invite code quietly
+      # stops appearing. There is no error anywhere. This is the error.
+      - name: Verify the join page against its CSP
+        run: python3 site/verify-join-page.py
+
+      - name: The built site matches its sources
+        run: |
+          python3 site/build.py
+          python3 docs/legal/build.py
+          git diff --exit-code -- site/dist docs/legal \
+            || { echo "::error::site/dist is stale — run site/build.py and commit the result"; exit 1; }
+
+      # Every published support address has to be one that can receive mail. `middleground.app`
+      # was named in eleven places — the privacy policy, the terms, the App Review notes — and is
+      # somebody else's domain with no MX records at all, so every one of those promises pointed
+      # at a mailbox that does not exist.
+      - name: No dead support addresses
+        run: |
+          if grep -rn "support@middleground.app" --include="*.md" --include="*.html" --include="*.py" . ; then
+            echo "::error::support@middleground.app cannot receive mail — use support@seekmiddleground.com"
+            exit 1
+          fi

@@ -8,7 +8,7 @@ struct ErrorState: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 44))
-                .foregroundStyle(MGColors.sunshine)
+                .foregroundStyle(MGColors.sunshineText)
 
             Text("Something went wrong")
                 .mgFont(.h2)

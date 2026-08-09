@@ -80,7 +80,7 @@ struct LocationRow: View {
                 Button(action: onStop) {
                     Text("Stop sharing")
                         .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.coral)
+                        .foregroundStyle(MGColors.coralText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, MGSpacing.sm)
                         .background(MGColors.warm100)
@@ -98,7 +98,7 @@ struct LocationRow: View {
         Link(destination: mapsURL(for: point)) {
             HStack(spacing: MGSpacing.sm) {
                 Image(systemName: "mappin.circle.fill")
-                    .foregroundStyle(MGColors.coral)
+                    .foregroundStyle(MGColors.coralText)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(partnerName) shared their location")
                         .mgFont(.bodySmall)

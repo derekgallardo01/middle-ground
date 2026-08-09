@@ -125,13 +125,13 @@ final class ColourContrastTests: XCTestCase {
         assertReadable(MGColors.indigo, on: MGColors.surface, atLeast: 3.0, "indigo on surface")
     }
 
-    /// The remaining accents are **documented as decorative**, not asserted as readable.
+    /// The pale accents stay pale, because they are fills.
     ///
-    /// In light mode coral is 2.00:1 on sand, sunshine 1.42:1, lavender 2.52:1 and sky 1.54:1 —
-    /// all below the 3:1 floor. That is fine for a confetti burst or a fill behind dark text, and
-    /// not fine for anything a reader has to make out. This test does not fail on them, because
-    /// darkening the palette is a design decision rather than a defect; it exists so the numbers
-    /// are written down somewhere that runs.
+    /// Coral is 2.00:1 on sand in light mode, sunshine 1.42:1, lavender 2.52:1 and sky 1.54:1.
+    /// That is correct behind dark ink, on the logo mark and in a confetti burst — and it was
+    /// also, for thirteen views, the foreground colour of something a person had to make out.
+    /// The fix was not to darken these; it was `coralText` and `sunshineText` below. This test
+    /// stays so the numbers are written down somewhere that runs.
     func testDecorativeAccentsAreKnownToBeLowContrast() {
         for (accent, name) in [(MGColors.coral, "coral"), (MGColors.sunshine, "sunshine"),
                                (MGColors.lavender, "lavender"), (MGColors.sky, "sky")] {
@@ -142,6 +142,45 @@ final class ColourContrastTests: XCTestCase {
                 "\(name) now clears 3:1 in light mode — if that was deliberate, assert it as "
                     + "readable instead of leaving it here"
             )
+        }
+    }
+
+    // MARK: - The accents that are read rather than looked at
+
+    /// 4.5:1, the body-text floor, not the 3:1 icon floor.
+    ///
+    /// These carry the saved heart, the report button, the streak flame, "you are sharing your
+    /// location", the error state's warning triangle and the calendar clash row — several of
+    /// which are words, and all of which exist to be noticed. Holding them to the icon floor
+    /// would pass a colour that is legal on a glyph and unreadable in a sentence.
+    func testAccentTextIsReadableInBothSchemes() {
+        for (accent, name) in [(MGColors.coralText, "coralText"),
+                               (MGColors.sunshineText, "sunshineText")] {
+            assertReadable(accent, on: MGColors.sand, atLeast: 4.5, "\(name) on sand")
+            assertReadable(accent, on: MGColors.surface, atLeast: 4.5, "\(name) on surface")
+        }
+    }
+
+    /// Dark mode was never the problem — pale coral on a dark page is 7.74:1 — so the text
+    /// variants deliberately do not change there. If someone "fixes" them, this says why not.
+    func testTheTextVariantsOnlyDifferInLightMode() {
+        XCTAssertEqual(
+            contrast(MGColors.coralText, on: MGColors.sand, .dark),
+            contrast(MGColors.coral, on: MGColors.sand, .dark),
+            accuracy: 0.01,
+            "dark mode coral was changed; it was already readable"
+        )
+        XCTAssertEqual(
+            contrast(MGColors.sunshineText, on: MGColors.sand, .dark),
+            contrast(MGColors.sunshine, on: MGColors.sand, .dark),
+            accuracy: 0.01
+        )
+    }
+
+    /// The whole point of the split: a pale fill still needs its dark ink to work on it.
+    func testInkStillReadsOnThePaleFills() {
+        for (fill, name) in [(MGColors.coral, "coral"), (MGColors.sunshine, "sunshine")] {
+            assertReadable(MGColors.onLightAccent, on: fill, atLeast: 4.5, "ink on \(name)")
         }
     }
 }

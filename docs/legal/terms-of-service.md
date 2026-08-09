@@ -88,4 +88,4 @@ noted in the app's release notes. Continuing to use the app after a change means
 
 ## Contact
 
-**support@middleground.app**
+**support@seekmiddleground.com**

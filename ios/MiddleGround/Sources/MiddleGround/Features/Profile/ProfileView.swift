@@ -99,8 +99,32 @@ struct ProfileView: View {
             }
 
             VStack(spacing: 4) {
-                Text(viewModel.user?.name ?? "Guest")
-                    .mgFont(.h1)
+                // Tappable, because onboarding was the only screen that ever wrote this and
+                // Apple hands over a name exactly once. Somebody who quit before the profile
+                // step was "Guest" for good — to themselves, and to everybody in every group
+                // they later joined.
+                Button {
+                    viewModel.beginEditingDisplayName()
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(viewModel.displayName)
+                            .mgFont(.h1)
+                        Image(systemName: "pencil")
+                            .font(.system(size: 15))
+                            .foregroundStyle(MGColors.warm600)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Your name: \(viewModel.displayName)")
+                .accessibilityHint("Change your name")
+
+                if viewModel.hasNoName {
+                    Text("Add your name so people know who you are.")
+                        .mgFont(.bodySmall)
+                        .foregroundStyle(MGColors.warm600)
+                        .multilineTextAlignment(.center)
+                }
+
                 if !viewModel.levelDisplay.isEmpty {
                     Text(viewModel.levelDisplay)
                         .mgFont(.body)
@@ -252,6 +276,13 @@ struct ProfileView: View {
             } message: {
                 Text("Everyone in the group sees this name. Leave it empty to go back to the group type.")
             }
+            .alert("What should we call you?", isPresented: $viewModel.isEditingDisplayName) {
+                TextField("Your name", text: $viewModel.displayNameInput)
+                Button("Cancel", role: .cancel) { viewModel.isEditingDisplayName = false }
+                Button("Save") { Task { await viewModel.commitDisplayName() } }
+            } message: {
+                Text("This is the name everyone you plan with sees.")
+            }
         }
     }
 
@@ -297,7 +328,7 @@ struct ProfileView: View {
                     HStack {
                         Text("Sign Out")
                             .mgFont(.body)
-                            .foregroundStyle(MGColors.coral)
+                            .foregroundStyle(MGColors.coralText)
                         Spacer()
                         if viewModel.isLoading {
                             ProgressView()
@@ -364,13 +395,13 @@ struct ProfileView: View {
                 HStack {
                     Text("Delete Account")
                         .mgFont(.body)
-                        .foregroundStyle(MGColors.coral)
+                        .foregroundStyle(MGColors.coralText)
                     Spacer()
                     if viewModel.isDeletingAccount {
                         ProgressView()
                     } else {
                         Image(systemName: "trash")
-                            .foregroundStyle(MGColors.coral)
+                            .foregroundStyle(MGColors.coralText)
                     }
                 }
                 .padding()

@@ -31,7 +31,14 @@
 		# `style-src 'unsafe-inline'` is load-bearing, not laziness: the pages carry their CSS
 		# in an inline <style> block and the logo as inline SVG, so that the whole site is one
 		# request with nothing render-blocking. Without it every page renders unstyled.
-		Content-Security-Policy "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+		# `script-src` names one hash and nothing else: not 'unsafe-inline', not a host, not
+		# 'self'. That single script is the join page reading the invite code out of the URL —
+		# the page used to tell people to transcribe six characters from their browser's address
+		# bar, between "someone invited you" and "you have the app". Change one byte of it and
+		# the browser refuses to run it, which is deliberate: `Scripts/verify-join-page.py`
+		# recomputes the hash from the built page and fails CI when the two drift, so the policy
+		# can never silently start permitting something nobody read.
+		Content-Security-Policy "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'sha256-UlMTyJYIULNJSSdixWhzwsaMAzzy4JhnJabVSOmTZwE='; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
 	}
 
 	# The social card is versioned in its filename, so it can be cached hard. Icons live at

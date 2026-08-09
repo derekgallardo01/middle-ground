@@ -22,7 +22,7 @@ struct CalendarClashRow: View {
                     .mgFont(.bodySmall)
             } icon: {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(MGColors.sunshine)
+                    .foregroundStyle(MGColors.sunshineText)
             }
             .accessibilityLabel(
                 title.map { "Warning: your calendar already has \($0) at this time" }

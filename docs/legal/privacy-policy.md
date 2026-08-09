@@ -259,4 +259,4 @@ the app's release notes.
 
 ## Contact
 
-**support@middleground.app**
+**support@seekmiddleground.com**

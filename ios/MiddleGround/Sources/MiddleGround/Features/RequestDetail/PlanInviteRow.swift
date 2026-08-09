@@ -49,7 +49,7 @@ struct PlanInviteRow: View {
                     } label: {
                         Text("Cancel")
                             .mgFont(.bodySmall)
-                            .foregroundStyle(MGColors.coral)
+                            .foregroundStyle(MGColors.coralText)
                     }
                     .disabled(isBusy)
                     .accessibilityLabel("Cancel this plan code")

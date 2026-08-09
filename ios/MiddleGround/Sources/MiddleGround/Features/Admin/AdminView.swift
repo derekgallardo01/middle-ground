@@ -177,7 +177,7 @@ struct AdminView: View {
                         HStack {
                             Label(report.reason.displayName, systemImage: "flag.fill")
                                 .mgFont(.bodySmall)
-                                .foregroundStyle(MGColors.coral)
+                                .foregroundStyle(MGColors.coralText)
                             Spacer()
                             Text(report.at.formatted(date: .abbreviated, time: .shortened))
                                 .mgFont(.caption)

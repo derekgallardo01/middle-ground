@@ -1,6 +1,6 @@
 # Middle Ground — Support
 
-Need a hand? Email **support@middleground.app** and we'll get back to you.
+Need a hand? Email **support@seekmiddleground.com** and we'll get back to you.
 
 When you write in, it helps to include your iOS version, your device, and what you were doing
 when it went wrong.
@@ -55,7 +55,7 @@ them. Full detail is in the [Privacy Policy](privacy-policy.md).
 
 ## Reporting a security issue
 
-Please email **support@middleground.app** with "Security" in the subject rather than filing it
+Please email **support@seekmiddleground.com** with "Security" in the subject rather than filing it
 publicly. We'll acknowledge and work with you on a fix.
 
 ## Legal

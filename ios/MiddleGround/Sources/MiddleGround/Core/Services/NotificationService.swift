@@ -15,7 +15,26 @@ final class NotificationService: NSObject, ObservableObject {
         super.init()
         // Nothing Firebase-backed here: this singleton can be created before
         // FirebaseApp.configure() runs (or in mock mode, where it never runs).
+        //
+        // Guarded, because `UNUserNotificationCenter.current()` does not fail gracefully outside
+        // an app — it raises `NSInternalInconsistencyException` ("bundleProxyForCurrentProcess is
+        // nil"), which kills the process. In the xctest bundle the main bundle is Xcode's test
+        // agent rather than an `.app`, so *any* type holding this singleton could not be
+        // constructed in a unit test at all. That is why `AppState` and `ProfileViewModel` — two
+        // of the most consequential types in the app — had no tests: not because nobody tried,
+        // but because trying crashed the runner with an error about bundle proxies.
+        guard Self.isRunningInAnApp else { return }
         UNUserNotificationCenter.current().delegate = self
+    }
+
+    /// Whether there is a real application around us, rather than a bare test runner.
+    ///
+    /// The app bundle — and the UI-test host — is an `.app`; the xctest agent is a directory with
+    /// no extension. Deliberately not a `#if DEBUG`: the same binary runs the tests, and a flag
+    /// that changes what the *shipping* build does to make a test pass proves nothing about the
+    /// shipping build.
+    static var isRunningInAnApp: Bool {
+        Bundle.main.bundleURL.pathExtension == "app"
     }
 
     /// Attaches the Firebase Messaging delegate. Must be called *after*

@@ -13,6 +13,7 @@ final class ProfileViewModel {
     private let relationshipService = Container.shared.relationshipService()
     private let requestService = Container.shared.requestService()
     private let signInManager = Container.shared.signInWithAppleManager()
+    private let userRepository = Container.shared.userRepository()
 
     var user: User?
     var stats: GamificationStats?
@@ -288,6 +289,55 @@ final class ProfileViewModel {
             errorMessage = UserFacingError.message(for: error)
         }
         renameInput = ""
+    }
+
+    // MARK: - Your own name
+
+    /// Whether the name editor is open, and what is in it.
+    var isEditingDisplayName = false
+    var displayNameInput = ""
+
+    /// The name shown when there is none, and the reason this editor exists.
+    ///
+    /// Onboarding was the **only** screen that ever wrote a user's name — Apple supplies one on
+    /// the very first Sign in with Apple and never again — so somebody who quit the flow before
+    /// the profile step was "Guest" permanently, to themselves and to everybody in every group
+    /// they later joined, with no screen anywhere able to change it.
+    static let unnamed = "Guest"
+
+    var displayName: String {
+        let name = user?.name.trimmingCharacters(in: .whitespaces) ?? ""
+        return name.isEmpty ? Self.unnamed : name
+    }
+
+    var hasNoName: Bool {
+        (user?.name.trimmingCharacters(in: .whitespaces) ?? "").isEmpty
+    }
+
+    func beginEditingDisplayName() {
+        displayNameInput = user?.name ?? ""
+        isEditingDisplayName = true
+    }
+
+    /// Saves it, or does nothing if the field was emptied.
+    ///
+    /// An empty name is refused rather than saved: it is exactly the state this exists to get
+    /// people out of, and "" would put them back in it.
+    func commitDisplayName() async {
+        isEditingDisplayName = false
+        guard var user else { return }
+        let cleaned = RequestLimits.clamp(
+            displayNameInput.trimmingCharacters(in: .whitespaces), to: RequestLimits.groupName
+        )
+        guard !cleaned.isEmpty, cleaned != user.name else { return }
+
+        user.name = cleaned
+        do {
+            try await userRepository.saveUser(user)
+            self.user = user
+        } catch {
+            errorMessage = UserFacingError.message(for: error)
+        }
     }
 
     func loadUser() async {

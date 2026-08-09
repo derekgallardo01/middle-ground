@@ -87,7 +87,7 @@ Codes currently live for the 1.0 review: `GCE6NN`, `4H4EY6`, `995ZXA`.
 > - **Block / leave:** Profile → **Your groups** → **Leave**. This removes you from the group,
 >   stops the other person from sending you anything, and revokes the invite code if it was
 >   yours.
-> - Reports are reviewed within 24 hours. Contact: **support@middleground.app**
+> - Reports are reviewed within 24 hours. Contact: **support@seekmiddleground.com**
 >
 > **Push notifications** are optional and requested during onboarding with an explanation. The
 > app deliberately does not declare the `remote-notification` background mode — all pushes are

@@ -211,14 +211,52 @@ TEMPLATE = """<!doctype html>
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>
       <a href="/support">Support</a>
-      <a href="mailto:support@middleground.app">Contact</a>
+      <a href="mailto:support@seekmiddleground.com">Contact</a>
     </nav>
     <p class="copyright">© {year} Middle Ground. Made with care. · <a href="https://kinetichelix.io" target="_blank" rel="noopener">Built by Kinetic Helix</a></p>
   </div>
 </footer>
+{scripts}
 </body>
 </html>
 """
+
+
+# The only JavaScript on this site, and the reason the CSP names a hash.
+#
+# The invite code is in the URL and was in no other place: the page told people to read six
+# characters out of their browser's address bar, which on iOS means tapping into a collapsed URL
+# bar and transcribing from a font that renders 5 and S almost identically. That is the highest
+# friction step in the whole of acquisition, sitting between "someone invited you" and "you have
+# the app".
+#
+# Kept as a single constant because its **hash** is what the Content-Security-Policy allows. No
+# 'unsafe-inline', no external file, no new origin: change one byte here and the browser refuses
+# to run it, which is why `Scripts/verify-join-page.py` recomputes the hash and fails CI if the
+# Caddyfile has drifted. The page works with JavaScript disabled — the fallback paragraph it
+# replaces is the copy that shipped before this existed.
+JOIN_SCRIPT = """(function () {
+  var match = /^\\/join\\/([A-Za-z0-9]{6})\\/?$/.exec(location.pathname);
+  if (!match) { return; }
+  var code = match[1].toUpperCase();
+  var value = document.getElementById('code-value');
+  var fallback = document.getElementById('code-fallback');
+  var heading = document.getElementById('code-heading');
+  var copy = document.getElementById('code-copy');
+  if (!value || !fallback) { return; }
+  value.textContent = code;
+  value.hidden = false;
+  if (heading) { heading.textContent = 'Your invite code'; }
+  fallback.textContent = 'Six characters. You will need it when you open the app.';
+  if (copy && navigator.clipboard) {
+    copy.hidden = false;
+    copy.addEventListener('click', function () {
+      navigator.clipboard.writeText(code).then(function () {
+        copy.textContent = 'Copied';
+      });
+    });
+  }
+})();"""
 
 
 CSS = """
@@ -361,6 +399,10 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
 }
 .btn-primary { background:var(--indigo); color:#fff; box-shadow:0 6px 18px -6px var(--indigo); }
 .btn-primary:hover { filter:brightness(1.06); }
+.code {
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:34px; font-weight:700;
+  letter-spacing:6px; color:var(--indigo); margin:12px 0; text-align:center;
+}
 .btn-secondary { background:var(--surface); color:var(--slate); border-color:var(--warm-200); }
 .btn-secondary:hover { border-color:var(--warm-400); }
 
@@ -603,7 +645,7 @@ def render(md: str) -> str:
 # ---------------------------------------------------------------- output
 
 # The one email address on the site, and the reason it has to be fenced off.
-SUPPORT_EMAIL = "support@middleground.app"
+SUPPORT_EMAIL = "support@seekmiddleground.com"
 
 
 def protect_emails(page_html: str) -> str:
@@ -666,6 +708,8 @@ def build_page(page: Page) -> str:
         nav_changelog=current if page.nav == "changelog" else "",
         nav_timeline=current if page.nav == "timeline" else "",
         body=render(md),
+        # Only the join page carries a script, and only because the code lives in the URL.
+        scripts=f"<script>{JOIN_SCRIPT}</script>" if page.slug == "join" else "",
         year=date.today().year,
     ))
 

@@ -14,8 +14,10 @@
 <div class="cards">
 <div class="card">
 <span class="ico">🎟️</span>
-<h3>It's in the link you tapped</h3>
-<p>The code is the last part of the address in your browser bar — six characters, like <strong>MG24KT</strong>. Keep this page open; you'll need it in a moment.</p>
+<h3 id="code-heading">It's in the link you tapped</h3>
+<p id="code-fallback">The code is the last part of the address in your browser bar — six characters, like <strong>MG24KT</strong>. Keep this page open; you'll need it in a moment.</p>
+<p id="code-value" class="code" hidden></p>
+<button id="code-copy" class="btn btn-secondary" type="button" hidden>Copy code</button>
 </div>
 <div class="card">
 <span class="ico">📲</span>

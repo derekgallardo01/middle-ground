@@ -250,7 +250,7 @@ struct OnboardingView: View {
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
                     .mgFont(.caption)
-                    .foregroundStyle(MGColors.coral)
+                    .foregroundStyle(MGColors.coralText)
                     .multilineTextAlignment(.center)
             }
 

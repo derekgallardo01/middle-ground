@@ -370,6 +370,47 @@ SwiftData entity dropping the field on the way through the cache.
 the emulator, 0 lint violations across 243 files.
 
 
+## 2026-08-09 — closing the gaps
+
+**The support address published in eleven places could not receive mail.** `support@middleground.app`
+is named in the privacy policy, the terms, the support page, the site footer, the homepage and the
+App Review notes. `dig` says `middleground.app` resolves to Squarespace — it is somebody else's
+domain — and has **no MX records at all**. `seekmiddleground.com` had none either. So the address
+Apple would use, the address the terms name for exercising data rights, and the address behind
+"reports are reviewed within 24 hours" all pointed at a mailbox that does not exist. Every
+occurrence now reads `support@seekmiddleground.com`, and CI fails if the old one comes back.
+**This is not finished until Cloudflare Email Routing is switched on** — the address is correct and
+still undeliverable until then.
+
+**Somebody who quit onboarding early was "Guest" permanently.** `signInWithApple` saves the user
+document at the *welcome* step and `isOnboarded` was `currentUser != nil`, so quitting before the
+profile step left an account with no name. Onboarding was the **only** screen in the app that ever
+wrote one, and Apple supplies a name on the first Sign in with Apple and never again — so there was
+no way back, to yourself or to anybody in any group you later joined. Fixed twice over: an account
+with no name resumes onboarding, and Profile can now set a name.
+
+**`NotificationService.shared` made two of the most important types untestable.** Any type holding
+it could not be constructed in the unit target: `UNUserNotificationCenter.current()` raises
+`NSInternalInconsistencyException` when there is no bundle proxy, which kills the runner rather
+than failing a test. That is why `AppState` and `ProfileViewModel` had no tests — not because
+nobody tried. Guarded on whether the main bundle is an `.app`, so both are testable now.
+
+**The join page shows the invite code.** It used to tell people to read six characters out of their
+browser's address bar. The CSP permits exactly one script by SHA-256 hash — no `unsafe-inline`, no
+host, no `'self'` — and `site/verify-join-page.py` recomputes the hash in CI, because a drifted
+hash fails silently: the page renders, the fallback copy is there, and the code just quietly stops
+appearing.
+
+**Coral and sunshine were foreground colours at 2.00:1 and 1.42:1.** Thirteen views used them for
+something a person had to make out — the saved heart, the report button, the streak flame, "you are
+sharing your location", and the two warning triangles whose whole job is to be noticed. Darkening
+them was not an option (they are also fills, under dark ink), so `coralText` and `sunshineText`
+carry the light-mode-darkened variants at 5.82:1 and 4.65:1. Dark mode is untouched: pale coral on
+a dark page was already 7.74:1.
+
+**CI now runs UI tests and checks the website**, neither of which it had ever done.
+
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.
@@ -377,9 +418,12 @@ the emulator, 0 lint violations across 243 files.
 - Report moderation, which needs a real report to work through.
 - Two demo plans with a dangling participant; re-seeding the demo data clears them.
 - Seven moderate transitive dependency advisories, to be fixed away from this Mac.
-- Four decorative accents below 3:1 in light mode, used as foreground in 12 places.
 - The darker teal is computed but not yet eyeballed on a device.
 - Deep-link destinations, which need a real plan between two real accounts.
+- **Cloudflare Email Routing for `support@seekmiddleground.com`.** The address is published and
+  correct; nothing will arrive until the route exists. Cloudflare → seekmiddleground.com → Email →
+  Email Routing → enable, add `support` as a custom address, forward to a real inbox, accept the
+  MX records it offers. Two minutes, and it is the contact Apple uses.
 - No plan abroad has been created against the real backend — the zone is proven in the
   simulator and in the rules tests, never yet written by a person choosing a place.
 - 1.0 is in review with build `202608021918`, which predates every fix this week. Push does not

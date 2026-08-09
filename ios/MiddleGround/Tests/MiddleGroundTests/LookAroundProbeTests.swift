@@ -98,4 +98,61 @@ final class LookAroundProbeTests: XCTestCase {
             "\(pictures.keys.sorted()) — two of these show the identical photograph"
         )
     }
+
+    // MARK: - Does Apple tell us what time it is there?
+
+    /// A trip abroad can only say a true thing if the plan knows its own zone, and the only place
+    /// that can come from is the search result. A locally-built `MKMapItem` has no `timeZone`, so
+    /// this asks a real search rather than assuming the field is populated.
+    func testASearchResultAbroadKnowsItsTimeZone() async throws {
+        let barcelona = CLLocationCoordinate2D(latitude: 41.3874, longitude: 2.1686)
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = "restaurant"
+        request.region = MKCoordinateRegion(
+            center: barcelona, latitudinalMeters: 3_000, longitudinalMeters: 3_000
+        )
+
+        let response: MKLocalSearch.Response
+        do {
+            response = try await MKLocalSearch(request: request).start()
+        } catch {
+            throw XCTSkip("No network for a live search: \(error)")
+        }
+
+        guard let first = response.mapItems.first else {
+            throw XCTSkip("Nothing came back to inspect.")
+        }
+
+        let zone = try XCTUnwrap(
+            first.timeZone,
+            "search results carry no time zone — a plan abroad cannot know its own hour"
+        )
+        XCTAssertEqual(
+            zone.identifier,
+            "Europe/Madrid",
+            "a restaurant in Barcelona reported \(zone.identifier)"
+        )
+    }
+
+    /// And it survives the mapping into our own type.
+    func testTheZoneSurvivesIntoADiscoveredPlace() async throws {
+        let barcelona = CLLocationCoordinate2D(latitude: 41.3874, longitude: 2.1686)
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = "restaurant"
+        request.region = MapKitPlaceDiscoveryProvider.region(around: barcelona, radiusMiles: 2)
+
+        let response: MKLocalSearch.Response
+        do {
+            response = try await MKLocalSearch(request: request).start()
+        } catch {
+            throw XCTSkip("No network for a live search.")
+        }
+
+        let places = MapKitPlaceDiscoveryProvider.places(
+            from: response.mapItems, origin: barcelona, radiusMiles: 2
+        )
+        guard let first = places.first else { throw XCTSkip("Nothing within the radius.") }
+
+        XCTAssertEqual(first.timeZoneIdentifier, "Europe/Madrid")
+    }
 }

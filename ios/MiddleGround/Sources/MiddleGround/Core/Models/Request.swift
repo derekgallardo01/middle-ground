@@ -49,54 +49,6 @@ struct NegotiationMessage: Identifiable, Hashable, Codable {
 
 }
 
-enum RequestError: LocalizedError, Equatable {
-    case notAllowedToRespond
-    case notAllowedToCancel
-    case notAllowedToConfirm
-    case notAllowedToStake
-    case notAllowedToInvite
-    case inviteNotFound
-
-    var errorDescription: String? {
-        switch self {
-        case .notAllowedToRespond:
-            return "Only the person this was sent to can respond."
-        case .notAllowedToCancel:
-            return "Only the person who sent this can cancel it."
-        case .notAllowedToConfirm:
-            return "This plan isn't ready to confirm yet."
-        case .notAllowedToStake:
-            return "You can't put points on this plan."
-        case .notAllowedToInvite:
-            return "Only the person who created this plan can invite someone to it."
-        case .inviteNotFound:
-            return "That invite code doesn't match a plan."
-        }
-    }
-}
-
-/// Caps on anything a user types.
-///
-/// Only "not empty" was ever checked, so a long paste sailed through to Firestore and failed
-/// against the 1 MB document limit — surfacing as a generic "Failed to send" with the text
-/// lost. The negotiation chain makes that worse: every message is appended to the *same*
-/// document, so the ceiling is shared across the whole conversation.
-enum RequestLimits {
-    static let title = 120
-    static let details = 1_000
-    static let message = 1_000
-    static let reportNote = 500
-    /// Group names sit in pickers and single-line rows, so they are capped far shorter.
-    static let groupName = 40
-    /// A place name, not an address essay.
-    static let location = 120
-
-    /// Trims to `limit` without splitting a grapheme cluster (an emoji stays whole).
-    static func clamp(_ text: String, to limit: Int) -> String {
-        text.count <= limit ? text : String(text.prefix(limit))
-    }
-}
-
 struct Request: Identifiable, Hashable, Codable {
     let id: String
     var creatorID: String
@@ -116,6 +68,17 @@ struct Request: Identifiable, Hashable, Codable {
     /// gets it wrong across a daylight-saving boundary, which a five-day trip is quite likely to
     /// cross.
     var endTime: Date?
+    /// The IANA zone the plan happens in — "Europe/Madrid" — when it is somewhere else.
+    ///
+    /// Every date in this app renders in the *reader's* zone, which is right for a dinner across
+    /// town and wrong for a trip: "dinner at 8" in Barcelona reads as 8pm to somebody sitting in
+    /// Chicago, seven hours from when anybody is actually eating. Set from the place that was
+    /// chosen (`MKMapItem.timeZone`), so it describes the venue rather than whoever composed it.
+    ///
+    /// Nil means the old behaviour, unchanged: render in the reader's zone. That is correct for
+    /// every plan that exists and for every plan made near home, and it is why nothing had to be
+    /// backfilled.
+    var timeZoneID: String?
     var location: String?
     var status: RequestStatus
     var negotiationChain: [NegotiationMessage]
@@ -158,6 +121,7 @@ struct Request: Identifiable, Hashable, Codable {
          details: String? = nil,
          proposedTime: Date? = nil,
          endTime: Date? = nil,
+         timeZoneID: String? = nil,
          location: String? = nil,
          status: RequestStatus = .pending,
          negotiationChain: [NegotiationMessage] = [],
@@ -177,6 +141,7 @@ struct Request: Identifiable, Hashable, Codable {
         self.details = details
         self.proposedTime = proposedTime
         self.endTime = endTime
+        self.timeZoneID = timeZoneID
         self.location = location
         self.status = status
         self.negotiationChain = negotiationChain
@@ -202,6 +167,7 @@ struct Request: Identifiable, Hashable, Codable {
         proposedTime = try container.decodeIfPresent(Date.self, forKey: .proposedTime)
         // Absent on every plan written before trips existed, which is all of them.
         endTime = try container.decodeIfPresent(Date.self, forKey: .endTime)
+        timeZoneID = try container.decodeIfPresent(String.self, forKey: .timeZoneID)
         location = try container.decodeIfPresent(String.self, forKey: .location)
         status = try container.decode(RequestStatus.self, forKey: .status)
         negotiationChain = try container.decodeIfPresent(

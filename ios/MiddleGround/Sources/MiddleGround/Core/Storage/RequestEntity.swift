@@ -15,6 +15,9 @@ final class RequestEntity {
     /// whole app even when the network fetch worked. That is how `name` was lost, and `seats`
     /// after it.
     var endTime: Date?
+    /// The zone the plan happens in. Lost here, and a trip abroad silently reads in the
+    /// reader's zone the moment the app is opened offline.
+    var timeZoneID: String?
     var location: String?
     var statusRaw: String
     var negotiationChainData: Data?
@@ -44,6 +47,7 @@ final class RequestEntity {
         self.details = request.details
         self.proposedTime = request.proposedTime
         self.endTime = request.endTime
+        self.timeZoneID = request.timeZoneID
         self.location = request.location
         self.statusRaw = request.status.rawValue
         self.createdAt = request.createdAt
@@ -66,6 +70,7 @@ final class RequestEntity {
         self.details = request.details
         self.proposedTime = request.proposedTime
         self.endTime = request.endTime
+        self.timeZoneID = request.timeZoneID
         self.location = request.location
         self.statusRaw = request.status.rawValue
         self.createdAt = request.createdAt
@@ -120,6 +125,7 @@ final class RequestEntity {
             details: details,
             proposedTime: proposedTime,
             endTime: endTime,
+            timeZoneID: timeZoneID,
             location: location,
             status: status,
             negotiationChain: negotiationChain,

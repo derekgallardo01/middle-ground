@@ -100,4 +100,17 @@ extension CreateRequestViewModel {
         location = place.name
         chosenPlace = place
     }
+
+    /// The zone to record on the plan, if the chosen place is still the plan's place.
+    ///
+    /// `chosenPlace` is never cleared, so somebody who picks a restaurant in Barcelona and then
+    /// types over the field would otherwise send a plan for "Joe's Diner" stamped `Europe/Madrid`
+    /// — and every date on it would render an hour nobody meant, confidently. Only the place that
+    /// is still in the field gets to say what time zone the plan is in.
+    var placeTimeZoneID: String? {
+        guard let chosenPlace,
+              chosenPlace.name == location.trimmingCharacters(in: .whitespacesAndNewlines)
+        else { return nil }
+        return chosenPlace.timeZoneIdentifier
+    }
 }

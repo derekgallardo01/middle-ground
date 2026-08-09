@@ -240,6 +240,10 @@ service cloud.firestore {
         && immutable('title')
         && immutable('proposedTime')
         && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
         && immutable('status')
         && immutable('negotiationChain')
         && immutable('confirmations')
@@ -267,6 +271,10 @@ service cloud.firestore {
         && immutable('title')
         && immutable('proposedTime')
         && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
         && immutable('status')
         && immutable('negotiationChain')
         && immutable('confirmations')
@@ -311,6 +319,10 @@ service cloud.firestore {
         && immutable('title')
         && immutable('proposedTime')
         && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
         && immutable('negotiationChain')
         && immutable('confirmations')
         && immutable('createdAt');
@@ -347,6 +359,10 @@ service cloud.firestore {
         && immutable('title')
         && immutable('proposedTime')
         && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
         && immutable('negotiationChain')
         && immutable('stake')
         && immutable('planInviteCode')
@@ -387,6 +403,10 @@ service cloud.firestore {
         && immutable('allParticipantIDs')
         && immutable('proposedTime')
         && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
         && immutable('title')
         && immutable('negotiationChain')
         // The stake settles by derivation from these confirmations, so nothing writes it here.
@@ -426,6 +446,10 @@ service cloud.firestore {
         && immutable('allParticipantIDs')
         && immutable('proposedTime')
         && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
         && immutable('title')
         && immutable('status')
         && immutable('negotiationChain')

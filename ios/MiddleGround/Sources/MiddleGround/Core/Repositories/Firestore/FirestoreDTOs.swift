@@ -13,6 +13,8 @@ struct RequestDTO: Codable, Identifiable {
     var proposedTime: Timestamp?
     /// Optional: only a plan that spans days has one.
     var endTime: Timestamp?
+    /// Optional: only set when the plan is somewhere with a different clock.
+    var timeZoneID: String?
     var location: String?
     var status: String
     var negotiationChain: [NegotiationMessageDTO]
@@ -39,6 +41,7 @@ struct RequestDTO: Codable, Identifiable {
         self.details = request.details
         self.proposedTime = request.proposedTime.map { Timestamp(date: $0) }
         self.endTime = request.endTime.map { Timestamp(date: $0) }
+        self.timeZoneID = request.timeZoneID
         self.location = request.location
         self.status = request.status.rawValue
         self.negotiationChain = request.negotiationChain.map { NegotiationMessageDTO(from: $0) }
@@ -74,6 +77,7 @@ struct RequestDTO: Codable, Identifiable {
             details: details,
             proposedTime: proposedTime?.dateValue(),
             endTime: endTime?.dateValue(),
+            timeZoneID: timeZoneID,
             location: location,
             status: statusEnum,
             negotiationChain: negotiationChain.compactMap { $0.toModel() },

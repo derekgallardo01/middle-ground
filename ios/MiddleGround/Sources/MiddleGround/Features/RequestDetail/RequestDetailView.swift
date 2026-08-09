@@ -22,7 +22,7 @@ struct RequestDetailView: View {
         ZStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    header
+                    PlanHeader(request: viewModel.request) { viewModel.mapsURL(for: $0) }
 
                     // Whoever's turn it is answers; the other person waits. Both are decided
                     // from `currentUserID`, which is in memory, so they are correct on the
@@ -385,65 +385,6 @@ struct RequestDetailView: View {
         }
         .mgSurfaceCard()
         .accessibilityElement(children: .combine)
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: viewModel.request.category.iconName)
-                    .foregroundStyle(MGColors.indigo)
-                Spacer()
-                StatusBadge(status: viewModel.request.status)
-            }
-
-            Text(viewModel.request.title)
-                .mgFont(.h1)
-
-            if let details = viewModel.request.details, !details.isEmpty {
-                Text(details)
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
-            }
-
-            if let dates = viewModel.request.dateSummary {
-                HStack(spacing: 6) {
-                    Image(systemName: viewModel.request.isMultiDay ? "calendar" : "clock")
-                    Text(dates)
-                        .mgFont(.bodySmall)
-                    if let nights = viewModel.request.nightCount {
-                        Text("· \(nights) night\(nights == 1 ? "" : "s")")
-                            .mgFont(.bodySmall)
-                    }
-                }
-                .foregroundStyle(MGColors.warm600)
-            }
-
-            if let place = viewModel.request.location, !place.isEmpty {
-                // Tappable, because a place name you cannot look up is barely worth storing.
-                // Maps handles an unrecognised string gracefully by searching for it.
-                Link(destination: viewModel.mapsURL(for: place)) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "mappin.and.ellipse")
-                        Text(place)
-                            .mgFont(.bodySmall)
-                    }
-                    .foregroundStyle(MGColors.indigo)
-                }
-                .accessibilityLabel("Location: \(place)")
-                .accessibilityHint("Opens in Maps")
-            }
-        }
-        .padding(20)
-        .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
-        .mgShadow(MGShadow.md)
-        // No matchedGeometryEffect here, deliberately.
-        //
-        // This card used to consume the feed card's frame with `isSource: false`. The two views
-        // live on opposite sides of a NavigationStack push, so the effect could never animate
-        // between them — but it was not harmless either: the card took the *feed* card's
-        // geometry, which pushed it hundreds of points down the screen, narrowed it until the
-        // title truncated, and left the negotiation content overlapping the status badge.
     }
 
     private var quickResponseRow: some View {

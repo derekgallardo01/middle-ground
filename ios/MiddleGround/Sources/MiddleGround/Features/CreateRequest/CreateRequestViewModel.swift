@@ -329,6 +329,7 @@ final class CreateRequestViewModel {
             // Only a dated trip has an end. Sending one on an undated plan would make
             // `isMultiDay` false anyway and leave a field nothing reads.
             endTime: (includeTime && isTrip) ? endTime : nil,
+            timeZoneID: placeTimeZoneID,
             location: {
                 let trimmed = location.trimmingCharacters(in: .whitespacesAndNewlines)
                 return trimmed.isEmpty ? nil : trimmed

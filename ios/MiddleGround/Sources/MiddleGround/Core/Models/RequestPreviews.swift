@@ -272,6 +272,10 @@ extension Request {
         details: "Four nights, flights not booked yet.",
         proposedTime: Date().addingTimeInterval(86_400 * 26),
         endTime: Date().addingTimeInterval(86_400 * 30),
+        // The zone Apple reports for Barcelona. Set here so the "8:00 PM Spain Time" line reaches
+        // a screenshot rather than only a unit test — the same gap that made the quiet-plan card
+        // and the trip range invisible until a fixture reached the state they are for.
+        timeZoneID: "Europe/Madrid",
         location: "Barcelona",
         status: .accepted,
         negotiationChain: [

@@ -156,7 +156,9 @@ exports.notifyRequestResponse = onDocumentUpdated('requests/{requestId}', async 
       let body = latestMessage.text || latestMessage.responseType;
       if (latestMessage.responseType === 'reschedule' && latestMessage.proposedTime) {
         const zone = await getUserTimeZone(userId);
-        const when = formatPlanTime(latestMessage.proposedTime, new Date(), zone);
+        const when = formatPlanTime(
+          latestMessage.proposedTime, new Date(), zone, after.timeZoneID
+        );
         if (when) body = `How about ${when}?`;
       }
 
@@ -437,7 +439,9 @@ exports.remindBeforePlan = onSchedule(
         await Promise.all(
           everyone.map(async (userId) => {
             const zone = await getUserTimeZone(userId);
-            const when = formatPlanTime(request.proposedTime, new Date(), zone);
+            const when = formatPlanTime(
+              request.proposedTime, new Date(), zone, request.timeZoneID
+            );
 
             await notifyUsers([userId], {
               notification: {

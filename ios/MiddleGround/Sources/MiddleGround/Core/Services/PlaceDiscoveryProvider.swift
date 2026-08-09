@@ -42,6 +42,15 @@ struct DiscoveredPlace: Identifiable, Hashable, Sendable {
     let distanceMiles: Double?
     let phone: String?
     let website: URL?
+    /// The IANA zone the place is in — "Europe/Madrid" — when Apple knows it.
+    ///
+    /// The reason a trip abroad can say a true thing. Every date in this app renders in the
+    /// *reader's* zone, so "dinner at 8" in Barcelona reads as 8pm wherever the person looking
+    /// happens to be — which is the wrong hour for everybody who is actually going.
+    ///
+    /// Only search results carry this; an `MKMapItem` built locally has none, which is why it is
+    /// optional and why `LookAroundProbeTests` checks a real search rather than assuming.
+    var timeZoneIdentifier: String?
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
@@ -193,7 +202,8 @@ struct MapKitPlaceDiscoveryProvider: PlaceDiscoveryProvider {
                 longitude: placemark.coordinate.longitude,
                 distanceMiles: (miles * 10).rounded() / 10,
                 phone: item.phoneNumber,
-                website: item.url
+                website: item.url,
+                timeZoneIdentifier: item.timeZone?.identifier
             )
         }
         .sorted { ($0.distanceMiles ?? .infinity) < ($1.distanceMiles ?? .infinity) }

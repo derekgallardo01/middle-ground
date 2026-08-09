@@ -580,6 +580,45 @@ describe('confirming attendance', () => {
     );
   });
 
+  // A trip abroad renders every date on the plan's clock. Left unpinned, confirming attendance
+  // would be a way to move a five-day holiday in Tokyo onto Los Angeles time — shifting every
+  // date on it, for everybody, with nothing in the chain to say it happened.
+  test('confirming cannot be used to move a plan onto another clock', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_abroad'), accepted({ timeZoneID: 'Asia/Tokyo' })),
+    );
+
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_abroad'), {
+        confirmations: { [BOB]: 'happened' },
+        timeZoneID: 'America/Los_Angeles',
+      }),
+    );
+  });
+
+  // The absent case, which `immutable()` exists for: two missing fields compare equal, so a plan
+  // that never had a zone must not be given one on the way past either.
+  test('confirming cannot give a plan a clock it never had', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_past'), {
+        confirmations: { [BOB]: 'happened' },
+        timeZoneID: 'Asia/Tokyo',
+      }),
+    );
+  });
+
+  // And the plain case has to keep working, or the pin above is denying every confirmation on
+  // every plan rather than the edit it is aimed at.
+  test('a plan with a clock can still be confirmed', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_abroad2'), accepted({ timeZoneID: 'Asia/Tokyo' })),
+    );
+
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_abroad2'), { confirmations: { [BOB]: 'happened' } }),
+    );
+  });
+
   test('a plan that has not happened yet cannot be confirmed', async () => {
     await seed((db) =>
       setDoc(doc(db, 'requests/r_future'), accepted({ proposedTime: future })),

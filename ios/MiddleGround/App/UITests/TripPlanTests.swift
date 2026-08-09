@@ -89,6 +89,31 @@ final class TripPlanTests: XCTestCase {
         attach("trip-detail")
     }
 
+    /// A trip abroad has to say whose clock its hour is on.
+    ///
+    /// The model knows and every unit test agrees; none of that puts a word on a screen. If this
+    /// row is missing, a plan in Barcelona shows an hour that is simply wrong for everybody
+    /// reading it from anywhere else, and nothing anywhere would fail.
+    func testATripAbroadNamesItsClock() {
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40))
+
+        let trip = app.staticTexts["Barcelona in May?"]
+        XCTAssertTrue(trip.waitForExistence(timeout: 20))
+        scrollTo(trip)
+        trip.tap()
+
+        // The zone's generic name, whatever this device localises it to — asserting the exact
+        // string would pin the test to one system's ICU data rather than to the behaviour.
+        let clock = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Time' OR label CONTAINS[c] 'GMT'")
+        ).firstMatch
+        XCTAssertTrue(
+            clock.waitForExistence(timeout: 15),
+            "a trip abroad showed an hour without saying whose clock it is"
+        )
+        attach("trip-time-zone")
+    }
+
     /// The compose sheet has to offer the range, or nobody can make one of these.
     func testComposeOffersADateRange() {
         XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 40))

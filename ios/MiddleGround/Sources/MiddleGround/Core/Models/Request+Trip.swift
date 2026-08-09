@@ -42,20 +42,34 @@ extension Request {
     ///
     /// `Date.FormatStyle` rather than a hand-rolled string, so it follows the reader's locale:
     /// the same trip reads "12–16 May" in London and "May 12 – 16" in New York.
+    ///
+    /// Rendered on the plan's clock when it has one (`Request+TimeZone`). A trip that starts at
+    /// 00:30 in Madrid is on the 12th there and the 11th to a reader in Chicago, and the date a
+    /// card shows has to be the one on the tickets.
     var dateSummary: String? {
         guard let proposedTime else { return nil }
+        let zone = displayTimeZone
         guard isMultiDay, let endTime else {
-            return proposedTime.formatted(date: .abbreviated, time: .omitted)
+            return proposedTime.formatted(
+                Date.FormatStyle(date: .abbreviated, time: .omitted, timeZone: zone)
+            )
         }
         // The year is asked for, because the single-date branch above includes one — a list mixing
         // "Jan 15 – 19" with "Jan 15, 2027" reads like two different apps. `isMultiDay` guarantees
         // the end is after the start, so this range can never be malformed.
-        return (proposedTime..<endTime).formatted(.interval.day().month(.abbreviated).year())
+        var style = Date.IntervalFormatStyle().day().month(.abbreviated).year()
+        style.timeZone = zone
+        return (proposedTime..<endTime).formatted(style)
     }
 
     /// "5 nights" — how long a trip runs, for the places a range is too long to print.
+    ///
+    /// Counted on the plan's calendar, not the reader's: four nights in Barcelona is four nights
+    /// whether you are reading about it from London or from Los Angeles.
     var nightCount: Int? {
         guard isMultiDay, let proposedTime, let endTime else { return nil }
-        return Calendar.current.dateComponents([.day], from: proposedTime, to: endTime).day
+        var calendar = Calendar.current
+        calendar.timeZone = displayTimeZone
+        return calendar.dateComponents([.day], from: proposedTime, to: endTime).day
     }
 }

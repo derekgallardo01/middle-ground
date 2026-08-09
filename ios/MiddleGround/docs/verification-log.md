@@ -348,6 +348,28 @@ proof — `Scripts/verify-live-features.mjs` is the verdict.
 
 ---
 
+## 2026-08-09 — a plan abroad, and what Apple will tell you
+
+**MapKit supplies the time zone, but only on a search result.** A locally-built `MKMapItem` — one
+constructed from a placemark you made yourself — returns `nil` for both `MKMapItem.timeZone` and
+`MKPlacemark.timeZone`. A real `MKLocalSearch` near Barcelona returns `Europe/Madrid`. That is the
+difference between the feature working and the field being permanently empty, it is not documented
+anywhere obvious, and it is now asserted by `LookAroundProbeTests` rather than assumed — the same
+reason the Look Around tier probe exists.
+
+`Request.timeZoneID` is set from that, and everything on a plan abroad renders on the plan's clock:
+the dates, the night count and a new line naming the hour there. Proven on a screenshot rather than
+only in a test — the trip detail shows "6:21 PM Central European Time" under "Sep 4–8 · 4 nights".
+
+Two mutations were tried and both were caught: `dateSummary` ignoring the plan's zone, and the
+SwiftData entity dropping the field on the way through the cache.
+
+**CI has now seen everything.** The PR runs Build & Test, SwiftLint and the Firestore rules tests
+(the rules suite cannot run on this Mac at all — no emulator — so it is the only place the new
+`immutable('timeZoneID')` branches are exercised). 474 unit tests, 91 Cloud Function tests outside
+the emulator, 0 lint violations across 243 files.
+
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.
@@ -355,10 +377,11 @@ proof — `Scripts/verify-live-features.mjs` is the verdict.
 - Report moderation, which needs a real report to work through.
 - Two demo plans with a dangling participant; re-seeding the demo data clears them.
 - Seven moderate transitive dependency advisories, to be fixed away from this Mac.
-- 27 commits that CI has never seen.
 - Four decorative accents below 3:1 in light mode, used as foreground in 12 places.
 - The darker teal is computed but not yet eyeballed on a device.
 - Deep-link destinations, which need a real plan between two real accounts.
+- No plan abroad has been created against the real backend — the zone is proven in the
+  simulator and in the rules tests, never yet written by a person choosing a place.
 - 1.0 is in review with build `202608021918`, which predates every fix this week. Push does not
   work in it at all. Fixes land in 1.0.1.
 - App Privacy → **Coarse Location**, collected, **linked** to the user, App Functionality, not

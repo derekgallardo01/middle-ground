@@ -198,9 +198,16 @@ jobs:
       # was named in eleven places — the privacy policy, the terms, the App Review notes — and is
       # somebody else's domain with no MX records at all, so every one of those promises pointed
       # at a mailbox that does not exist.
+      #
+      # Scoped to the places that *publish* it. The engineering log has to be able to name the
+      # address to explain why it was wrong — the first version of this check failed on the very
+      # entry describing the fix, which is a good demonstration that a grep over a whole repo is
+      # not the same as a grep over what people read.
       - name: No dead support addresses
         run: |
-          if grep -rn "support@middleground.app" --include="*.md" --include="*.html" --include="*.py" . ; then
+          if grep -rn "support@middleground.app" \
+               --include="*.md" --include="*.html" --include="*.py" \
+               docs/legal site docs/APP_REVIEW_NOTES.md ; then
             echo "::error::support@middleground.app cannot receive mail — use support@seekmiddleground.com"
             exit 1
           fi

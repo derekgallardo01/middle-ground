@@ -33,4 +33,29 @@ extension Request {
     var effectiveEndTime: Date? {
         isMultiDay ? endTime : proposedTime
     }
+
+    /// How the dates read on a card: "12–16 May" for a trip, the date alone otherwise.
+    ///
+    /// A range shown as its start date only is the bug this exists to prevent — a week in
+    /// Barcelona and a Tuesday dinner would look identical everywhere a plan is listed, which is
+    /// most places somebody sees one.
+    ///
+    /// `Date.FormatStyle` rather than a hand-rolled string, so it follows the reader's locale:
+    /// the same trip reads "12–16 May" in London and "May 12 – 16" in New York.
+    var dateSummary: String? {
+        guard let proposedTime else { return nil }
+        guard isMultiDay, let endTime else {
+            return proposedTime.formatted(date: .abbreviated, time: .omitted)
+        }
+        // The year is asked for, because the single-date branch above includes one — a list mixing
+        // "Jan 15 – 19" with "Jan 15, 2027" reads like two different apps. `isMultiDay` guarantees
+        // the end is after the start, so this range can never be malformed.
+        return (proposedTime..<endTime).formatted(.interval.day().month(.abbreviated).year())
+    }
+
+    /// "5 nights" — how long a trip runs, for the places a range is too long to print.
+    var nightCount: Int? {
+        guard isMultiDay, let proposedTime, let endTime else { return nil }
+        return Calendar.current.dateComponents([.day], from: proposedTime, to: endTime).day
+    }
 }

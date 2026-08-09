@@ -259,6 +259,33 @@ extension Request {
         updatedAt: Date().addingTimeInterval(-86_400 * 12)
     )
 
+    /// A trip, so the range renders in every screenshot and recording rather than only in a test.
+    ///
+    /// Every other fixture is a single moment, so nothing reached the state the feature is for —
+    /// the same gap that made the quiet-plan card invisible until a fixture was added for it.
+    static let previewTrip = Request(
+        id: "req_8",
+        creatorID: User.preview.id,
+        recipientIDs: [User.preview2.id, User.preview3.id],
+        category: .travel,
+        title: "Barcelona in May?",
+        details: "Four nights, flights not booked yet.",
+        proposedTime: Date().addingTimeInterval(86_400 * 26),
+        endTime: Date().addingTimeInterval(86_400 * 30),
+        location: "Barcelona",
+        status: .accepted,
+        negotiationChain: [
+            NegotiationMessage(
+                senderID: User.preview2.id,
+                responseType: .accept,
+                text: "Yes — I'll look at flights.",
+                timestamp: Date().addingTimeInterval(-86_400 * 2)
+            )
+        ],
+        createdAt: Date().addingTimeInterval(-86_400 * 3),
+        updatedAt: Date().addingTimeInterval(-86_400 * 2)
+    )
+
     static let previewAccepted = Request(
         id: "req_3",
         creatorID: User.preview.id,

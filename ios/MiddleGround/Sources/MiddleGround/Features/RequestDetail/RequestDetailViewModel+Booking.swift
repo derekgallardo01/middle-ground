@@ -21,7 +21,15 @@ extension RequestDetailViewModel {
     }
 
     func loadBookingLink() async {
+        // Not for a trip. A four-night stay in Barcelona was offering "check tables at Barcelona
+        // for 3, around the time you agreed" — a restaurant reservation for a holiday, at a city
+        // rather than a venue, on the first evening of four. The row is about holding a table for
+        // one sitting, and a plan that spans days is not one sitting.
+        //
+        // Somewhere to stay is the thing a trip actually wants, and that is a different provider
+        // and a different shape. Offering nothing is better than offering the wrong thing.
         guard request.status == .accepted,
+              !request.isMultiDay,
               reservations.capabilities.contains(.link),
               let place = bookingPlaceName else {
             bookingURL = nil

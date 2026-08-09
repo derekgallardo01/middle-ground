@@ -76,6 +76,25 @@ final class CreateRequestViewModel {
     var proposedTime: Date = Date() {
         didSet { scheduleAvailabilityCheck() }
     }
+    /// Whether this plan runs over several days.
+    ///
+    /// Off by default and separate from `includeTime`, because a trip is a rarer thing than a
+    /// dinner and the compose sheet should not grow a second date picker for everybody in order
+    /// to serve it.
+    var isTrip: Bool = false
+    /// When a trip finishes. Only read when `isTrip` and a time is included.
+    ///
+    /// Seeded a day after the start rather than at the same instant, so the first thing a person
+    /// sees is a valid range instead of one the app will refuse.
+    var endTime: Date = Date().addingTimeInterval(86_400)
+
+    /// Whether the range currently makes sense, for the button and the warning.
+    ///
+    /// `Request.isMultiDay` refuses an end that is not after the start, so a backwards range would
+    /// silently save as an ordinary single-moment plan — the trip quietly not being a trip. Better
+    /// to say so than to accept it and drop half of what somebody typed.
+    var tripRangeIsValid: Bool { !isTrip || endTime > proposedTime }
+
     var includeTime: Bool = false {
         didSet { scheduleAvailabilityCheck() }
     }
@@ -181,7 +200,10 @@ final class CreateRequestViewModel {
     }
 
     var canSubmit: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty && !recipients.isEmpty
+        !title.trimmingCharacters(in: .whitespaces).isEmpty
+            && !recipients.isEmpty
+            // A backwards range would save as an ordinary plan and drop the end silently.
+            && tripRangeIsValid
     }
 
     /// A deliberate choice, which outranks anything suggested from here on.
@@ -304,6 +326,9 @@ final class CreateRequestViewModel {
             title: title.trimmingCharacters(in: .whitespaces),
             details: details.isEmpty ? nil : details,
             proposedTime: includeTime ? proposedTime : nil,
+            // Only a dated trip has an end. Sending one on an undated plan would make
+            // `isMultiDay` false anyway and leave a field nothing reads.
+            endTime: (includeTime && isTrip) ? endTime : nil,
             location: {
                 let trimmed = location.trimmingCharacters(in: .whitespacesAndNewlines)
                 return trimmed.isEmpty ? nil : trimmed

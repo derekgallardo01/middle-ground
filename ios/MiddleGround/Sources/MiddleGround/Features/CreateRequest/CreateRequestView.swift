@@ -73,7 +73,30 @@ struct CreateRequestView: View {
                 Section("When?") {
                     Toggle("Suggest a time", isOn: $viewModel.includeTime)
                     if viewModel.includeTime {
-                        DatePicker("Proposed time", selection: $viewModel.proposedTime)
+                        DatePicker(
+                            viewModel.isTrip ? "Starts" : "Proposed time",
+                            selection: $viewModel.proposedTime
+                        )
+
+                        // Below the start, because a trip is a longer thing than a dinner and the
+                        // sheet should read as one plan growing rather than two pickers arriving.
+                        Toggle("Over several days", isOn: $viewModel.isTrip.animation())
+                        if viewModel.isTrip {
+                            DatePicker("Ends", selection: $viewModel.endTime)
+
+                            if !viewModel.tripRangeIsValid {
+                                // Said rather than silently corrected: moving somebody's dates for
+                                // them is how you send a plan for a week they did not pick.
+                                Label {
+                                    Text("The end needs to be after the start.")
+                                        .mgFont(.bodySmall)
+                                } icon: {
+                                    Image(systemName: "exclamationmark.triangle")
+                                }
+                                .foregroundStyle(MGColors.coral)
+                                .accessibilityLabel("The end needs to be after the start")
+                            }
+                        }
                         CalendarClashRow(
                             availability: viewModel.availability,
                             accessGranted: viewModel.calendarAccessGranted

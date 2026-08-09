@@ -31,11 +31,13 @@ struct RequestCard: View {
                     .lineLimit(2)
             }
 
-            if let time = request.proposedTime {
+            if let dates = request.dateSummary {
                 HStack(spacing: 4) {
-                    Image(systemName: "clock")
+                    // A trip is a different shape of thing and gets a different icon, so a week
+                    // away and a Tuesday dinner are not the same row with different words.
+                    Image(systemName: request.isMultiDay ? "calendar" : "clock")
                         .font(.system(size: 12))
-                    Text(time, style: .date)
+                    Text(dates)
                         .mgFont(.caption)
                 }
                 .foregroundStyle(MGColors.warm600)

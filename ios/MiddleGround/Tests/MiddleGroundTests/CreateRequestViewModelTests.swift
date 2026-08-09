@@ -48,4 +48,43 @@ final class CreateRequestViewModelTests: XCTestCase {
         XCTAssertEqual(request?.title, "Weekend getaway?")
         XCTAssertFalse(viewModel.isLoading)
     }
+
+    // MARK: - Planning a trip
+
+    /// A backwards range would save as an ordinary single-moment plan — `isMultiDay` refuses it —
+    /// so half of what somebody typed would vanish without a word. Better to refuse the send.
+    func testABackwardsTripRangeBlocksSending() async {
+        let viewModel = CreateRequestViewModel()
+        await viewModel.loadCurrentUserAndPartners()
+        viewModel.title = "Barcelona"
+        viewModel.includeTime = true
+        viewModel.isTrip = true
+        viewModel.endTime = viewModel.proposedTime.addingTimeInterval(-86_400)
+
+        XCTAssertFalse(viewModel.tripRangeIsValid)
+        XCTAssertFalse(viewModel.canSubmit, "a plan that would silently lose its end was sendable")
+    }
+
+    func testAValidTripRangeCanBeSent() async {
+        let viewModel = CreateRequestViewModel()
+        await viewModel.loadCurrentUserAndPartners()
+        viewModel.title = "Barcelona"
+        viewModel.includeTime = true
+        viewModel.isTrip = true
+        viewModel.endTime = viewModel.proposedTime.addingTimeInterval(4 * 86_400)
+
+        XCTAssertTrue(viewModel.tripRangeIsValid)
+        XCTAssertTrue(viewModel.canSubmit)
+    }
+
+    /// An undated plan cannot be a trip, and must not carry an end nothing reads.
+    func testATripWithNoTimeCarriesNoEnd() async {
+        let viewModel = CreateRequestViewModel()
+        await viewModel.loadCurrentUserAndPartners()
+        viewModel.title = "Bins"
+        viewModel.includeTime = false
+        viewModel.isTrip = true
+
+        XCTAssertTrue(viewModel.canSubmit, "a chore is still sendable")
+    }
 }

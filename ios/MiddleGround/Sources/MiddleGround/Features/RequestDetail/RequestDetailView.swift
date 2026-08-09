@@ -405,11 +405,15 @@ struct RequestDetailView: View {
                     .foregroundStyle(MGColors.warm600)
             }
 
-            if let time = viewModel.request.proposedTime {
+            if let dates = viewModel.request.dateSummary {
                 HStack(spacing: 6) {
-                    Image(systemName: "clock")
-                    Text(time, style: .date)
+                    Image(systemName: viewModel.request.isMultiDay ? "calendar" : "clock")
+                    Text(dates)
                         .mgFont(.bodySmall)
+                    if let nights = viewModel.request.nightCount {
+                        Text("· \(nights) night\(nights == 1 ? "" : "s")")
+                            .mgFont(.bodySmall)
+                    }
                 }
                 .foregroundStyle(MGColors.warm600)
             }

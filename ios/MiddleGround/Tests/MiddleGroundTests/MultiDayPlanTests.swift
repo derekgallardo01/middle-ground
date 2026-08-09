@@ -1,3 +1,4 @@
+import Factory
 import XCTest
 @testable import MiddleGround
 
@@ -14,6 +15,22 @@ import XCTest
 /// window is still ±hours around a single moment. Until those move, a trip would behave wrongly —
 /// so until then, one cannot be made.
 final class MultiDayPlanTests: XCTestCase {
+
+    // Without this, anything that builds a view model resolves the real Firestore repositories,
+    // Firebase is not configured, and the case dies with "freed pointer was not the last
+    // allocation" — a crash rather than a failure, which is why the suite reports zero failures
+    // and stops a third of the way through.
+    override func setUp() {
+        super.setUp()
+        AppConfiguration.useMockRepositories = true
+        Container.shared.authService.register { MockAuthService() }
+    }
+
+    override func tearDown() {
+        Container.shared.authService.reset()
+        AppConfiguration.useMockRepositories = false
+        super.tearDown()
+    }
 
     private let start = Date(timeIntervalSince1970: 1_800_000_000)
 
@@ -119,6 +136,61 @@ final class MultiDayPlanTests: XCTestCase {
         XCTAssertTrue(dinner.isWithinLocationWindow(at: start.addingTimeInterval(3600)))
         XCTAssertFalse(dinner.isWithinLocationWindow(at: start.addingTimeInterval(6 * 3600)))
         XCTAssertEqual(dinner.locationExpiry, start.addingTimeInterval(4 * 3600))
+    }
+
+    // MARK: - How it reads
+
+    /// A week in Barcelona and a Tuesday dinner must not look identical in a list, which is where
+    /// most people see a plan.
+    func testATripReadsAsARangeAndADinnerDoesNot() throws {
+        let tripDates = try XCTUnwrap(plan(endingAfter: 4).dateSummary)
+        let dinnerDates = try XCTUnwrap(plan(endingAfter: nil).dateSummary)
+
+        XCTAssertNotEqual(tripDates, dinnerDates)
+        // The end day has to appear. Length was the first assertion here and it was a proxy for
+        // this — it failed on a correct range because the single date carried a year and the
+        // range did not, which was worth knowing but is not what this test is about.
+        XCTAssertTrue(
+            tripDates.contains("19"),
+            "the end of the trip is missing from \(tripDates)"
+        )
+        XCTAssertFalse(dinnerDates.contains("19"))
+    }
+
+    func testAPlanWithNoTimeHasNothingToShow() {
+        var chore = plan(endingAfter: nil)
+        chore.proposedTime = nil
+
+        XCTAssertNil(chore.dateSummary)
+    }
+
+    /// A backwards end is not a range, and must not render as one.
+    func testABackwardsRangeStillReadsAsASingleDate() throws {
+        let summary = try XCTUnwrap(plan(endingAfter: -2).dateSummary)
+
+        XCTAssertEqual(summary, try XCTUnwrap(plan(endingAfter: nil).dateSummary))
+    }
+
+    func testNightsAreCountedOnlyForATrip() {
+        XCTAssertEqual(plan(endingAfter: 5).nightCount, 5)
+        XCTAssertNil(plan(endingAfter: nil).nightCount)
+        XCTAssertNil(plan(endingAfter: -2).nightCount)
+    }
+
+    // MARK: - What a trip must not be offered
+
+    /// Read off a screenshot: a four-night stay in Barcelona offered "check tables at Barcelona
+    /// for 3, around the time you agreed". A restaurant booking for a holiday, at a city rather
+    /// than a venue, on the first evening of four.
+    @MainActor
+    func testATripIsNotOfferedARestaurantTable() async {
+        let viewModel = RequestDetailViewModel(request: trip(days: 4))
+        viewModel.request.location = "Barcelona"
+
+        await viewModel.loadBookingLink()
+
+        XCTAssertNil(viewModel.bookingURL, "a holiday was offered a table for one sitting")
+        XCTAssertFalse(viewModel.canBookTable)
     }
 
     // MARK: - It has to survive the cache

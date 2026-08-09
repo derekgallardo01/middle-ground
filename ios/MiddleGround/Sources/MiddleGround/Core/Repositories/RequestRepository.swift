@@ -42,7 +42,7 @@ actor MockRequestRepository: RequestRepository {
         .previewAwaitingMe, .previewToAccept, .previewToDecline, .previewToNegotiate,
         .previewToCounter, .previewToConfirmHappened, .previewToConfirmMissed,
         .previewNegotiating, .previewHappeningNow, .previewStaked, .previewGroupPlan,
-        .preview, .previewToCancel, .previewAccepted, .previewGoneQuiet
+        .preview, .previewToCancel, .previewAccepted, .previewGoneQuiet, .previewTrip
     ]
 
     func fetchRequests(for userID: String) async throws -> [Request] {

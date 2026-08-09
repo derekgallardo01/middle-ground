@@ -130,31 +130,26 @@ final class ProfileViewModel {
         isPairing = true
         errorMessage = nil
         defer { isPairing = false }
-        var groupFailure: Error?
+        // The order — and which failure is worth reporting — lives in `JoinCodeFailure`, because
+        // onboarding needs exactly the same thing and the two copies had already drifted apart.
         do {
-            _ = try await relationshipService.join(inviteCode: joinCodeInput, userID: user.id)
-            joinCodeInput = ""
-            await loadRelationships()
-            return
-        } catch {
-            guard JoinCodeFailure.isWorthTryingAsPlan(afterGroupFailure: error) else {
-                // The code *did* name a group, and the join was refused for a reason worth
-                // hearing. A plan lookup can only overwrite that with something less true.
-                errorMessage = UserFacingError.message(for: error)
-                return
-            }
-            groupFailure = error
-        }
-
-        do {
-            try await requestService.joinPlan(inviteCode: joinCodeInput, userID: user.id)
-            joinCodeInput = ""
-            didJoinPlan = true
-        } catch {
-            errorMessage = JoinCodeFailure.message(
-                groupFailure: groupFailure ?? error,
-                planFailure: error
+            let outcome = try await JoinCodeFailure.join(
+                group: {
+                    _ = try await relationshipService.join(
+                        inviteCode: joinCodeInput, userID: user.id
+                    )
+                },
+                plan: {
+                    try await requestService.joinPlan(inviteCode: joinCodeInput, userID: user.id)
+                }
             )
+            joinCodeInput = ""
+            switch outcome {
+            case .joinedGroup: await loadRelationships()
+            case .joinedPlan: didJoinPlan = true
+            }
+        } catch {
+            errorMessage = UserFacingError.message(for: error)
         }
     }
 

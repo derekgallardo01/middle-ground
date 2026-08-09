@@ -172,11 +172,25 @@ final class OnboardingViewModel {
                 // had. The two codes look identical and nobody is told which they were handed,
                 // so a plan code typed here used to fail with a raw error message while the very
                 // same code worked one screen away.
-                do {
-                    _ = try await relationshipService.join(inviteCode: inviteCodeInput, userID: user.id)
-                } catch {
-                    try await requestService.joinPlan(inviteCode: inviteCodeInput, userID: user.id)
-                }
+                //
+                // Falling back on *any* failure was the bug: typing your own group code threw
+                // `.ownCode`, the plan lookup then found nothing, and the message became "that
+                // invite code doesn't match a plan" — for a code that matched a group perfectly
+                // well and was simply yours. Profile has used `JoinCodeFailure` for this since it
+                // was found there; onboarding is where most people type a code, and it never got
+                // the fix.
+                _ = try await JoinCodeFailure.join(
+                    group: {
+                        _ = try await relationshipService.join(
+                            inviteCode: inviteCodeInput, userID: user.id
+                        )
+                    },
+                    plan: {
+                        try await requestService.joinPlan(
+                            inviteCode: inviteCodeInput, userID: user.id
+                        )
+                    }
+                )
                 createdInviteCode = nil
             }
 

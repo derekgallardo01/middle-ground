@@ -293,6 +293,10 @@ final class CreateRequestViewModel {
     var hasSearchedNearby = false
     /// The place taken from the list, kept so a booking link can use its coordinate later.
     var chosenPlace: DiscoveredPlace?
+    /// The zone of a place somebody typed rather than picked. See `lookUpTypedTimeZone`.
+    var typedPlaceTimeZoneID: String?
+    @ObservationIgnored var typedZoneTask: Task<Void, Never>?
+    let timeZoneLookup = Container.shared.timeZoneLookup()
     /// Where the first search was made from, reused by every later one in this sheet.
     ///
     /// Each search asked iOS for a fresh fix, so changing category or nudging the radius by a mile

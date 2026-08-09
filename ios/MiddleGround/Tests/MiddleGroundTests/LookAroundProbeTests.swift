@@ -155,4 +155,41 @@ final class LookAroundProbeTests: XCTestCase {
 
         XCTAssertEqual(first.timeZoneIdentifier, "Europe/Madrid")
     }
+
+    // MARK: - Can a typed place name tell us its zone?
+
+    /// The hole the time-zone work left. `findNearby` searches from the user's *current*
+    /// coordinate, so a trip to Barcelona composed from a sofa in Brooklyn finds no Barcelona
+    /// venues — and the plan's zone stays nil for exactly the case the field exists for. Typing
+    /// the place is the only route left, so this asks whether a typed name can supply a zone.
+    func testGeocodingATypedPlaceNameYieldsItsTimeZone() async throws {
+        let placemarks: [CLPlacemark]
+        do {
+            placemarks = try await CLGeocoder().geocodeAddressString("Barcelona, Spain")
+        } catch {
+            throw XCTSkip("No network for geocoding: \(error)")
+        }
+
+        let first = try XCTUnwrap(placemarks.first, "nothing came back for Barcelona")
+        let zone = try XCTUnwrap(
+            first.timeZone,
+            "a geocoded placemark carries no time zone — a typed destination cannot know its hour"
+        )
+        XCTAssertEqual(zone.identifier, "Europe/Madrid")
+    }
+
+    /// And a name that is not a place must not confidently return somewhere.
+    func testGeocodingNonsenseDoesNotInventAPlace() async throws {
+        do {
+            let placemarks = try await CLGeocoder()
+                .geocodeAddressString("zzqx not a real place at all 12345")
+            XCTAssertTrue(
+                placemarks.isEmpty,
+                "geocoding invented \(placemarks.first?.name ?? "somewhere") for nonsense"
+            )
+        } catch {
+            // A "no result" error is the correct answer, and is what this usually returns.
+            XCTAssertTrue(true)
+        }
+    }
 }

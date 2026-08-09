@@ -216,6 +216,13 @@ extension Container {
     /// Registered beside the reservation provider so the two moments stay separate: this one is
     /// before a plan exists, that one is after. Swapping in Google Places later is a change here
     /// and nowhere else.
+    var timeZoneLookup: Factory<TimeZoneLookup> {
+        // Real geocoding even in mock mode, for the same reason as `placeDiscoveryProvider`: a
+        // fixture zone would be a fourth invented fact about a place, and the whole point of the
+        // field is that it agrees with where the plan actually is.
+        Factory(self) { CoreLocationTimeZoneLookup() }
+    }
+
     var placeDiscoveryProvider: Factory<PlaceDiscoveryProvider> {
         // Real places, even in mock mode — like `placeImageProvider`, and for the same reason.
         //

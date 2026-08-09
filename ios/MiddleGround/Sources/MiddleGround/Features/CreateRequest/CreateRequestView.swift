@@ -60,6 +60,12 @@ struct CreateRequestView: View {
                     TextField("Where? (optional)", text: $viewModel.location)
                         .mgFont(.bodySmall)
                         .textInputAutocapitalization(.words)
+                        // A typed destination is the only way a plan somewhere else can learn its
+                        // clock: the nearby list searches from where the *user* is, so composing
+                        // "Barcelona" at home finds nothing in Barcelona. Debounced inside.
+                        .onChange(of: viewModel.location) { _, _ in
+                            Task { await viewModel.lookUpTypedTimeZone() }
+                        }
 
                     // Only on an empty field, and only for categories where a venue makes
                     // sense — offering "restaurant" for splitting the chores would be noise.

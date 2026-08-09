@@ -110,7 +110,38 @@ extension CreateRequestViewModel {
     var placeTimeZoneID: String? {
         guard let chosenPlace,
               chosenPlace.name == location.trimmingCharacters(in: .whitespacesAndNewlines)
-        else { return nil }
+        else { return typedPlaceTimeZoneID }
         return chosenPlace.timeZoneIdentifier
+    }
+
+    /// Looks up the zone for a place somebody typed, once they have stopped typing.
+    ///
+    /// Without this the zone could only ever be set from the nearby list, which searches from the
+    /// user's *current* coordinate — so a trip to Barcelona composed at home found no Barcelona
+    /// venues and the plan's zone stayed nil, for precisely the case the field exists for.
+    ///
+    /// Debounced the same way the nearby search is, and for the same reason: geocoding a keystroke
+    /// is a request per letter for an answer that cannot be right yet.
+    func lookUpTypedTimeZone() async {
+        typedZoneTask?.cancel()
+        let name = location.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard chosenPlace?.name != name else { return }
+        typedPlaceTimeZoneID = nil
+        guard !name.isEmpty else { return }
+
+        let task = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled, let self else { return }
+            let zone = await self.timeZoneLookup.timeZone(forPlaceNamed: name)
+            guard !Task.isCancelled else { return }
+            // Checked again on the way out: somebody who kept typing has a different place now,
+            // and stamping the old answer on it is how a plan ends up on a clock nobody chose.
+            guard self.location.trimmingCharacters(in: .whitespacesAndNewlines) == name else {
+                return
+            }
+            self.typedPlaceTimeZoneID = zone?.identifier
+        }
+        typedZoneTask = task
+        await task.value
     }
 }

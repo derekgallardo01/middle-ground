@@ -29,6 +29,39 @@ protocol PlaceDiscoveryProvider: Sendable {
     ) async throws -> [DiscoveredPlace]
 }
 
+/// What time it is where a plan is, when the plan is somewhere you are not.
+///
+/// The gap this fills was left by the time-zone work itself. A plan takes its zone from the place
+/// chosen in the nearby list, and that list searches from the user's **current** coordinate — so
+/// composing "Barcelona, 4–8 September" from a sofa in Brooklyn finds no Barcelona venues, the
+/// zone stays nil, and the one case the field exists for is the one case it could never be set
+/// for. A typed destination is the only route left, and `CLGeocoder` answers it: asked for
+/// "Barcelona, Spain" it returns a placemark carrying `Europe/Madrid` (asserted in
+/// `LookAroundProbeTests`, not assumed — a locally-built `MKPlacemark` carries none).
+protocol TimeZoneLookup: Sendable {
+    /// The zone a place name is in, or nil when the name resolves to nothing.
+    ///
+    /// Nil is an ordinary answer: "the wine bar" is a real thing to type and geocodes to nothing,
+    /// and a plan with no zone behaves exactly as every plan did before this existed.
+    func timeZone(forPlaceNamed name: String) async -> TimeZone?
+}
+
+struct CoreLocationTimeZoneLookup: TimeZoneLookup {
+    func timeZone(forPlaceNamed name: String) async -> TimeZone? {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Two characters cannot identify a city, and geocoding every keystroke of somebody typing
+        // a venue name is a request per letter for an answer that cannot be right yet.
+        guard trimmed.count >= 3 else { return nil }
+        do {
+            return try await CLGeocoder().geocodeAddressString(trimmed).first?.timeZone
+        } catch {
+            // "No result" arrives as an error here, and it is not a failure worth reporting: the
+            // plan simply has no zone, which is what every plan had until this week.
+            return nil
+        }
+    }
+}
+
 /// Somewhere that came back from a search.
 struct DiscoveredPlace: Identifiable, Hashable, Sendable {
     let id: String

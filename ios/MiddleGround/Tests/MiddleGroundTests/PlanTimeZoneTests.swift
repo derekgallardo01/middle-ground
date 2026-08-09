@@ -279,4 +279,78 @@ final class PlanTimeZoneTests: XCTestCase {
     func testAPlanWithNoPlaceAtAllStampsNothing() {
         XCTAssertNil(CreateRequestViewModel().placeTimeZoneID)
     }
+
+    // MARK: - A destination you are not standing in
+
+    /// The hole the rest of this file left. A plan takes its zone from the place chosen in the
+    /// nearby list, and that list searches from the user's **current** coordinate — so composing
+    /// "Barcelona, 4–8 September" from a sofa in Brooklyn finds no Barcelona venues, and the zone
+    /// stayed nil for exactly the case the field exists for.
+    private struct StubZoneLookup: TimeZoneLookup {
+        let zone: TimeZone?
+        func timeZone(forPlaceNamed name: String) async -> TimeZone? { zone }
+    }
+
+    @MainActor
+    func testATypedDestinationLearnsItsClock() async {
+        Container.shared.timeZoneLookup.register {
+            StubZoneLookup(zone: TimeZone(identifier: "Europe/Madrid"))
+        }
+        defer { Container.shared.timeZoneLookup.reset() }
+        let viewModel = CreateRequestViewModel()
+
+        viewModel.location = "Barcelona"
+        await viewModel.lookUpTypedTimeZone()
+
+        XCTAssertEqual(viewModel.placeTimeZoneID, "Europe/Madrid")
+    }
+
+    /// "The wine bar" is a real thing to type and geocodes to nothing. A plan with no zone
+    /// behaves exactly as every plan did before this existed.
+    @MainActor
+    func testAPlaceNameThatResolvesToNothingLeavesTheZoneAlone() async {
+        Container.shared.timeZoneLookup.register { StubZoneLookup(zone: nil) }
+        defer { Container.shared.timeZoneLookup.reset() }
+        let viewModel = CreateRequestViewModel()
+
+        viewModel.location = "the wine bar"
+        await viewModel.lookUpTypedTimeZone()
+
+        XCTAssertNil(viewModel.placeTimeZoneID)
+    }
+
+    /// Clearing the field clears the clock. Otherwise a plan keeps the zone of a place that is no
+    /// longer written on it — the same stale-stamp failure the chosen-place guard exists for.
+    @MainActor
+    func testClearingTheFieldClearsTheClock() async {
+        Container.shared.timeZoneLookup.register {
+            StubZoneLookup(zone: TimeZone(identifier: "Europe/Madrid"))
+        }
+        defer { Container.shared.timeZoneLookup.reset() }
+        let viewModel = CreateRequestViewModel()
+        viewModel.location = "Barcelona"
+        await viewModel.lookUpTypedTimeZone()
+
+        viewModel.location = ""
+        await viewModel.lookUpTypedTimeZone()
+
+        XCTAssertNil(viewModel.placeTimeZoneID)
+    }
+
+    /// A place picked from the nearby list still wins: it knows its own zone without a lookup,
+    /// and that answer is about the venue rather than about a name that might match a city
+    /// anywhere.
+    @MainActor
+    func testAChosenPlaceStillOutranksATypedOne() async {
+        Container.shared.timeZoneLookup.register {
+            StubZoneLookup(zone: TimeZone(identifier: "Europe/Madrid"))
+        }
+        defer { Container.shared.timeZoneLookup.reset() }
+        let viewModel = CreateRequestViewModel()
+
+        viewModel.choose(place(named: "Bar Cañete", zone: "Asia/Tokyo"))
+        await viewModel.lookUpTypedTimeZone()
+
+        XCTAssertEqual(viewModel.placeTimeZoneID, "Asia/Tokyo")
+    }
 }

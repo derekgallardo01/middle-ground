@@ -1991,8 +1991,13 @@ describe('the itinerary on a trip', () => {
   // An item with no time is a real item — "somewhere for lunch on the 14th" is a thing to agree
   // on, and forcing a time invents a precision nobody has.
   test('an item with no time is allowed', async () => {
+    // The field has to be *absent*, not present-and-undefined: the Firebase SDK refuses to write
+    // `undefined` at all, so `{ at: undefined }` fails before the rules are consulted and reads
+    // as a rules failure. It was written that way first, and that is what it looked like.
+    const { at, ...withoutATime } = item(BOB);
+
     await assertSucceeds(
-      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i7'), item(BOB, { at: undefined })),
+      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i7'), withoutATime),
     );
   });
 

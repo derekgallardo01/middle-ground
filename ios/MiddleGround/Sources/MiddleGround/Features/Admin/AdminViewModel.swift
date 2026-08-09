@@ -213,11 +213,22 @@ struct AdminOverview: Equatable, Sendable {
     /// False when `pairedCount` hit the paging ceiling — the UI shows "N+" rather than a
     /// confidently wrong figure. See `FirestoreAdminRepository.countPairedRelationships`.
     var pairedCountIsExact = true
+    /// People in at least one paired group — the numerator activation should always have had.
+    var activatedUserCount = 0
     var requestCount = 0
     var requestsByStatus: [String: Int] = [:]
     var requestsByCategory: [String: Int] = [:]
     var eventsLast24h = 0
     var eventsLast7d = 0
+    /// Distinct people who opened the app in the last day and week.
+    ///
+    /// `app_opened` was collected from the start and aggregated nowhere; the nearest number was
+    /// "events in 24h", which sums every type and is dominated by this one.
+    var dailyActiveUsers = 0
+    var weeklyActiveUsers = 0
+    /// False when the read hit its ceiling, so the UI can say "N+" rather than a low number it
+    /// cannot support.
+    var activeUserCountsAreExact = true
 
     /// Ordered funnel steps. Empty until the Overview section loads.
     ///
@@ -229,6 +240,14 @@ struct AdminOverview: Equatable, Sendable {
 
     var pairedDisplay: String { pairedCountIsExact ? "\(pairedCount)" : "\(pairedCount)+" }
 
+    var dailyActiveDisplay: String {
+        activeUserCountsAreExact ? "\(dailyActiveUsers)" : "\(dailyActiveUsers)+"
+    }
+
+    var weeklyActiveDisplay: String {
+        activeUserCountsAreExact ? "\(weeklyActiveUsers)" : "\(weeklyActiveUsers)+"
+    }
+
     /// One step of the signup → activation funnel.
     struct FunnelStep: Equatable, Sendable, Identifiable {
         let label: String
@@ -236,7 +255,24 @@ struct AdminOverview: Equatable, Sendable {
         var id: String { label }
     }
 
+    /// The share of **people** who got to a working state.
+    ///
+    /// Was paired groups over all groups, which is a fact about groups. Somebody who made three
+    /// groups and paired none counted against it three times; somebody who paired on their first
+    /// try counted once. Since the denominator was never people, the number was never about them
+    /// — and it is the one figure that answers whether the product works at all.
+    ///
+    /// A person is activated when any group they are in has somebody else in it. Nothing else in
+    /// the app is usable until then: with nobody to plan with, every screen is an empty state.
     var activationRate: Double {
+        guard userCount > 0 else { return 0 }
+        return Double(activatedUserCount) / Double(userCount)
+    }
+
+    /// The old figure, kept because it answers a different and still useful question: of the
+    /// groups people made, how many found a second person. A group abandoned before anybody
+    /// joined is a different problem from a person who never got started.
+    var groupPairingRate: Double {
         guard relationshipCount > 0 else { return 0 }
         return Double(pairedCount) / Double(relationshipCount)
     }

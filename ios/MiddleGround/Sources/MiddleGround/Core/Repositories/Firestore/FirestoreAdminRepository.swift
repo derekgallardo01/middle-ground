@@ -70,6 +70,8 @@ actor FirestoreAdminRepository: AdminRepository {
         // It pages, so it is the slowest thing here; start it before the counts rather than
         // after them.
         async let pairedResult = countPairedRelationships()
+        async let dailyActive = activeUsers(since: Date().addingTimeInterval(-86_400))
+        async let weeklyActive = activeUsers(since: Date().addingTimeInterval(-604_800))
         let values = try await Self.runAll(totals + statusQueries + categoryQueries + funnelQueries)
 
         // Walk the results in the order the queries were assembled above.
@@ -96,7 +98,16 @@ actor FirestoreAdminRepository: AdminRepository {
             overview.funnel.append(AdminOverview.FunnelStep(label: step.label, count: value))
         }
 
-        (overview.pairedCount, overview.pairedCountIsExact) = try await pairedResult
+        let paired = try await pairedResult
+        overview.pairedCount = paired.paired
+        overview.pairedCountIsExact = paired.exact
+        overview.activatedUserCount = paired.activated.count
+
+        let daily = try await dailyActive
+        let weekly = try await weeklyActive
+        overview.dailyActiveUsers = daily.count
+        overview.weeklyActiveUsers = weekly.count
+        overview.activeUserCountsAreExact = daily.exact && weekly.exact
 
         return overview
     }
@@ -193,8 +204,51 @@ actor FirestoreAdminRepository: AdminRepository {
     /// can show "5000+" instead of a confidently wrong number. If this ever starts returning
     /// false in practice, that is the signal to denormalise a stored `isPaired` field on write
     /// and replace the whole thing with one aggregation query.
-    private func countPairedRelationships(ceiling: Int = 5_000) async throws -> (Int, Bool) {
+    /// Distinct people who opened the app since a moment.
+    ///
+    /// `app_opened` has been recorded since the beginning — debounced to one every thirty minutes
+    /// so it is not a tap counter — and aggregated **nowhere**. The only number near it was
+    /// "events in the last 24 hours", which sums every event type and is therefore dominated by
+    /// this one: a figure that goes up when anything happens and answers nothing.
+    ///
+    /// Counted by reading, not by aggregating, because Firestore has no distinct count and the
+    /// question is people rather than opens. Bounded, and it says when it hit the bound rather
+    /// than reporting a confidently low number — the same discipline as `pairedCount`.
+    private func activeUsers(
+        since: Date,
+        ceiling: Int = 2_000
+    ) async throws -> (count: Int, exact: Bool) {
+        let snapshot = try await db.collection("events")
+            .whereField("name", isEqualTo: EventType.appOpened.rawValue)
+            .whereField("at", isGreaterThanOrEqualTo: Timestamp(date: since))
+            .limit(to: ceiling)
+            .getDocuments()
+
+        let people = Set(snapshot.documents.compactMap { $0.data()["userID"] as? String })
+        return (people.count, snapshot.documents.count < ceiling)
+    }
+
+    /// Paired groups, and the people in them.
+    ///
+    /// The second figure is the one that answers "does the product work". Activation was paired
+    /// groups over all groups — a share of *groups*, not of people — so somebody who made three
+    /// groups and paired none of them counted against it three times, and somebody who paired on
+    /// their first try counted once. The denominator was never people, so the number was never
+    /// about them.
+    ///
+    /// Both come off the same page. The participant IDs are already in hand to decide whether a
+    /// group is paired at all, so counting the distinct people among them costs nothing.
+    /// Named rather than a three-wide tuple, which SwiftLint refuses and which reads as three
+    /// unlabelled values at the call site anyway.
+    private struct PairingScan {
+        let paired: Int
+        let activated: Set<String>
+        let exact: Bool
+    }
+
+    private func countPairedRelationships(ceiling: Int = 5_000) async throws -> PairingScan {
         var paired = 0
+        var activated: Set<String> = []
         var scanned = 0
         var cursor: DocumentSnapshot?
 
@@ -205,16 +259,24 @@ actor FirestoreAdminRepository: AdminRepository {
             if let cursor { query = query.start(afterDocument: cursor) }
 
             let page = try await query.getDocuments()
-            if page.documents.isEmpty { return (paired, true) }
+            if page.documents.isEmpty {
+                return PairingScan(paired: paired, activated: activated, exact: true)
+            }
 
-            paired += page.documents.filter {
-                (($0.data()["participantIDs"] as? [String]) ?? []).count > 1
-            }.count
+            for document in page.documents {
+                let participants = (document.data()["participantIDs"] as? [String]) ?? []
+                guard participants.count > 1 else { continue }
+                paired += 1
+                // A person is activated once, however many paired groups they are in.
+                activated.formUnion(participants)
+            }
             scanned += page.documents.count
             cursor = page.documents.last
 
-            if page.documents.count < 500 { return (paired, true) }
+            if page.documents.count < 500 {
+                return PairingScan(paired: paired, activated: activated, exact: true)
+            }
         }
-        return (paired, false)
+        return PairingScan(paired: paired, activated: activated, exact: false)
     }
 }

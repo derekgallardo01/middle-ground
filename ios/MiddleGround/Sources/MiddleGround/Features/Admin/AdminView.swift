@@ -4,7 +4,9 @@ import SwiftUI
 /// and every read behind it is independently enforced by `firestore.rules`, so forcing this view
 /// open in a modified build shows nothing but permission errors.
 struct AdminView: View {
-    @State private var viewModel = AdminViewModel()
+    // Internal rather than private so `AdminView+Overview` can read it: `private` is file-scoped,
+    // and the overview now lives in its own file for the 500-line limit.
+    @State var viewModel = AdminViewModel()
 
     var body: some View {
         NavigationStack {
@@ -79,105 +81,8 @@ struct AdminView: View {
         }
     }
 
-    // MARK: - Overview
-
-    private var overviewSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                metric("Users", "\(viewModel.overview.userCount)", "person.2", MGColors.indigo)
-                metric("Groups", "\(viewModel.overview.relationshipCount)", "link", MGColors.teal)
-                metric("Paired", viewModel.overview.pairedDisplay, "checkmark.circle", MGColors.teal)
-                metric("Unpaired", "\(viewModel.overview.unpairedCount)", "clock", MGColors.sunshine)
-                metric("Requests", "\(viewModel.overview.requestCount)", "bubble.left.and.bubble.right", MGColors.indigo)
-                metric(
-                    "Activation",
-                    "\(Int(viewModel.overview.activationRate * 100))%",
-                    "chart.line.uptrend.xyaxis",
-                    MGColors.lavender
-                )
-            }
-
-            funnelCard
-
-            breakdown("Requests by status", viewModel.overview.requestsByStatus)
-            breakdown("Requests by category", viewModel.overview.requestsByCategory)
-
-            adminCard {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Events")
-                        .mgFont(.h3)
-                    row("Last 24 hours", "\(viewModel.overview.eventsLast24h)")
-                    row("Last 7 days", "\(viewModel.overview.eventsLast7d)")
-                }
-            }
-        }
-    }
-
-    /// Signup → activation, in order, so where people drop off is visible at a glance.
-    ///
-    /// The bar is drawn relative to the first step rather than to the largest, because the
-    /// point is retention *through* the funnel — a later step can never legitimately exceed
-    /// the first, and drawing relative to the max would hide that if it ever did.
     @ViewBuilder
-    private var funnelCard: some View {
-        if !viewModel.overview.funnel.isEmpty {
-            adminCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Funnel").mgFont(.h3)
-                    // Said plainly rather than left to be inferred from a bar that goes back up.
-                    Text("Events, not people — one person can count more than once.")
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
-
-                    let top = max(viewModel.overview.funnel.first?.count ?? 0, 1)
-                    ForEach(viewModel.overview.funnel) { step in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(step.label)
-                                    .mgFont(.bodySmall)
-                                    .foregroundStyle(MGColors.warm600)
-                                Spacer()
-                                Text("\(step.count)").mgFont(.bodySmall).monospacedDigit()
-                            }
-                            GeometryReader { geo in
-                                ZStack(alignment: .leading) {
-                                    Capsule()
-                                        .fill(MGColors.indigo.opacity(0.12))
-                                    Capsule()
-                                        .fill(MGColors.indigo)
-                                        .frame(
-                                            width: geo.size.width
-                                                * min(1, Double(step.count) / Double(top))
-                                        )
-                                }
-                            }
-                            .frame(height: 6)
-                        }
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(step.label): \(step.count)")
-                    }
-                }
-            }
-        }
-    }
-
-    private func metric(_ title: String, _ value: String, _ icon: String, _ color: Color) -> some View {
-        adminCard {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Image(systemName: icon).foregroundStyle(color)
-                    Text(title)
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
-                }
-                Text(value).mgFont(.h1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    @ViewBuilder
-    private func breakdown(_ title: String, _ values: [String: Int]) -> some View {
+    func breakdown(_ title: String, _ values: [String: Int]) -> some View {
         if !values.isEmpty {
             adminCard {
                 VStack(alignment: .leading, spacing: 8) {
@@ -190,7 +95,7 @@ struct AdminView: View {
         }
     }
 
-    private func row(_ label: String, _ value: String) -> some View {
+    func row(_ label: String, _ value: String) -> some View {
         HStack {
             Text(label).mgFont(.bodySmall).foregroundStyle(MGColors.warm600)
             Spacer()
@@ -439,14 +344,14 @@ struct AdminView: View {
 
     // MARK: - Shared
 
-    private func emptyNote(_ text: String) -> some View {
+    func emptyNote(_ text: String) -> some View {
         Text(text)
             .mgFont(.bodySmall)
             .foregroundStyle(MGColors.warm600)
             .padding(.vertical, 8)
     }
 
-    private func adminCard<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    func adminCard<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         content()
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)

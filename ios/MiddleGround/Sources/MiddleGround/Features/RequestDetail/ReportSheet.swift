@@ -59,8 +59,7 @@ struct ReportSheet: View {
                     We review every report within 24 hours. To stop this person reaching you at \
                     all, leave the group from your Profile.
                     """)
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
                 }
             }
             .navigationTitle("Report")

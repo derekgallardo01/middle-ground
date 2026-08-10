@@ -10,6 +10,25 @@ enum RelationshipType: String, Codable, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// The kind of request this sort of group usually means.
+    ///
+    /// Compose opened every plan as **Relationship**, whoever it was addressed to, so a night out
+    /// with the hiking group was filed as a relationship request — visible on the sheet, and
+    /// carried into `plan_outcomes`, where the category is the only thing distinguishing one kind
+    /// of plan from another.
+    ///
+    /// A suggestion, not a rule: it seeds the picker and any tap on it wins.
+    var suggestedRequestCategory: RequestCategory {
+        switch self {
+        case .couple: return .relationship
+        case .family, .parents: return .family
+        case .friends, .coworkers: return .friends
+        // Not "friends": what roommates plan together is mostly the running of a house, which is
+        // what Daily Life is for.
+        case .roommates: return .daily
+        }
+    }
+
     var displayName: String {
         switch self {
         case .couple: return "Couple"

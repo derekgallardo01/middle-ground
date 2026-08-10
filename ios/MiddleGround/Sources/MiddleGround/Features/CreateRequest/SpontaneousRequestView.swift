@@ -35,8 +35,7 @@ struct SpontaneousRequestView: View {
                             Text("Spontaneous Mode")
                                 .mgFont(.h1)
                             Text("One tap. Quick decisions. No overthinking.")
-                                .mgFont(.body)
-                                .foregroundStyle(MGColors.warm600)
+                                .mgFont(.body, color: MGColors.warm600)
                                 .multilineTextAlignment(.center)
                         }
 
@@ -74,8 +73,7 @@ struct SpontaneousRequestView: View {
                                         Haptics.shared.impact(.light)
                                     } label: {
                                         Text(idea)
-                                            .mgFont(.bodySmall)
-                                            .foregroundStyle(MGColors.slate)
+                                            .mgFont(.bodySmall, color: MGColors.slate)
                                             .padding(.horizontal, 12)
                                             .padding(.vertical, 8)
                                             .background(MGColors.warm100)
@@ -221,8 +219,7 @@ struct SpontaneousRequestView: View {
                     Text("Invite someone not on Middle Ground")
                         .mgFont(.bodySmall)
                     Text("They get a code for this plan only.")
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                 }
             }
             .accessibilityIdentifier("inviteOutsider")

@@ -99,12 +99,34 @@ struct ProfileView: View {
             }
 
             VStack(spacing: 4) {
-                Text(viewModel.user?.name ?? "Guest")
-                    .mgFont(.h1)
+                // Tappable, because onboarding was the only screen that ever wrote this and
+                // Apple hands over a name exactly once. Somebody who quit before the profile
+                // step was "Guest" for good — to themselves, and to everybody in every group
+                // they later joined.
+                Button {
+                    viewModel.beginEditingDisplayName()
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(viewModel.displayName)
+                            .mgFont(.h1)
+                        Image(systemName: "pencil")
+                            .font(.system(size: 15))
+                            .foregroundStyle(MGColors.warm600)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Your name: \(viewModel.displayName)")
+                .accessibilityHint("Change your name")
+
+                if viewModel.hasNoName {
+                    Text("Add your name so people know who you are.")
+                        .mgFont(.bodySmall, color: MGColors.warm600)
+                        .multilineTextAlignment(.center)
+                }
+
                 if !viewModel.levelDisplay.isEmpty {
                     Text(viewModel.levelDisplay)
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.body, color: MGColors.warm600)
                 }
             }
         }
@@ -128,8 +150,7 @@ struct ProfileView: View {
 
                 VStack(spacing: 12) {
                     Text("Share this code so someone can join you.")
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     Text(code)
@@ -220,8 +241,7 @@ struct ProfileView: View {
                 .mgCard(radius: MGRadius.lg)
 
                 Text("Leaving removes you from the group and stops anyone in it from reaching you.")
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
             }
             .alert(
                 "Leave this group?",
@@ -251,6 +271,13 @@ struct ProfileView: View {
                 Button("Save") { Task { await viewModel.commitRename() } }
             } message: {
                 Text("Everyone in the group sees this name. Leave it empty to go back to the group type.")
+            }
+            .alert("What should we call you?", isPresented: $viewModel.isEditingDisplayName) {
+                TextField("Your name", text: $viewModel.displayNameInput)
+                Button("Cancel", role: .cancel) { viewModel.isEditingDisplayName = false }
+                Button("Save") { Task { await viewModel.commitDisplayName() } }
+            } message: {
+                Text("This is the name everyone you plan with sees.")
             }
         }
     }
@@ -296,8 +323,7 @@ struct ProfileView: View {
                 } label: {
                     HStack {
                         Text("Sign Out")
-                            .mgFont(.body)
-                            .foregroundStyle(MGColors.coral)
+                            .mgFont(.body, color: MGColors.coralText)
                         Spacer()
                         if viewModel.isLoading {
                             ProgressView()
@@ -320,8 +346,7 @@ struct ProfileView: View {
                 Text(kind.title)
                     .mgFont(.body)
                 Text(kind.explanation)
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
             }
         }
         .padding()
@@ -363,14 +388,13 @@ struct ProfileView: View {
             } label: {
                 HStack {
                     Text("Delete Account")
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.coral)
+                        .mgFont(.body, color: MGColors.coralText)
                     Spacer()
                     if viewModel.isDeletingAccount {
                         ProgressView()
                     } else {
                         Image(systemName: "trash")
-                            .foregroundStyle(MGColors.coral)
+                            .foregroundStyle(MGColors.coralText)
                     }
                 }
                 .padding()
@@ -382,8 +406,7 @@ struct ProfileView: View {
             .accessibilityHint("Permanently removes your account and all of your data")
 
             Text("This permanently deletes your account, your requests, and your shared groups. It can't be undone.")
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
         }
         // An alert rather than a confirmationDialog: on iOS 26 the dialog presented as a
         // popover whose actions were not exposed as accessibility buttons at all, which
@@ -422,8 +445,7 @@ struct SettingRow: View {
                 .foregroundStyle(MGColors.indigo)
                 .frame(width: iconColumn)
             Text(title)
-                .mgFont(.body)
-                .foregroundStyle(MGColors.slate)
+                .mgFont(.body, color: MGColors.slate)
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.system(size: 14, weight: .semibold))

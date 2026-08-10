@@ -24,8 +24,7 @@ struct ScoreboardCard: View {
                 // every plan and this one counts only this group's — so your own number can
                 // differ between the two, and an unexplained mismatch reads as a bug.
                 Text("Plans in this group that you were part of.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
             }
 
             VStack(spacing: MGSpacing.sm) {
@@ -38,8 +37,7 @@ struct ScoreboardCard: View {
                 Divider()
                 VStack(alignment: .leading, spacing: MGSpacing.xs) {
                     Text("Still settling in")
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                     Text(board.unranked.map(\.displayName).formatted(.list(type: .and)))
                         .mgFont(.bodySmall)
                 }
@@ -52,9 +50,8 @@ struct ScoreboardCard: View {
         let isYou = entry.userID == currentUserID
         return HStack(spacing: MGSpacing.md) {
             Text("\(entry.rank ?? 0)")
-                .mgFont(.bodySmall)
+                .mgFont(.bodySmall, color: MGColors.warm600)
                 .monospacedDigit()
-                .foregroundStyle(MGColors.warm600)
                 .frame(width: 18, alignment: .trailing)
 
             Text(isYou ? "You" : entry.displayName)

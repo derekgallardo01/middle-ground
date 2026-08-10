@@ -20,6 +20,8 @@ final class GamificationViewModel {
 
     /// How often each group's plans happen. Every group, couples included — it ranks nobody.
     private(set) var followThrough: [(group: Relationship, rate: GroupFollowThrough)] = []
+    /// Whether each group is still doing things together — the slower question under follow-through.
+    private(set) var energy: [(group: Relationship, energy: GroupEnergy)] = []
 
     /// Every group, so the screen can tell "nothing earned yet" from "nobody to earn it with".
     private(set) var groups: [Relationship] = []
@@ -74,7 +76,17 @@ final class GamificationViewModel {
         errorMessage = nil
         // Before the reads, not alongside them: on a reinstall the local store is empty, and
         // the mirror is the only place the user's XP and streak still exist.
-        await gamificationService.restoreFromMirrorIfNeeded(for: currentUser.id)
+        //
+        // If it couldn't be reached, everything below renders from defaults — Level 1, 0 XP, a
+        // 0-day streak, no achievements. Shown without comment that is not a degraded screen, it
+        // is a false one: it tells somebody with two years of history that they have none. An
+        // error state is the honest answer, and it retries.
+        if await gamificationService.restoreFromMirrorIfNeeded(for: currentUser.id) == .unavailable {
+            errorMessage = "Couldn't load your progress. Check your connection and try again."
+            isLoading = false
+            hasLoaded = true
+            return
+        }
         async let fetchedStats = gamificationService.stats(for: currentUser.id)
         async let fetchedAchievements = gamificationService.achievements(for: currentUser.id)
         async let fetchedActivities = gamificationService.activities(for: currentUser.id)
@@ -105,6 +117,10 @@ final class GamificationViewModel {
         // Follow-through covers every group; the scoreboard does not. One fetch answers both.
         followThrough = allGroups.map { group in
             (group, GroupFollowThrough.from(relationship: group, requests: requests))
+        }
+        // Same requests, same groups, no extra reads.
+        energy = allGroups.map { group in
+            (group, GroupEnergy.from(relationship: group, requests: requests))
         }
 
         let groups = allGroups.filter(GroupScoreboard.isEligible)

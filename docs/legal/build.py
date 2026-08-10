@@ -248,7 +248,7 @@ requests into calm, collaborative workflows instead of drawn-out back-and-forth.
 - [Terms of Service](terms-of-service.html)
 - [Support](support.html)
 
-Questions? Email **support@middleground.app**.
+Questions? Email **support@seekmiddleground.com**.
 """
     (HERE / "index.html").write_text(
         TEMPLATE.format(title="Middle Ground", body=render(index)), encoding="utf-8"

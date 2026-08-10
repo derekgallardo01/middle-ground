@@ -32,8 +32,7 @@ struct BookingRow: View {
                  Check tables at \(placeName) for \(partySize), around the time you agreed. \
                  Booking happens on OpenTable, not here.
                  """)
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
 
             Button {
                 onOpen()

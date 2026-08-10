@@ -15,7 +15,26 @@ final class NotificationService: NSObject, ObservableObject {
         super.init()
         // Nothing Firebase-backed here: this singleton can be created before
         // FirebaseApp.configure() runs (or in mock mode, where it never runs).
+        //
+        // Guarded, because `UNUserNotificationCenter.current()` does not fail gracefully outside
+        // an app — it raises `NSInternalInconsistencyException` ("bundleProxyForCurrentProcess is
+        // nil"), which kills the process. In the xctest bundle the main bundle is Xcode's test
+        // agent rather than an `.app`, so *any* type holding this singleton could not be
+        // constructed in a unit test at all. That is why `AppState` and `ProfileViewModel` — two
+        // of the most consequential types in the app — had no tests: not because nobody tried,
+        // but because trying crashed the runner with an error about bundle proxies.
+        guard Self.isRunningInAnApp else { return }
         UNUserNotificationCenter.current().delegate = self
+    }
+
+    /// Whether there is a real application around us, rather than a bare test runner.
+    ///
+    /// The app bundle — and the UI-test host — is an `.app`; the xctest agent is a directory with
+    /// no extension. Deliberately not a `#if DEBUG`: the same binary runs the tests, and a flag
+    /// that changes what the *shipping* build does to make a test pass proves nothing about the
+    /// shipping build.
+    static var isRunningInAnApp: Bool {
+        Bundle.main.bundleURL.pathExtension == "app"
     }
 
     /// Attaches the Firebase Messaging delegate. Must be called *after*
@@ -60,8 +79,11 @@ final class NotificationService: NSObject, ObservableObject {
 }
 
 extension NotificationService: MessagingDelegate {
+    /// FCM calls this on its own queue, so the `@Published` write has to hop — publishing from a
+    /// background thread is the same class of fault as the tap handler above, and any view
+    /// observing `fcmToken` would be updated off the main thread.
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-        self.fcmToken = fcmToken
+        Task { @MainActor in self.fcmToken = fcmToken }
         guard let fcmToken else { return }
         Task { await Self.persist(token: fcmToken) }
     }
@@ -156,10 +178,23 @@ extension NotificationService: UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse
     ) async {
         let userInfo = response.notification.request.content.userInfo
-        handleNotification(userInfo: userInfo)
+        await Self.handleNotification(userInfo: userInfo)
     }
 
-    private func handleNotification(userInfo: [AnyHashable: Any]) {
+    /// Turns a tapped notification into a navigation.
+    ///
+    /// `@MainActor` is load-bearing, not tidiness. `NotificationCenter.post` delivers
+    /// synchronously on the calling thread, so the observer in `HomeView` — and through it
+    /// `AppState`, which is `@MainActor` — ran on whatever thread this delegate callback happened
+    /// to arrive on. This method is `async` and the class is not actor-isolated, so that thread
+    /// was a cooperative-pool one rather than the main thread, and the compiler believed
+    /// otherwise: a view-body closure is assumed main-actor at compile time. Swift traps on that
+    /// mismatch rather than warning. Every notification tap crashed the app.
+    /// Static because it reads no instance state, and because `shared` cannot exist in a logic
+    /// test bundle — its `init` sets the `UNUserNotificationCenter` delegate, which needs a real
+    /// app bundle. Tying the one piece of routing logic in here to that was what kept it untested.
+    @MainActor
+    static func handleNotification(userInfo: [AnyHashable: Any]) {
         if let requestID = userInfo["request_id"] as? String {
             // Post a notification that AppState/Coordinator can observe to navigate
             NotificationCenter.default.post(

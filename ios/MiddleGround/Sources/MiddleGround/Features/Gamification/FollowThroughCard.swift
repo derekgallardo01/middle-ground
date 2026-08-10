@@ -32,8 +32,7 @@ struct FollowThroughCard: View {
         Once you've been through a few plans, this will show how many of them actually \
         happened. \(followThrough.plansUntilShown) to go.
         """)
-            .mgFont(.bodySmall)
-            .foregroundStyle(MGColors.warm600)
+            .mgFont(.bodySmall, color: MGColors.warm600)
     }
 
     private func earned(_ percentage: Int) -> some View {
@@ -63,8 +62,7 @@ struct FollowThroughCard: View {
             Image(systemName: icon)
                 .foregroundStyle(MGColors.warm600)
             Text(text)
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
         }
     }
 }

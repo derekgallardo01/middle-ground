@@ -61,7 +61,7 @@ extension RequestDetailViewModel {
                 request = try await requestService.unsave(request, by: currentUserID)
                 Haptics.shared.impact(.light)
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = UserFacingError.message(for: error)
             }
         } else {
             await respond(with: .save)
@@ -89,7 +89,7 @@ extension RequestDetailViewModel {
         } catch {
             // Put the text back rather than losing what somebody typed.
             counterText = text
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(for: error)
         }
     }
 }

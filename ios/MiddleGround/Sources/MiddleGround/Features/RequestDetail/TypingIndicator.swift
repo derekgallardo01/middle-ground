@@ -28,8 +28,7 @@ struct TypingIndicator: View {
             .mgAnimation(MGMotion.reveal, value: phase)
 
             Text(sentence)
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
         }
         .padding(.horizontal, MGSpacing.sm)
         .onReceive(timer) { _ in phase = (phase + 1) % 3 }

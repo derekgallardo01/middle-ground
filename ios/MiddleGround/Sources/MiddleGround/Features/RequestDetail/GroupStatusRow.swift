@@ -30,8 +30,7 @@ struct GroupStatusRow: View {
             if !awaitingNames.isEmpty {
                 Label {
                     Text("Waiting on \(awaitingNames.formatted(.list(type: .and)))")
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                 } icon: {
                     Image(systemName: "clock")
                         .foregroundStyle(MGColors.warm600)
@@ -41,8 +40,7 @@ struct GroupStatusRow: View {
                 // left edge while every line above it is indented past one.
                 Label {
                     Text("Everyone's answered.")
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                 } icon: {
                     Image(systemName: "checkmark.circle")
                         .foregroundStyle(MGColors.warm600)

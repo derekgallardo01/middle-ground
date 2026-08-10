@@ -9,11 +9,43 @@ import UIKit
 enum MGColors {
     // Primary — accents lift slightly in dark mode for contrast against dark surfaces.
     static let indigo = Color(light: 0x6366F1, dark: 0x818CF8)
-    static let teal = Color(light: 0x14B8A6, dark: 0x2DD4BF)
+    /// Darkened in light mode from `#14B8A6` (teal-500) to teal-700.
+    ///
+    /// It is the only accent used *behind* text — the "Yes, it did" button on a settled plan —
+    /// and white on teal-500 is **2.49:1**, which fails WCAG AA for body text (4.5) and for large
+    /// text (3.0) alike. That is the same failure as the black-on-purple button, arrived at from
+    /// the other direction: there the colour was applied wrongly, here it was applied correctly to
+    /// a colour that could not carry it.
+    ///
+    /// Teal also reads as text and icons — a status tint, the location pin — where teal-500 on
+    /// sand was 2.30:1, below even the 3:1 floor for meaningful icons. teal-700 answers both:
+    /// 5.47:1 with white, 5.06:1 as text on sand. Dark mode is untouched; `#2DD4BF` behind
+    /// `onAccent` is already 7.86:1.
+    static let teal = Color(light: 0x0F766E, dark: 0x2DD4BF)
     static let coral = Color(light: 0xFF8FA3, dark: 0xFDA4AF)
+
+    /// Coral, dark enough to read as text or an icon. **Use this for anything a person has to
+    /// make out**; `coral` itself is a fill.
+    ///
+    /// The pale coral is right behind dark ink and wrong in front of a page: `#FF8FA3` on sand is
+    /// **2.00:1**, under even the 3:1 floor for a meaningful icon, and it was the foreground for
+    /// eleven things — the saved heart, the report button, the streak flame, "you are sharing
+    /// your location". Darkening `coral` itself was not an option: it is also the fill behind
+    /// `onLightAccent`, the logo mark and the confetti, all of which need it pale.
+    ///
+    /// rose-700 in light mode (5.82:1 on sand, 6.3:1 on white — clears AA for body text, not just
+    /// the icon floor). Dark mode is unchanged, because pale coral on a dark page is already
+    /// 7.74:1; the failure was only ever in light mode.
+    static let coralText = Color(light: 0xBE123C, dark: 0xFDA4AF)
 
     // Supporting
     static let sunshine = Color(light: 0xFFC857, dark: 0xFDE68A)
+
+    /// Sunshine, dark enough to read. Same split as `coralText`, and a worse starting point:
+    /// `#FFC857` on sand is **1.42:1**, which is very nearly invisible — and it was carrying the
+    /// warning triangle on the error state and the calendar clash row, the two places in the app
+    /// whose entire job is to be noticed. amber-700 in light mode, 4.65:1 on sand.
+    static let sunshineText = Color(light: 0xB45309, dark: 0xFDE68A)
     static let lavender = Color(light: 0xA78BFA, dark: 0xC4B5FD)
     static let sky = Color(light: 0x7DD3FC, dark: 0x7DD3FC)
 
@@ -31,6 +63,15 @@ enum MGColors {
     /// Plain white is only correct in light mode: the accents lift in dark mode
     /// (indigo → #818CF8, coral → #FDA4AF), where white drops to ~2.9:1 and ~1.6:1.
     static let onAccent = Color(light: 0xFFFFFF, dark: 0x1E293B)
+
+    /// Ink for accents that stay light in **both** schemes — coral, sunshine, lavender, sky.
+    ///
+    /// `onAccent` exists for accents that are dark in light mode and light in dark mode, so it
+    /// flips. These do not flip: coral is `#FF8FA3` in light and `#FDA4AF` in dark, both pale. Ink
+    /// that flips is therefore wrong twice — `onAccent` gives white on pink (2.16:1) in light, and
+    /// `slate` gives near-white on pink (1.81:1) in dark. Only a fixed dark ink reads on both, at
+    /// 6.76:1 and 7.74:1.
+    static let onLightAccent = Color(light: 0x1E293B, dark: 0x1E293B)
 
     /// Shadow colour. Deliberately NOT derived from `slate`, which inverts to near-white in
     /// dark mode and turned every card shadow into a glow.

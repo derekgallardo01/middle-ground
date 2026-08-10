@@ -21,8 +21,7 @@ struct NegotiationView: View {
                         .font(.system(size: 32))
                         .foregroundStyle(MGColors.warm600)
                     Text("Nothing here yet")
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.body, color: MGColors.warm600)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 24)
@@ -50,8 +49,7 @@ struct NegotiationView: View {
 
             if let seenBy = viewModel.seenBySentence {
                 Text(seenBy)
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm400)
+                    .mgFont(.caption, color: MGColors.warm400)
                     .padding(.horizontal, MGSpacing.sm)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -213,8 +211,7 @@ struct NegotiationView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: MGSpacing.xl) {
                 Text("Suggest a different time. Accepting your suggestion moves the plan to it.")
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.body, color: MGColors.warm600)
 
                 DatePicker("New time", selection: $pickedTime, in: Date()...)
                     .datePickerStyle(.graphical)
@@ -284,8 +281,7 @@ struct NegotiationBubble: View {
                 HStack(spacing: MGSpacing.xs) {
                     Text(message.responseType.emoji)
                     Text(message.responseType.displayName)
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                 }
             }
             // Reads as one turn, so VoiceOver does not announce the text and its label as two

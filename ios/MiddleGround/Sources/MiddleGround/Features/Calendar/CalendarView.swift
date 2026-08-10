@@ -33,6 +33,14 @@ struct CalendarView: View {
                 await viewModel.loadEvents()
                 await viewModel.loadAvailability()
             }
+            // Marking yourself away is a message to other people, so a write that reached nobody
+            // has to be said out loud. It cannot use the error state above: that one replaces the
+            // whole calendar, which loaded perfectly well.
+            .alert("Oops", isPresented: .constant(viewModel.availabilityErrorMessage != nil)) {
+                Button("OK") { viewModel.availabilityErrorMessage = nil }
+            } message: {
+                Text(viewModel.availabilityErrorMessage ?? "")
+            }
         }
         .task {
             await viewModel.loadCurrentUser()
@@ -88,8 +96,7 @@ struct CalendarView: View {
             HStack {
                 ForEach(Calendar.current.shortWeekdaySymbols, id: \.self) { day in
                     Text(day)
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -149,15 +156,13 @@ struct CalendarView: View {
                     youAreBusy ? "I'm free again this day" : "I'm not free this day",
                     systemImage: youAreBusy ? "arrow.uturn.backward" : "nosign"
                 )
-                .mgFont(.bodySmall)
-                .foregroundStyle(youAreBusy ? MGColors.warm600 : MGColors.indigo)
+                .mgFont(.bodySmall, color: youAreBusy ? MGColors.warm600 : MGColors.indigo)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("toggleUnavailable")
 
             Text("Only the days you block out are shared. Your calendar is never uploaded.")
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm400)
+                .mgFont(.caption, color: MGColors.warm400)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .mgSurfaceCard()
@@ -194,8 +199,7 @@ struct CalendarView: View {
                                 .fontWeight(.semibold)
                             if let time = request.proposedTime {
                                 Text(time, style: .date)
-                                    .mgFont(.caption)
-                                    .foregroundStyle(MGColors.warm600)
+                                    .mgFont(.caption, color: MGColors.warm600)
                             }
                         }
                         Spacer()
@@ -255,10 +259,18 @@ struct DayCell: View {
                 .fill(isSelected ? MGColors.indigo : Color.clear)
                 .frame(width: selectionSize, height: selectionSize)
 
+            // `mgFont(_:color:)` — the two-step spelling silently discards the colour, and this
+            // is where it cost the most: the selected day rendered `slate` on the indigo circle
+            // at **2.32:1**, under even the 3:1 floor for non-text, on the single most important
+            // affordance of this screen. White on indigo is 4.47:1.
             Text("\(Calendar.current.component(.day, from: date))")
-                .mgFont(.caption)
+                .mgFont(
+                    .caption,
+                    color: isSelected
+                        ? MGColors.onAccent
+                        : (isCurrentMonth ? MGColors.slate : MGColors.warm600)
+                )
                 .fontWeight(.semibold)
-                .foregroundStyle(isSelected ? MGColors.onAccent : (isCurrentMonth ? MGColors.slate : MGColors.warm600))
 
             // Two different facts, so two different marks rather than one ambiguous dot:
             // coral means something is planned, warm means somebody is not free.
@@ -283,6 +295,26 @@ struct DayCell: View {
             }
         }
         .frame(height: rowHeight)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenLabel)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    /// Everything the two dots mean, said out loud.
+    ///
+    /// The cell rendered a coral dot for "something is planned" and a warm one for "somebody is
+    /// not free", and neither had a label — so a VoiceOver user heard "4" and nothing else, on the
+    /// screen whose entire job is telling you which days are spoken for. Both marks are five
+    /// points across, which is also why they are worth stating rather than left to be seen.
+    private var spokenLabel: String {
+        var parts = [date.formatted(.dateTime.day().month(.wide))]
+        if hasEvents { parts.append("something planned") }
+        if youAreBusy {
+            parts.append("you are not free")
+        } else if someoneIsBusy {
+            parts.append("someone is not free")
+        }
+        return parts.joined(separator: ", ")
     }
 }
 

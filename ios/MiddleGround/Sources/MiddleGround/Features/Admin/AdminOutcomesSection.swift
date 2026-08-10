@@ -36,8 +36,7 @@ struct AdminOutcomesSection: View {
             Collection began 2 August 2026. Nothing before that exists and it cannot be \
             reconstructed — worth saying out loud whenever this figure is quoted.
             """)
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
         }
     }
 
@@ -51,18 +50,15 @@ struct AdminOutcomesSection: View {
                     .mgFont(.h1)
                     .monospacedDigit()
                 Text("of settled plans happened, across \(summary.settled) plans.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
 
                 if let late = summary.lateCancellationPercentage {
                     Text("\(late)% were called off at short notice — the number a restaurant minds.")
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                 }
             } else {
                 Text("Not enough settled plans yet — \(summary.untilMeaningful) to go.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
             }
 
             counts
@@ -93,13 +89,11 @@ struct AdminOutcomesSection: View {
                         .mgFont(.bodySmall)
                     Spacer()
                     Text(summary.followThroughPercentage.map { "\($0)%" } ?? "—")
-                        .mgFont(.bodySmall)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                         .monospacedDigit()
-                        .foregroundStyle(MGColors.warm600)
                     Text("(\(summary.settled))")
-                        .mgFont(.caption)
+                        .mgFont(.caption, color: MGColors.warm400)
                         .monospacedDigit()
-                        .foregroundStyle(MGColors.warm400)
                 }
             }
         }
@@ -110,8 +104,7 @@ struct AdminOutcomesSection: View {
     private func row(_ label: String, _ value: Int) -> some View {
         HStack {
             Text(label)
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
             Spacer()
             Text("\(value)")
                 .mgFont(.bodySmall)

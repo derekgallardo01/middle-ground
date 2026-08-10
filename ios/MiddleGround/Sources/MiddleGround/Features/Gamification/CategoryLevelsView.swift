@@ -15,8 +15,7 @@ struct CategoryLevelsView: View {
 
             if stats.rankedCategories.isEmpty {
                 Text("Respond to requests and the things you do most will show up here.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .mgSurfaceCard()
             } else {
@@ -46,9 +45,8 @@ struct CategoryLevelsView: View {
                     .mgFont(.body)
                 Spacer()
                 Text("Level \(level)")
-                    .mgFont(.bodySmall)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .monospacedDigit()
-                    .foregroundStyle(MGColors.warm600)
             }
 
             GeometryReader { geo in

@@ -149,6 +149,35 @@ final class RequestService {
         return updated
     }
 
+    /// Records that somebody is still coming.
+    ///
+    /// The question `remindBeforePlan` has been pushing since it shipped — its notification is
+    /// literally titled "Still on?" — and which nothing in the app could answer, because no
+    /// control anywhere meant "yes, I'm still in".
+    ///
+    /// Writes through the same full-document path as `confirmAttendance` rather than a targeted
+    /// `updateData`, because that path is already proven against a pinned rules branch: it round
+    /// trips every other field unchanged, so the `immutable(...)` checks in `isSayingStillOn()`
+    /// pass on identity.
+    ///
+    /// Nothing is recorded to `plan_outcomes`. Saying you are still coming is not an outcome —
+    /// the plan has not happened yet, and counting intent alongside attendance is how a
+    /// follow-through figure stops meaning anything.
+    @discardableResult
+    func sayStillOn(_ request: Request, by userID: String, at now: Date = Date()) async throws -> Request {
+        guard request.canSayStillOn(as: userID, at: now) else {
+            throw RequestError.notAllowedToConfirm
+        }
+
+        var updated = request
+        updated.stillOn[userID] = now
+        updated.updatedAt = now
+
+        try await repository.updateRequest(updated)
+        await analytics.track(.requestStillOn, userID: userID, requestID: request.id)
+        return updated
+    }
+
     /// Makes one plan joinable by someone outside your groups.
     ///
     /// "Schedule a date with someone" — they get this plan, not your life. Deliberately not

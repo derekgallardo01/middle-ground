@@ -150,6 +150,11 @@ struct CuratedVenueReservationProvider: ReservationProvider {
         if let time {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withFullDate, .withTime, .withColonSeparatorInTime]
+            // Local wall-clock time, not UTC. `ISO8601DateFormatter` defaults to GMT, and the
+            // parameter carries no zone — so a 7:30pm dinner was arriving at OpenTable as 23:30
+            // for anyone east or west of London, and the page loaded perfectly showing the wrong
+            // evening. The link has to say the hour the app is showing.
+            formatter.timeZone = .current
             items.append(URLQueryItem(name: "dateTime", value: formatter.string(from: time)))
         }
         components?.queryItems = items

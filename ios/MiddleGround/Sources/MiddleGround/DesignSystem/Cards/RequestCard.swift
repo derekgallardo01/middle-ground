@@ -21,21 +21,21 @@ struct RequestCard: View {
             }
 
             Text(request.title)
-                .mgFont(.h3)
-                .foregroundStyle(MGColors.slate)
+                .mgFont(.h3, color: MGColors.slate)
 
             if let details = request.details, !details.isEmpty {
                 Text(details)
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .lineLimit(2)
             }
 
-            if let time = request.proposedTime {
+            if let dates = request.dateSummary {
                 HStack(spacing: 4) {
-                    Image(systemName: "clock")
+                    // A trip is a different shape of thing and gets a different icon, so a week
+                    // away and a Tuesday dinner are not the same row with different words.
+                    Image(systemName: request.isMultiDay ? "calendar" : "clock")
                         .font(.system(size: 12))
-                    Text(time, style: .date)
+                    Text(dates)
                         .mgFont(.caption)
                 }
                 .foregroundStyle(MGColors.warm600)
@@ -87,9 +87,11 @@ struct StatusBadge: View {
 
     var body: some View {
         Text(status.displayName)
-            .mgFont(.caption)
+            // Same trap: written the other way round the badge lost its colour entirely and every
+            // status read as plain slate. Legible — the fill is a 12% tint — but the colour *is*
+            // the information, which is the whole reason a badge is not just a word.
+            .mgFont(.caption, color: status.badgeForeground)
             .fontWeight(.bold)
-            .foregroundStyle(status.badgeForeground)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(status.color.opacity(0.12))

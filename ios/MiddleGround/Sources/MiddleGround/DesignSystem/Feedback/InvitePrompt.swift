@@ -10,6 +10,9 @@ import SwiftUI
 struct InvitePrompt: View {
     /// The code to share. Nil when the user has no group at all yet.
     let code: String?
+    /// Which group the code belongs to, so a share can be attributed. Optional because several
+    /// callers only have a code to hand.
+    var relationshipID: String?
     /// Shown when there is no code — the caller decides where "set up" leads.
     var onSetUp: (() -> Void)?
     /// `compact` drops the illustration and body copy for use inside a form section.
@@ -32,17 +35,15 @@ struct InvitePrompt: View {
                 Middle Ground works with two people. Share your code — once they join, you can \
                 start sending each other requests.
                 """)
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .multilineTextAlignment(.center)
             }
 
             if let code {
                 Text(code)
-                    .mgFont(compact ? .h3 : .h2)
+                    .mgFont(compact ? .h3 : .h2, color: MGColors.indigo)
                     .monospaced()
                     .tracking(4)
-                    .foregroundStyle(MGColors.indigo)
                     // Read out character by character; "5SM5QX" is otherwise announced as an
                     // unintelligible word, and this is a string people have to transcribe.
                     .accessibilityLabel(
@@ -64,6 +65,7 @@ struct InvitePrompt: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(MGColors.indigo)
+                .tracksInviteShare(relationshipID: relationshipID)
             } else if let onSetUp {
                 Button(action: onSetUp) {
                     Text("Set up pairing")

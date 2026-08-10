@@ -25,6 +25,7 @@ async function purgeUserData(uid) {
     purgeRequests(uid),
     purgeEvents(uid),
     purgeMessages(uid),
+    purgeItinerary(uid),
   ]);
 
   results.forEach((r, i) => {
@@ -51,6 +52,24 @@ async function purgeMessages(uid) {
     .get();
   await Promise.all(snapshot.docs.map((doc) => doc.ref.delete()));
   console.log(`Deleted ${snapshot.size} message(s) by ${uid}`);
+}
+
+/**
+ * Itinerary items this person added to any trip.
+ *
+ * Same reasoning as `purgeMessages`, and the same trap: a subcollection is not deleted with its
+ * parent, so without this an item survives both the account that wrote it and — since the plan's
+ * creator may be somebody else entirely — often the trip it was on. `availability` taught this
+ * lesson the expensive way; every new subcollection needs its own line here or it silently
+ * accumulates.
+ */
+async function purgeItinerary(uid) {
+  const snapshot = await db()
+    .collectionGroup('itinerary')
+    .where('authorID', '==', uid)
+    .get();
+  await Promise.all(snapshot.docs.map((doc) => doc.ref.delete()));
+  console.log(`Deleted ${snapshot.size} itinerary item(s) by ${uid}`);
 }
 
 /**
@@ -88,6 +107,13 @@ async function purgeRelationships(uid) {
 
   await Promise.all(
     snapshot.docs.map(async (doc) => {
+      // Their blocked days live at relationships/{id}/availability/{uid}. Nothing else reaches
+      // them: the document is keyed by uid rather than carrying it as a field, so a
+      // collection-group query cannot find them, and the subcollection outlives its parent
+      // anyway. Unlike locations and presence there is no TTL here, so left alone it is
+      // permanent — a record of when somebody was away, belonging to an account that is gone.
+      await doc.ref.collection('availability').doc(uid).delete();
+
       const remaining = (doc.data().participantIDs || []).filter((id) => id !== uid);
       if (remaining.length === 0) {
         await doc.ref.delete();
@@ -110,6 +136,16 @@ async function purgeRequests(uid) {
 
   await Promise.all(
     snapshot.docs.map(async (doc) => {
+      // Same reasoning as availability, and more pressing: `locations` holds coordinates. A TTL
+      // does eventually remove them, but "eventually" is not what the App Privacy answer or the
+      // wording on the sharing card promise, and deletion should not wait on a sweeper. Read
+      // receipts and typing presence go too — both keyed by uid, neither reachable any other way.
+      await Promise.all([
+        doc.ref.collection('locations').doc(uid).delete(),
+        doc.ref.collection('reads').doc(uid).delete(),
+        doc.ref.collection('presence').doc(uid).delete(),
+      ]);
+
       const data = doc.data();
       const remaining = (data.allParticipantIDs || []).filter((id) => id !== uid);
       if (remaining.length === 0) {

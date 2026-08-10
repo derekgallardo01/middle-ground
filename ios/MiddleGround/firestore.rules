@@ -239,6 +239,11 @@ service cloud.firestore {
         && immutable('allParticipantIDs')
         && immutable('title')
         && immutable('proposedTime')
+        && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
         && immutable('status')
         && immutable('negotiationChain')
         && immutable('confirmations')
@@ -265,6 +270,11 @@ service cloud.firestore {
         && immutable('creatorID')
         && immutable('title')
         && immutable('proposedTime')
+        && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
         && immutable('status')
         && immutable('negotiationChain')
         && immutable('confirmations')
@@ -308,6 +318,11 @@ service cloud.firestore {
         && immutable('status')
         && immutable('title')
         && immutable('proposedTime')
+        && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
         && immutable('negotiationChain')
         && immutable('confirmations')
         && immutable('createdAt');
@@ -343,6 +358,11 @@ service cloud.firestore {
         && immutable('allParticipantIDs')
         && immutable('title')
         && immutable('proposedTime')
+        && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
         && immutable('negotiationChain')
         && immutable('stake')
         && immutable('planInviteCode')
@@ -362,6 +382,21 @@ service cloud.firestore {
     // so nobody can record the other person as absent, backdate an answer, or edit the plan
     // they are being asked about. `get('confirmations', {})` keeps documents written before the
     // field existed evaluable rather than denied.
+    // The moment a plan is over: the end when it is a genuine range, the start otherwise.
+    //
+    // The same rule as `planFinish()` in the locations scope, and as `effectiveEndTime` on the
+    // client — three copies of one fact, because a rules function cannot be shared across match
+    // blocks. Every read uses `get(..., request.time)`: a direct read of a missing property is an
+    // evaluation error rather than a false, and a function body is evaluated when it is called,
+    // so the `!= null` guard at the call site cannot protect what is inside here.
+    function requestFinish() {
+      return (resource.data.get('endTime', null) is timestamp
+               && resource.data.get('endTime', request.time)
+                    > resource.data.get('proposedTime', request.time))
+        ? resource.data.get('endTime', request.time)
+        : resource.data.get('proposedTime', request.time);
+    }
+
     function isConfirmingAttendance() {
       // `get(..., null)` rather than a direct read: a request with no time has no
       // `proposedTime` field at all, and reading a missing property is an evaluation *error*,
@@ -370,18 +405,74 @@ service cloud.firestore {
       // while deciding something unrelated.
       return resource.data.status == 'accepted'
         && resource.data.get('proposedTime', null) != null
-        && resource.data.get('proposedTime', request.time) < request.time
-        && request.resource.data.confirmations.diff(
+        // From the finish, not the start. Anchored to the start, a five-night holiday could
+        // be marked as having happened on its first morning — while everybody was still
+        // there — and the client offered the button to match.
+        && requestFinish() < request.time
+        // Guarded on both sides, for the same reason as `stillOn` below: a direct read of a
+        // missing property is an evaluation error that escapes this branch and denies the whole
+        // update. This one has not bitten yet only because every client writes `confirmations`,
+        // which is a fact about today's clients rather than a property of the rule.
+        && request.resource.data.get('confirmations', {}).diff(
              resource.data.get('confirmations', {})
            ).affectedKeys() == [uid()].toSet()
         && immutable('creatorID')
         && immutable('recipientIDs')
         && immutable('allParticipantIDs')
         && immutable('proposedTime')
+        && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
         && immutable('title')
         && immutable('negotiationChain')
         // The stake settles by derivation from these confirmations, so nothing writes it here.
         // Leaving it open would let whoever confirms also rewrite what was at stake.
+        && immutable('stake')
+        && immutable('planInviteCode')
+        && immutable('planInviteSeats');
+    }
+
+    /// Somebody saying they are still coming to a plan that has not happened yet.
+    ///
+    /// The mirror of `isConfirmingAttendance()` on the other side of the date: that one requires
+    /// `proposedTime` to have passed, this one requires it to be ahead. Neither may touch what
+    /// the other decides.
+    ///
+    /// `get('stillOn', {})` rather than a direct read, for the reason spelled out above: every
+    /// request written before this shipped has no `stillOn` field at all, and reading a missing
+    /// property is an evaluation *error*, not a false — an error that would escape this branch
+    /// and deny the whole update, so an older plan could not be cancelled because a rule about
+    /// commitment blew up deciding something unrelated.
+    function isSayingStillOn() {
+      return resource.data.status == 'accepted'
+        && resource.data.get('proposedTime', null) != null
+        && resource.data.get('proposedTime', request.time) > request.time
+        // `get(..., {})` on **both** sides. The comment above explains the trap and then this
+        // line walked into it from the other direction: `resource.data` was guarded and
+        // `request.resource.data` was not, so any write whose incoming document lacked `stillOn`
+        // — a cancellation from a build that predates this field, which is every copy of the app
+        // currently installed — hit an evaluation error here and was denied by a rule about
+        // something else entirely. Caught by the regression test written for exactly this, which
+        // only runs in CI because the emulator needs Java.
+        && request.resource.data.get('stillOn', {}).diff(
+             resource.data.get('stillOn', {})
+           ).affectedKeys() == [uid()].toSet()
+        && immutable('creatorID')
+        && immutable('recipientIDs')
+        && immutable('allParticipantIDs')
+        && immutable('proposedTime')
+        && immutable('endTime')
+        // The clock the plan is on. Left open, a participant could move a trip abroad onto
+        // another zone and every date on it would shift for everybody without a message,
+        // an edit or anything in the chain to say so.
+        && immutable('timeZoneID')
+        && immutable('title')
+        && immutable('status')
+        && immutable('negotiationChain')
+        // Whether it happened is settled after the fact and nothing here may pre-empt it.
+        && immutable('confirmations')
         && immutable('stake')
         && immutable('planInviteCode')
         && immutable('planInviteSeats');
@@ -423,6 +514,7 @@ service cloud.firestore {
                             && immutable('planInviteCode')
                             && immutable('planInviteSeats'))
                           || isConfirmingAttendance()
+                          || isSayingStillOn()
                           || isCancelling()
                           || isStaking()
                           || isManagingPlanInvite()
@@ -509,6 +601,70 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.senderID == uid();
     }
 
+    // ---------------------------------------------------------------- itinerary
+    // What is on which day of a trip.
+    //
+    // A subcollection for the reason `messages` is one: a five-day trip with four people adding
+    // items is exactly the shape that pushes a document towards the 1 MB ceiling, and every read
+    // of the plan would carry the whole itinerary whether or not anybody opened it.
+    //
+    // No day number is stored. Days are derived on the client from the plan's own time zone, so
+    // an item cannot end up filed under a day the trip no longer has — which is what happens the
+    // first time somebody moves the dates.
+    match /requests/{requestId}/itinerary/{itemId} {
+      function plan() {
+        return get(/databases/$(database)/documents/requests/$(requestId)).data;
+      }
+
+      function inPlan() {
+        return signedIn() && uid() in plan().allParticipantIDs;
+      }
+
+      function isWellFormed() {
+        return request.resource.data.keys().hasAll(['authorID', 'title', 'createdAt'])
+          && request.resource.data.keys().hasOnly(
+               ['authorID', 'title', 'at', 'location', 'createdAt']
+             )
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.createdAt is timestamp
+          // Optional, and checked only when present: a direct read of a missing property is an
+          // evaluation error rather than a false, and it would deny the whole write.
+          && (!('at' in request.resource.data) || request.resource.data.at is timestamp)
+          && (!('location' in request.resource.data)
+              || (request.resource.data.location is string
+                  && request.resource.data.location.size() <= 120));
+      }
+
+      // Everyone on the plan reads it — an itinerary only one person can see is a note, not a
+      // plan. Admin-readable on the same terms as the messages, for the same moderation reason.
+      allow get, list: if inPlan() || isAdmin();
+
+      // A called-off plan stops taking items, exactly as it stops taking messages.
+      allow create: if inPlan()
+                    && isWellFormed()
+                    && request.resource.data.authorID == uid()
+                    && !(plan().status in ['cancelled', 'declined']);
+
+      // Editable, unlike a message — a time that moved is a correction, not a revision of
+      // something people read. Only by its author, and neither the author nor the moment it was
+      // added may change: without those two pins an edit is a way to write an item into somebody
+      // else's name, or to reorder a tie by backdating.
+      allow update: if inPlan()
+                    && isWellFormed()
+                    && resource.data.authorID == uid()
+                    && request.resource.data.authorID == resource.data.authorID
+                    && request.resource.data.createdAt == resource.data.createdAt;
+
+      // The author, or the plan's creator tidying up after a change of dates. Deliberately wider
+      // than `messages`, where only the author may delete: a message is somebody's words and an
+      // itinerary item is shared arrangement, and the person who owns the trip has to be able to
+      // remove a booking that no longer exists.
+      allow delete: if signedIn()
+                    && (resource.data.authorID == uid() || plan().creatorID == uid());
+    }
+
     // ---------------------------------------------------------- read receipts
     // How far each person has read a plan. Per plan, not per message, on purpose: "Alex has
     // seen this" answers a real question, while a tick against every line imports the thing that
@@ -576,13 +732,30 @@ service cloud.firestore {
         return signedIn() && uid() in plan().allParticipantIDs;
       }
 
+      // When the plan is over: its end if it spans days, its start otherwise.
+      //
+      // An end that is not after the start is a typo or a bad row rather than a range, and taking
+      // it at face value would *shrink* the window to before the plan began — closing location
+      // sharing for a plan that is happening.
+      function planFinish() {
+        return (plan().get('endTime', null) is timestamp
+                 && plan().get('endTime', plan().proposedTime) > plan().proposedTime)
+          ? plan().get('endTime', plan().proposedTime)
+          : plan().proposedTime;
+      }
+
       // Only an accepted, dated plan, and only around the time it is meant to happen. Opening an
       // hour early is deliberate: "I'm five minutes away" is said on the way, not on arrival.
+      //
+      // The close is measured from the *finish*, so a five-day trip can share location on day
+      // four. Anchored to the start it would have shut four hours into the first morning and
+      // stayed shut for the rest of the holiday — the trip being exactly when people most want to
+      // find each other.
       function planIsLive() {
         return plan().status == 'accepted'
           && plan().proposedTime is timestamp
           && request.time >= plan().proposedTime - duration.value(1, 'h')
-          && request.time <= plan().proposedTime + duration.value(4, 'h');
+          && request.time <= planFinish() + duration.value(4, 'h');
       }
 
       // Pinned so a coordinate cannot be written with an expiry of its own choosing — otherwise
@@ -593,7 +766,11 @@ service cloud.firestore {
           && request.resource.data.latitude is number
           && request.resource.data.longitude is number
           && request.resource.data.expiresAt is timestamp
-          && request.resource.data.expiresAt <= plan().proposedTime + duration.value(4, 'h');
+          // Measured from the finish, like the window above. Pinned to the *start* it would have
+          // refused every point shared after the first afternoon of a trip: the only expiry the
+          // rule would accept was already in the past, so location sharing would have appeared to
+          // work and written nothing for the rest of the holiday.
+          && request.resource.data.expiresAt <= planFinish() + duration.value(4, 'h');
       }
 
       // No admin read, unlike gamification and events. Nothing in the admin panel wants this,

@@ -5,6 +5,7 @@ struct RequestDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showCancelConfirmation = false
+    @State private var showAddItineraryItem = false
 
     /// Drives the counter composer at the bottom of the negotiation thread.
     @FocusState private var composerFocused: Bool
@@ -22,7 +23,7 @@ struct RequestDetailView: View {
         ZStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    header
+                    PlanHeader(request: viewModel.request) { viewModel.mapsURL(for: $0) }
 
                     // Whoever's turn it is answers; the other person waits. Both are decided
                     // from `currentUserID`, which is in memory, so they are correct on the
@@ -43,6 +44,22 @@ struct RequestDetailView: View {
                     } else if let outcome = viewModel.attendanceSummary {
                         attendanceSummaryRow(outcome)
                             .mgTransition(.opacity)
+                    }
+
+                    // Above the group status, because it is asking for something and that is
+                    // reporting. Below the response rows, because deciding beats reviving.
+                    if viewModel.showsStillOn {
+                        StillOnRow(
+                            reason: viewModel.momentum.reason,
+                            hasAnswered: viewModel.hasSaidStillOn,
+                            stillOnNames: viewModel.stillOnNames,
+                            notYetNames: viewModel.notYetSaidNames,
+                            showsRoster: viewModel.showsStillOnRoster,
+                            isSending: viewModel.isSending
+                        ) {
+                            Task { await viewModel.sayStillOn() }
+                        }
+                        .mgTransition(.opacity.combined(with: .move(edge: .bottom)))
                     }
 
                     if viewModel.showsGroupStatus {
@@ -97,6 +114,21 @@ struct RequestDetailView: View {
                         )
                     }
 
+                    if viewModel.showsItinerary {
+                        ItineraryRow(
+                            days: viewModel.itineraryDays,
+                            unscheduled: viewModel.unscheduledItinerary,
+                            stranded: viewModel.strandedItinerary,
+                            dayLabel: viewModel.dayLabel(for:),
+                            timeLabel: viewModel.timeLabel(for:),
+                            canRemove: viewModel.canRemove(_:),
+                            onAdd: { showAddItineraryItem = true },
+                            onRemove: { item in
+                                Task { await viewModel.removeItineraryItem(item) }
+                            }
+                        )
+                    }
+
                     NegotiationView(viewModel: viewModel, composerFocused: $composerFocused)
 
                     Spacer(minLength: 40)
@@ -117,6 +149,11 @@ struct RequestDetailView: View {
             }
         }
         .background(MGColors.sand.ignoresSafeArea())
+        // So a test can wait for *this* screen rather than assume the tap landed. Without it,
+        // `openPlan` returned while the feed was still up and the assertions ran against the
+        // feed's own Accept button — which fails as "the creator was offered Accept on their own
+        // request", a product bug that was not happening.
+        .accessibilityIdentifier("requestDetail")
         .navigationTitle(viewModel.request.category.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -130,7 +167,7 @@ struct RequestDetailView: View {
                         Task { await viewModel.toggleSaved() }
                     } label: {
                         Image(systemName: viewModel.request.status == .saved ? "heart.fill" : "heart")
-                            .foregroundStyle(MGColors.coral)
+                            .foregroundStyle(MGColors.coralText)
                     }
                     .accessibilityLabel(viewModel.request.status == .saved ? "Remove from saved" : "Save for later")
                 }
@@ -160,11 +197,19 @@ struct RequestDetailView: View {
             if startComposing, viewModel.canRespond {
                 composerFocused = true
             }
+            // Only fetches on a trip — `loadItinerary` returns immediately otherwise, so every
+            // plan that is not one pays nothing for this.
+            await viewModel.loadItinerary()
         }
         .alert("Oops", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("OK") { viewModel.errorMessage = nil }
         } message: {
             Text(viewModel.errorMessage ?? "")
+        }
+        .sheet(isPresented: $showAddItineraryItem) {
+            AddItineraryItemSheet(dayRange: viewModel.itineraryDayRange) { title, when, place in
+                Task { await viewModel.addItineraryItem(title: title, at: when, location: place) }
+            }
         }
         .sheet(isPresented: $viewModel.showDisputeSheet) {
             DisputeSheet(viewModel: viewModel)
@@ -191,8 +236,7 @@ struct RequestDetailView: View {
             Text("Did this happen?")
                 .mgFont(.h3)
             Text("Your answer is yours alone — the other person is asked separately.")
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
 
             HStack(spacing: MGSpacing.md) {
                 Button {
@@ -212,8 +256,7 @@ struct RequestDetailView: View {
                     Task { await viewModel.confirmAttendance(.didNotHappen) }
                 } label: {
                     Label("No, it didn't", systemImage: "xmark.circle")
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.slate)
+                        .mgFont(.body, color: MGColors.slate)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, MGSpacing.md)
                         .background(MGColors.warm100)
@@ -258,8 +301,7 @@ struct RequestDetailView: View {
                 Image(systemName: icon)
                     .foregroundStyle(tint)
                 Text(message)
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.body, color: MGColors.warm600)
                 Spacer()
             }
             .accessibilityElement(children: .combine)
@@ -290,8 +332,7 @@ struct RequestDetailView: View {
                 Image(systemName: "hourglass")
                     .foregroundStyle(MGColors.warm600)
                 Text(viewModel.waitingMessage)
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.body, color: MGColors.warm600)
                 Spacer()
             }
 
@@ -310,7 +351,7 @@ struct RequestDetailView: View {
                             .mgFont(.body)
                         Spacer()
                     }
-                    .foregroundStyle(MGColors.coral)
+                    .foregroundStyle(MGColors.coralText)
                 }
                 .disabled(viewModel.isSending)
                 .accessibilityLabel("Cancel request")
@@ -361,69 +402,13 @@ struct RequestDetailView: View {
                     .mgFont(.body)
                 if let reason = viewModel.request.cancellationReason {
                     Text(reason.displayName)
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                 }
             }
             Spacer()
         }
         .mgSurfaceCard()
         .accessibilityElement(children: .combine)
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: viewModel.request.category.iconName)
-                    .foregroundStyle(MGColors.indigo)
-                Spacer()
-                StatusBadge(status: viewModel.request.status)
-            }
-
-            Text(viewModel.request.title)
-                .mgFont(.h1)
-
-            if let details = viewModel.request.details, !details.isEmpty {
-                Text(details)
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
-            }
-
-            if let time = viewModel.request.proposedTime {
-                HStack(spacing: 6) {
-                    Image(systemName: "clock")
-                    Text(time, style: .date)
-                        .mgFont(.bodySmall)
-                }
-                .foregroundStyle(MGColors.warm600)
-            }
-
-            if let place = viewModel.request.location, !place.isEmpty {
-                // Tappable, because a place name you cannot look up is barely worth storing.
-                // Maps handles an unrecognised string gracefully by searching for it.
-                Link(destination: viewModel.mapsURL(for: place)) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "mappin.and.ellipse")
-                        Text(place)
-                            .mgFont(.bodySmall)
-                    }
-                    .foregroundStyle(MGColors.indigo)
-                }
-                .accessibilityLabel("Location: \(place)")
-                .accessibilityHint("Opens in Maps")
-            }
-        }
-        .padding(20)
-        .background(MGColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: MGRadius.lg, style: .continuous))
-        .mgShadow(MGShadow.md)
-        // No matchedGeometryEffect here, deliberately.
-        //
-        // This card used to consume the feed card's frame with `isSource: false`. The two views
-        // live on opposite sides of a NavigationStack push, so the effect could never animate
-        // between them — but it was not harmless either: the card took the *feed* card's
-        // geometry, which pushed it hundreds of points down the screen, narrowed it until the
-        // title truncated, and left the negotiation content overlapping the status badge.
     }
 
     private var quickResponseRow: some View {

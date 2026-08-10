@@ -2,6 +2,9 @@ import SwiftUI
 
 struct CreateRequestView: View {
     @State private var viewModel: CreateRequestViewModel
+    /// The place being looked at. `nil` means the sheet is closed — `item:` rather than a boolean
+    /// and a separate selection, which is how a sheet ends up showing the previously tapped place.
+    @State private var inspectedPlace: DiscoveredPlace?
     @Environment(\.dismiss) private var dismiss
     var onCreated: ((Request) -> Void)?
 
@@ -33,7 +36,12 @@ struct CreateRequestView: View {
                 }
 
                 Section("What kind of request?") {
-                    RequestTypePicker(selected: $viewModel.category)
+                    // Through `chooseCategory` rather than straight at the property, so the
+                    // view model can tell a person's choice from its own suggestion.
+                    RequestTypePicker(selected: Binding(
+                        get: { viewModel.category },
+                        set: { viewModel.chooseCategory($0) }
+                    ))
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
@@ -52,9 +60,17 @@ struct CreateRequestView: View {
                     TextField("Where? (optional)", text: $viewModel.location)
                         .mgFont(.bodySmall)
                         .textInputAutocapitalization(.words)
+                        // A typed destination is the only way a plan somewhere else can learn its
+                        // clock: the nearby list searches from where the *user* is, so composing
+                        // "Barcelona" at home finds nothing in Barcelona. Debounced inside.
+                        .onChange(of: viewModel.location) { _, _ in
+                            Task { await viewModel.lookUpTypedTimeZone() }
+                        }
 
                     // Only on an empty field, and only for categories where a venue makes
                     // sense — offering "restaurant" for splitting the chores would be noise.
+                    nearbyFinder
+
                     if viewModel.location.isEmpty {
                         placeSuggestions
                     }
@@ -63,7 +79,30 @@ struct CreateRequestView: View {
                 Section("When?") {
                     Toggle("Suggest a time", isOn: $viewModel.includeTime)
                     if viewModel.includeTime {
-                        DatePicker("Proposed time", selection: $viewModel.proposedTime)
+                        DatePicker(
+                            viewModel.isTrip ? "Starts" : "Proposed time",
+                            selection: $viewModel.proposedTime
+                        )
+
+                        // Below the start, because a trip is a longer thing than a dinner and the
+                        // sheet should read as one plan growing rather than two pickers arriving.
+                        Toggle("Over several days", isOn: $viewModel.isTrip.animation())
+                        if viewModel.isTrip {
+                            DatePicker("Ends", selection: $viewModel.endTime)
+
+                            if !viewModel.tripRangeIsValid {
+                                // Said rather than silently corrected: moving somebody's dates for
+                                // them is how you send a plan for a week they did not pick.
+                                Label {
+                                    Text("The end needs to be after the start.")
+                                        .mgFont(.bodySmall)
+                                } icon: {
+                                    Image(systemName: "exclamationmark.triangle")
+                                }
+                                .foregroundStyle(MGColors.coralText)
+                                .accessibilityLabel("The end needs to be after the start")
+                            }
+                        }
                         CalendarClashRow(
                             availability: viewModel.availability,
                             accessGranted: viewModel.calendarAccessGranted
@@ -96,10 +135,13 @@ struct CreateRequestView: View {
                         // start over. Sharing happens inline instead.
                         InvitePrompt(code: viewModel.inviteCode, compact: true)
                     } else {
-                        Picker("Recipient", selection: $viewModel.recipientID) {
+                        // Tagged by relationship, not by a participant. Tagging by "the first
+                        // person who is not me" gave a couple and a group containing that same
+                        // person identical tags, so the group could not be chosen at all.
+                        Picker("Recipient", selection: $viewModel.selectedRelationshipID) {
                             ForEach(viewModel.relationships) { relationship in
                                 Text(viewModel.label(for: relationship))
-                                    .tag(partnerID(from: relationship) ?? "")
+                                    .tag(relationship.id)
                             }
                         }
                     }
@@ -134,13 +176,19 @@ struct CreateRequestView: View {
                 Text(viewModel.errorMessage ?? "")
             }
         }
+        .sheet(item: $inspectedPlace) { place in
+            PlaceDetailView(place: place) { chosen in
+                viewModel.choose(chosen)
+            }
+        }
         .task {
             await viewModel.loadCurrentUserAndPartners()
             await viewModel.loadGroupAvailability()
         }
         // The recipient decides which group's availability applies, so switching person changes
         // the answer.
-        .onChange(of: viewModel.recipientID) { _, _ in
+        .onChange(of: viewModel.selectedRelationshipID) { _, _ in
+            viewModel.suggestCategoryFromRecipient()
             Task { await viewModel.loadGroupAvailability() }
         }
     }
@@ -186,6 +234,131 @@ struct CreateRequestView: View {
         }
     }
 
+    /// Somewhere near you, on request.
+    ///
+    /// Deliberately a button rather than a search that runs when the sheet opens. The privacy
+    /// policy says location is off unless you ask for it, one time at a time — a screen that
+    /// searches on appear makes that sentence false, and this is the sentence being kept.
+    @ViewBuilder
+    private var nearbyFinder: some View {
+        VStack(alignment: .leading, spacing: MGSpacing.sm) {
+            HStack(spacing: MGSpacing.sm) {
+                Button {
+                    Task {
+                        viewModel.hasSearchedNearby = true
+                        await viewModel.findNearby()
+                    }
+                } label: {
+                    Label(
+                        viewModel.hasSearchedNearby ? "Search again" : "Find somewhere near me",
+                        systemImage: "location.magnifyingglass"
+                    )
+                    .mgFont(.caption, color: MGColors.onAccent)
+                    .padding(.vertical, MGSpacing.xs)
+                    .padding(.horizontal, MGSpacing.md)
+                    .background(MGColors.indigo)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(ScaleButtonStyle())
+                .disabled(viewModel.isSearchingNearby)
+
+                if viewModel.isSearchingNearby {
+                    ProgressView().controlSize(.small)
+                }
+            }
+
+            if viewModel.hasSearchedNearby {
+                // What to look for, and how far. Both only appear once somebody has asked, so the
+                // compose sheet does not open covered in controls nobody wanted yet.
+                Picker("What sort of place", selection: $viewModel.nearbyKind) {
+                    ForEach(PlaceKind.allCases, id: \.self) { kind in
+                        Text(kind.displayName).tag(kind)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: viewModel.nearbyKind) { _, _ in
+                    Task { await viewModel.radiusChanged() }
+                }
+
+                HStack(spacing: MGSpacing.sm) {
+                    Text("Within")
+                        .mgFont(.caption, color: MGColors.warm600)
+                    Slider(
+                        value: $viewModel.nearbyRadiusMiles,
+                        in: 1...CreateRequestViewModel.maxRadiusMiles,
+                        step: 1
+                    )
+                    .accessibilityLabel("Search radius")
+                    .accessibilityValue("\(Int(viewModel.nearbyRadiusMiles)) miles")
+                    Text("\(Int(viewModel.nearbyRadiusMiles)) mi")
+                        .mgFont(.caption, color: MGColors.slate)
+                        .frame(width: 44, alignment: .trailing)
+                        .monospacedDigit()
+                }
+                .onChange(of: viewModel.nearbyRadiusMiles) { _, _ in
+                    Task { await viewModel.radiusChanged() }
+                }
+            }
+
+            if let message = viewModel.nearbyMessage {
+                // Said out loud rather than left as an empty row, which reads as a broken feature.
+                Text(message)
+                    .mgFont(.caption, color: MGColors.warm600)
+            }
+
+            if !viewModel.nearbyPlaces.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: MGSpacing.sm) {
+                        ForEach(viewModel.nearbyPlaces) { place in
+                            nearbyChip(place)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                // A stable handle for the row itself. Scrolling it by grabbing the first chip
+                // works exactly once — after that the chip is offscreen and the gesture fails
+                // with "visible frame is empty".
+                .accessibilityIdentifier("nearbyPlaces")
+            }
+        }
+    }
+
+    /// A found place: its name, and what it is and how far, so the choice is informed.
+    private func nearbyChip(_ place: DiscoveredPlace) -> some View {
+        Button {
+            // Opens rather than chooses. A name, a category and a distance are enough to recognise
+            // somewhere you already know and not enough to pick somewhere you do not — the picture,
+            // the address and the phone number are behind this tap, and choosing is one more.
+            inspectedPlace = place
+            Haptics.shared.impact(.light)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(place.name)
+                    .mgFont(.caption, color: MGColors.slate)
+                    .lineLimit(1)
+                if !place.subtitle.isEmpty {
+                    Text(place.subtitle)
+                        .mgFont(.caption, color: MGColors.warm600)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.vertical, MGSpacing.sm)
+            .padding(.horizontal, MGSpacing.md)
+            .background(
+                viewModel.location == place.name
+                    ? MGColors.indigo.opacity(0.14)
+                    : MGColors.warm100
+            )
+            .clipShape(RoundedRectangle(cornerRadius: MGRadius.md, style: .continuous))
+        }
+        .buttonStyle(ScaleButtonStyle())
+        .accessibilityLabel("\(place.name), \(place.subtitle)")
+        .accessibilityHint("Shows more about this place")
+        // A stable handle for tests. Matching on the name alone collided with a request card in
+        // the feed behind the sheet — the fixtures include a plan called "Dinner at Lucia's".
+        .accessibilityIdentifier("nearbyPlace")
+    }
+
     private func chip(
         emoji: String,
         label: String,
@@ -199,8 +372,7 @@ struct CreateRequestView: View {
             HStack(spacing: MGSpacing.xs) {
                 Text(emoji)
                 Text(label)
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.slate)
+                    .mgFont(.caption, color: MGColors.slate)
             }
             .padding(.vertical, MGSpacing.xs)
             .padding(.horizontal, MGSpacing.md)
@@ -227,8 +399,7 @@ struct CreateRequestView: View {
                         HStack(spacing: MGSpacing.xs) {
                             Text(template.emoji)
                             Text(template.title)
-                                .mgFont(.bodySmall)
-                                .foregroundStyle(MGColors.slate)
+                                .mgFont(.bodySmall, color: MGColors.slate)
                         }
                         .lineLimit(1)
                         .padding(.vertical, MGSpacing.sm)
@@ -247,10 +418,6 @@ struct CreateRequestView: View {
         }
     }
 
-    private func partnerID(from relationship: Relationship) -> String? {
-        guard let currentUserID = viewModel.currentUser?.id else { return nil }
-        return relationship.participantIDs.first { $0 != currentUserID }
-    }
 }
 
 #Preview {

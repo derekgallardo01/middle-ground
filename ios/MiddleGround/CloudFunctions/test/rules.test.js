@@ -445,6 +445,94 @@ describe('staking points on a plan', () => {
   });
 });
 
+// Saying you are still coming to a plan that has not happened yet — the mirror of confirming
+// attendance, on the other side of the date. `remindBeforePlan` has been asking this since it
+// shipped and nothing could record the answer.
+describe('saying still on', () => {
+  const past = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  const upcoming = (overrides = {}) =>
+    request({ status: 'accepted', proposedTime: future, stillOn: {}, ...overrides });
+
+  beforeEach(() => seed((db) => setDoc(doc(db, 'requests/r_soon'), upcoming())));
+
+  test('a participant can say they are still coming', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_soon'), { stillOn: { [BOB]: new Date() } }),
+    );
+  });
+
+  test('a participant cannot answer for somebody else', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_soon'), { stillOn: { [ALICE]: new Date() } }),
+    );
+  });
+
+  test('a non-participant cannot answer at all', async () => {
+    await assertFails(
+      updateDoc(doc(asMallory(), 'requests/r_soon'), { stillOn: { [MALLORY]: new Date() } }),
+    );
+  });
+
+  test('a plan that has already happened is attendance, not commitment', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_gone'), upcoming({ proposedTime: past })));
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_gone'), { stillOn: { [BOB]: new Date() } }),
+    );
+  });
+
+  test('saying still on cannot be used to edit the plan itself', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_soon'), {
+        stillOn: { [BOB]: new Date() },
+        title: 'Something else entirely',
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_soon'), {
+        stillOn: { [BOB]: new Date() },
+        proposedTime: past,
+      }),
+    );
+  });
+
+  test('it cannot pre-empt whether the plan happened', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_soon'), {
+        stillOn: { [BOB]: new Date() },
+        confirmations: { [BOB]: 'happened' },
+      }),
+    );
+  });
+
+  // The regression this rule is most likely to cause. Every request written before `stillOn`
+  // existed has no such field, and a *direct* read of a missing property is an evaluation error
+  // rather than a false — an error that escapes the branch and denies the whole update. The same
+  // mistake once made an undated request impossible to cancel.
+  test('a request with no stillOn field can still be cancelled', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_legacy'), request({ status: 'accepted', proposedTime: future })),
+    );
+    // Alice, because `isCancelling` requires the creator and the fixture's creator is Alice.
+    // Written as Bob first, which denied for that reason and looked like the `get(_, null)` bug
+    // this test exists to catch — a test failing for the wrong reason is worth as little as one
+    // passing for the wrong reason.
+    await assertSucceeds(
+      updateDoc(doc(asAlice(), 'requests/r_legacy'), { status: 'cancelled' }),
+    );
+  });
+
+  test('a request with no stillOn field can still be answered', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_legacy2'), request({ status: 'accepted', proposedTime: future })),
+    );
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_legacy2'), { stillOn: { [BOB]: new Date() } }),
+    );
+  });
+});
+
 // Recording whether an accepted plan actually happened — the only write permitted on a settled
 // request, and the signal every reliability idea is computed from.
 describe('confirming attendance', () => {
@@ -471,6 +559,106 @@ describe('confirming attendance', () => {
   test('a non-participant cannot answer at all', async () => {
     await assertFails(
       updateDoc(doc(asMallory(), 'requests/r_past'), { confirmations: { [MALLORY]: 'happened' } }),
+    );
+  });
+
+  // Every branch that pins the start now pins the end too, or that action becomes a way to move
+  // a trip's finish — and with it the window in which location can be shared.
+  test('confirming cannot be used to move when a trip ends', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_trip_past'), accepted({
+        proposedTime: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        endTime: past,
+      })),
+    );
+
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_trip_past'), {
+        confirmations: { [BOB]: 'happened' },
+        endTime: future,
+      }),
+    );
+  });
+
+  // A trip abroad renders every date on the plan's clock. Left unpinned, confirming attendance
+  // would be a way to move a five-day holiday in Tokyo onto Los Angeles time — shifting every
+  // date on it, for everybody, with nothing in the chain to say it happened.
+  test('confirming cannot be used to move a plan onto another clock', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_abroad'), accepted({ timeZoneID: 'Asia/Tokyo' })),
+    );
+
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_abroad'), {
+        confirmations: { [BOB]: 'happened' },
+        timeZoneID: 'America/Los_Angeles',
+      }),
+    );
+  });
+
+  // The absent case, which `immutable()` exists for: two missing fields compare equal, so a plan
+  // that never had a zone must not be given one on the way past either.
+  test('confirming cannot give a plan a clock it never had', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_past'), {
+        confirmations: { [BOB]: 'happened' },
+        timeZoneID: 'Asia/Tokyo',
+      }),
+    );
+  });
+
+  // And the plain case has to keep working, or the pin above is denying every confirmation on
+  // every plan rather than the edit it is aimed at.
+  test('a plan with a clock can still be confirmed', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_abroad2'), accepted({ timeZoneID: 'Asia/Tokyo' })),
+    );
+
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_abroad2'), { confirmations: { [BOB]: 'happened' } }),
+    );
+  });
+
+  // Anchored to the start, a five-night holiday could be marked as having happened on its first
+  // morning, while everybody was still there with four days to go.
+  test('a trip in progress cannot be confirmed yet', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_running'), accepted({
+        proposedTime: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        endTime: future,
+      })),
+    );
+
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_running'), { confirmations: { [BOB]: 'happened' } }),
+    );
+  });
+
+  test('a trip that has finished can be confirmed', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_finished'), accepted({
+        proposedTime: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        endTime: past,
+      })),
+    );
+
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_finished'), { confirmations: { [BOB]: 'happened' } }),
+    );
+  });
+
+  // A backwards end is a typo, not a range. Taking it at face value would push the finish before
+  // the start and let a plan be confirmed before it happened.
+  test('an end before the start does not bring the finish forward', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_typo_confirm'), accepted({
+        proposedTime: future,
+        endTime: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      })),
+    );
+
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_typo_confirm'), { confirmations: { [BOB]: 'happened' } }),
     );
   });
 
@@ -1344,6 +1532,65 @@ describe('shared locations', () => {
     await assertFails(setDoc(doc(asAlice(), 'requests/r5/locations/alice'), pointFor(planTime)));
   });
 
+  // A trip's window has to run to its end. Anchored to the start it shut four hours into the
+  // first morning and stayed shut for the rest of the holiday.
+  test('a trip can share a location on a later day', async () => {
+    const startedThreeDaysAgo = new Date(Date.now() - 3 * 24 * HOUR);
+    const endsTomorrow = new Date(Date.now() + 24 * HOUR);
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_trip'), request({
+        status: 'accepted',
+        proposedTime: startedThreeDaysAgo,
+        endTime: endsTomorrow,
+      })),
+    );
+
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'requests/r_trip/locations/alice'), {
+        latitude: 40.7128,
+        longitude: -74.006,
+        sharedAt: at(0),
+        // Derived from the finish, matching the pin in `isWellFormed`.
+        expiresAt: new Date(endsTomorrow.getTime() + 4 * HOUR),
+      }),
+    );
+  });
+
+  test('a trip that finished long ago has no window', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_over'), request({
+        status: 'accepted',
+        proposedTime: new Date(Date.now() - 10 * 24 * HOUR),
+        endTime: new Date(Date.now() - 5 * 24 * HOUR),
+      })),
+    );
+
+    await assertFails(
+      setDoc(doc(asAlice(), 'requests/r_over/locations/alice'), {
+        latitude: 40.7128,
+        longitude: -74.006,
+        sharedAt: at(0),
+        expiresAt: new Date(Date.now() + 4 * HOUR),
+      }),
+    );
+  });
+
+  // An end before the start is a typo, not a range — taking it at face value would shrink the
+  // window to before the plan began and close sharing for a plan that is happening.
+  test('an end before the start does not shrink the window', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_typo'), request({
+        status: 'accepted',
+        proposedTime: planTime,
+        endTime: new Date(planTime.getTime() - 48 * HOUR),
+      })),
+    );
+
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'requests/r_typo/locations/alice'), pointFor(planTime)),
+    );
+  });
+
   test('an undated request has no window', async () => {
     await seed((db) => setDoc(doc(db, 'requests/r6'), request({ status: 'accepted' })));
 
@@ -1683,5 +1930,148 @@ describe('unmatched paths', () => {
   test('a collection with no rule is denied', async () => {
     await assertFails(getDoc(doc(asAlice(), 'secrets/s1')));
     await assertFails(setDoc(doc(asAlice(), 'secrets/s1'), { a: 1 }));
+  });
+});
+
+// The itinerary: what is on which day of a trip.
+//
+// A subcollection for the same reason as `messages` — a five-day trip with four people adding
+// items is exactly the shape that pushes a document towards the 1 MB ceiling. No day number is
+// stored: days are derived on the client from the plan's own time zone, so an item cannot end up
+// filed under a day the trip no longer has.
+describe('the itinerary on a trip', () => {
+  const item = (author, overrides = {}) => ({
+    authorID: author,
+    title: 'Train to Girona',
+    at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    createdAt: new Date(),
+    ...overrides,
+  });
+
+  beforeEach(() =>
+    seed((db) =>
+      setDoc(doc(db, 'requests/r_trip_itin'), request({
+        status: 'accepted',
+        proposedTime: new Date(Date.now() + 12 * 60 * 60 * 1000),
+        endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+      })),
+    ),
+  );
+
+  test('anyone on the trip may add something', async () => {
+    await assertSucceeds(
+      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i1'), item(BOB)),
+    );
+    await assertSucceeds(
+      setDoc(doc(asAlice(), 'requests/r_trip_itin/itinerary/i2'), item(ALICE)),
+    );
+  });
+
+  // An itinerary only one person can see is a note, not a plan.
+  test('everyone on the trip can read all of it', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i3'), item(ALICE)));
+
+    await assertSucceeds(getDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i3')));
+  });
+
+  test('someone outside the trip can neither read nor write', async () => {
+    await assertFails(
+      setDoc(doc(asMallory(), 'requests/r_trip_itin/itinerary/i4'), item(MALLORY)),
+    );
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i5'), item(ALICE)));
+    await assertFails(getDoc(doc(asMallory(), 'requests/r_trip_itin/itinerary/i5')));
+  });
+
+  test('you cannot add something in someone else name', async () => {
+    await assertFails(
+      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i6'), item(ALICE)),
+    );
+  });
+
+  // An item with no time is a real item — "somewhere for lunch on the 14th" is a thing to agree
+  // on, and forcing a time invents a precision nobody has.
+  test('an item with no time is allowed', async () => {
+    // The field has to be *absent*, not present-and-undefined: the Firebase SDK refuses to write
+    // `undefined` at all, so `{ at: undefined }` fails before the rules are consulted and reads
+    // as a rules failure. It was written that way first, and that is what it looked like.
+    const { at, ...withoutATime } = item(BOB);
+
+    await assertSucceeds(
+      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i7'), withoutATime),
+    );
+  });
+
+  test('an item with no title is refused', async () => {
+    await assertFails(
+      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i8'), item(BOB, { title: '' })),
+    );
+  });
+
+  test('an item cannot smuggle in fields nobody validates', async () => {
+    await assertFails(
+      setDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i9'), item(BOB, { dayNumber: 3 })),
+    );
+  });
+
+  // A time that moved is a correction, not a revision of something people read — so unlike a
+  // message, an item is editable. By its author only.
+  test('the author may correct their own item', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i10'), item(BOB)));
+
+    await assertSucceeds(
+      updateDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i10'), { title: 'Train at 07:40' }),
+    );
+    await assertFails(
+      updateDoc(doc(asAlice(), 'requests/r_trip_itin/itinerary/i10'), { title: 'Not yours' }),
+    );
+  });
+
+  // Without these two pins an edit is a way to write an item into somebody else's name, or to
+  // win a same-time tie by backdating.
+  test('an edit cannot change the author or when it was added', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i11'), item(BOB)));
+
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i11'), { authorID: ALICE }),
+    );
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i11'), {
+        createdAt: new Date(Date.now() - 60 * 60 * 1000),
+      }),
+    );
+  });
+
+  // Wider than `messages`, where only the author may delete: a message is somebody's words, an
+  // itinerary item is shared arrangement, and whoever owns the trip has to be able to remove a
+  // booking that no longer exists.
+  test('the author or the trip creator may remove an item', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i12'), item(BOB)));
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i13'), item(BOB)));
+
+    await assertSucceeds(deleteDoc(doc(asBob(), 'requests/r_trip_itin/itinerary/i12')));
+    // Alice created the request in the `request()` helper.
+    await assertSucceeds(deleteDoc(doc(asAlice(), 'requests/r_trip_itin/itinerary/i13')));
+  });
+
+  test('a stranger cannot remove an item', async () => {
+    await seed((db) => setDoc(doc(db, 'requests/r_trip_itin/itinerary/i14'), item(BOB)));
+
+    await assertFails(deleteDoc(doc(asMallory(), 'requests/r_trip_itin/itinerary/i14')));
+  });
+
+  // A called-off trip stops taking items, exactly as it stops taking messages. There is nothing
+  // left to arrange.
+  test('a cancelled trip takes no more items', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_cancelled_trip'), request({
+        status: 'cancelled',
+        proposedTime: new Date(Date.now() + 12 * 60 * 60 * 1000),
+        endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+      })),
+    );
+
+    await assertFails(
+      setDoc(doc(asBob(), 'requests/r_cancelled_trip/itinerary/i15'), item(BOB)),
+    );
   });
 });

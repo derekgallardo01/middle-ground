@@ -17,10 +17,11 @@
  */
 
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldPath } = require('firebase-admin/firestore');
 const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } =
   require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 // 1st-gen, for the auth trigger only. See the note above.
 const functionsV1 = require('firebase-functions/v1');
@@ -28,6 +29,8 @@ const functionsV1 = require('firebase-functions/v1');
 const { getUserName, notifyUsers, getUserTimeZone, DEFAULT_TIME_ZONE, NotificationType } =
   require('./push');
 const { formatPlanTime } = require('./time');
+const { pagedDocs, mapWithConcurrency } = require('./paging');
+const { discover } = require('./discovery');
 const { purgeUserData } = require('./purge');
 const { sendAlert, when } = require('./alerts');
 
@@ -35,6 +38,7 @@ initializeApp();
 const db = () => getFirestore();
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
+const TICKETMASTER_API_KEY = defineSecret('TICKETMASTER_API_KEY');
 
 const HOUR = 60 * 60 * 1000;
 
@@ -152,7 +156,9 @@ exports.notifyRequestResponse = onDocumentUpdated('requests/{requestId}', async 
       let body = latestMessage.text || latestMessage.responseType;
       if (latestMessage.responseType === 'reschedule' && latestMessage.proposedTime) {
         const zone = await getUserTimeZone(userId);
-        const when = formatPlanTime(latestMessage.proposedTime, new Date(), zone);
+        const when = formatPlanTime(
+          latestMessage.proposedTime, new Date(), zone, after.timeZoneID
+        );
         if (when) body = `How about ${when}?`;
       }
 
@@ -178,6 +184,51 @@ exports.notifyRequestResponse = onDocumentUpdated('requests/{requestId}', async 
  * other person's list with no explanation, which is the worst possible way to learn that dinner
  * is off. Only the creator may cancel, so everybody else is told.
  */
+/**
+ * Tells everyone already on a plan when somebody new joins it.
+ *
+ * A plan invite code admits whoever holds it -- `isJoiningPlan` in firestore.rules lets them add
+ * themselves to `allParticipantIDs`. Nothing reacted to that and nothing was appended to the
+ * negotiation chain, so the people already on the plan were never told. The joiner could then read
+ * the plan's details, its whole chat, and -- because `inPlan()` is membership of that array -- any
+ * live location the others shared during the window around it.
+ *
+ * So the creator could admit somebody to a plan other people were already on, and those others'
+ * location reached a stranger they had never heard of. Being told is the minimum; it is what makes
+ * leaving, or not sharing, a choice somebody can actually make.
+ *
+ * Filed under `newRequest` rather than a new type: it is the same question -- who is on this plan
+ * with me -- and a preference switch nobody has seen cannot be used to mute it. A separate type
+ * would default to on for everybody anyway.
+ */
+exports.notifyPlanJoined = onDocumentUpdated('requests/{requestId}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after) return null;
+
+  const was = new Set(before.allParticipantIDs || []);
+  const joiners = (after.allParticipantIDs || []).filter((id) => !was.has(id));
+  if (joiners.length === 0) return null;
+
+  // Everybody who was already here. The joiner does not need telling they arrived.
+  const existing = [...was];
+  if (existing.length === 0) return null;
+
+  const names = await Promise.all(joiners.map((id) => getUserName(id)));
+  const who = names.length === 1 ? names[0] : `${names.length} people`;
+
+  return notifyUsers(existing, {
+    notification: {
+      title: `${who} joined "${after.title}"`,
+      body: 'They can see this plan and its messages.',
+    },
+    data: {
+      request_id: event.params.requestId,
+      type: 'plan_joined',
+    },
+  }, NotificationType.newRequest);
+});
+
 exports.notifyPlanCancelled = onDocumentUpdated('requests/{requestId}', async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
@@ -273,18 +324,42 @@ exports.promptForAttendance = onSchedule(
     const until = new Date(hourStart.getTime() - CONFIRM_AFTER_HOURS * HOUR);
     const since = new Date(until.getTime() - HOUR);
 
-    const snapshot = await db()
-      .collection('requests')
-      .where('status', '==', 'accepted')
-      .where('proposedTime', '>=', since)
-      .where('proposedTime', '<', until)
-      .get();
+    // Two queries, because a plan can finish at a different time from when it starts.
+    //
+    // A trip is over at its `endTime`, and asking on the first morning of a five-day holiday
+    // whether it happened is asking about something still happening. Its *start* lands in the
+    // first band too, so trips are filtered out of that one — otherwise everybody would be asked
+    // twice, days apart, and the first answer would be about nothing.
+    //
+    // A plan with no `endTime` cannot match the second query at all: Firestore range filters skip
+    // documents missing the field. That is exactly the behaviour wanted here, and it is why no
+    // migration is needed for the plans that already exist.
+    const [byStart, byEnd] = await Promise.all([
+      db().collection('requests')
+        .where('status', '==', 'accepted')
+        .where('proposedTime', '>=', since)
+        .where('proposedTime', '<', until)
+        .get(),
+      db().collection('requests')
+        .where('status', '==', 'accepted')
+        .where('endTime', '>=', since)
+        .where('endTime', '<', until)
+        .get(),
+    ]);
 
-    if (snapshot.empty) return;
-    console.log(`Asking about ${snapshot.size} plan(s) that were due between ${since} and ${until}`);
+    const spansDays = (request) =>
+      request.endTime && toMillis(request.endTime) > toMillis(request.proposedTime);
+
+    const docs = [
+      ...byStart.docs.filter((doc) => !spansDays(doc.data())),
+      ...byEnd.docs,
+    ];
+
+    if (docs.length === 0) return;
+    console.log(`Asking about ${docs.length} plan(s) that finished between ${since} and ${until}`);
 
     await Promise.all(
-      snapshot.docs.map(async (doc) => {
+      docs.map(async (doc) => {
         const request = doc.data();
         const confirmations = request.confirmations || {};
         const unanswered = (request.allParticipantIDs || []).filter((id) => !confirmations[id]);
@@ -318,6 +393,10 @@ exports.promptForAttendance = onSchedule(
  * Sixteen hours ahead, floored to the hour, which puts an evening plan into the previous evening
  * and a morning plan into the night before. Close enough to be about tomorrow; far enough that
  * calling it off is still a courtesy rather than an ambush.
+ *
+ * Bands on `proposedTime` and stays that way for a trip: the reminder is about turning up, and
+ * you turn up at the start. Only attendance moved to the end, because that is the only question
+ * whose answer depends on the thing being over.
  *
  * The same windowing trick as `promptForAttendance` and for the same reason: an exactly-one-hour
  * band walked forward each run, rather than a flag on the request. A flag would be dropped the
@@ -360,7 +439,9 @@ exports.remindBeforePlan = onSchedule(
         await Promise.all(
           everyone.map(async (userId) => {
             const zone = await getUserTimeZone(userId);
-            const when = formatPlanTime(request.proposedTime, new Date(), zone);
+            const when = formatPlanTime(
+              request.proposedTime, new Date(), zone, request.timeZoneID
+            );
 
             await notifyUsers([userId], {
               notification: {
@@ -399,35 +480,50 @@ exports.remindBeforePlan = onSchedule(
  * the fastest way to teach someone this app does not know what it is talking about.
  */
 const NUDGE_HISTORY_LIMIT = 50;
+const NUDGE_PAGE_SIZE = 200;
+/**
+ * How many users are evaluated at once.
+ *
+ * Each one costs a Firestore query and possibly a name lookup and a send, and `Promise.all` over
+ * every user in the database started all of them simultaneously. At a few users that is invisible;
+ * it is also precisely the kind of thing that stops being invisible without warning, because the
+ * failure is a burst rather than a slow climb.
+ */
+const NUDGE_CONCURRENCY = 20;
 
 exports.weeklyNudge = onSchedule(
   { schedule: '0 10 * * 4', timeZone: 'America/New_York' },
   async () => {
-    // Reading every user and every relationship is honest at this size and will not stay that
-    // way. The shape that scales is a per-user scheduled fan-out (a task queue keyed by user),
-    // and the moment to build it is when this function's runtime becomes visible — not before.
-    const [users, relationships] = await Promise.all([
-      db().collection('users').get(),
-      db().collection('relationships').get(),
-    ]);
-
+    // Still reads every user and every relationship — that is inherent to "nudge whoever is
+    // quiet", and the shape that removes it is a per-user task queue. What has changed is that
+    // nothing is now unbounded *within* the run: documents arrive a page at a time and the
+    // per-user work runs a fixed number at a time, so the run gets slower as the database grows
+    // rather than falling over at some unknown size.
     const groupsByUser = new Map();
-    relationships.forEach((doc) => {
-      const group = doc.data();
-      const members = group.participantIDs || [];
-      // Was `!== 2`, which silently exempted every group of three or more from the one
-      // message aimed at quiet groups — while the setting that turns it on says "a group".
-      if (members.length < 2) return; // Unpaired: there is nobody to plan with yet.
-      members.forEach((id) => {
-        if (!groupsByUser.has(id)) groupsByUser.set(id, []);
-        groupsByUser.get(id).push({ id: doc.id, ...group });
+    for await (const docs of pagedDocs(db, FieldPath, 'relationships', NUDGE_PAGE_SIZE)) {
+      docs.forEach((doc) => {
+        const group = doc.data();
+        const members = group.participantIDs || [];
+        // Was `!== 2`, which silently exempted every group of three or more from the one
+        // message aimed at quiet groups — while the setting that turns it on says "a group".
+        if (members.length < 2) return; // Unpaired: there is nobody to plan with yet.
+        members.forEach((id) => {
+          if (!groupsByUser.has(id)) groupsByUser.set(id, []);
+          groupsByUser.get(id).push({ id: doc.id, ...group });
+        });
       });
-    });
+    }
 
-    const nudged = await Promise.all(
-      users.docs.map((doc) => nudgeIfQuiet(doc.id, groupsByUser.get(doc.id) || [])),
-    );
-    console.log(`Nudged ${nudged.filter(Boolean).length} of ${users.size} user(s)`);
+    let considered = 0;
+    let nudged = 0;
+    for await (const docs of pagedDocs(db, FieldPath, 'users', NUDGE_PAGE_SIZE)) {
+      considered += docs.length;
+      const results = await mapWithConcurrency(docs, NUDGE_CONCURRENCY, (doc) =>
+        nudgeIfQuiet(doc.id, groupsByUser.get(doc.id) || []),
+      );
+      nudged += results.filter(Boolean).length;
+    }
+    console.log(`Nudged ${nudged} of ${considered} user(s)`);
   }
 );
 
@@ -663,3 +759,46 @@ exports.dailyDigest = onSchedule(
 exports.onUserDeleted = functionsV1.auth.user().onDelete(async (user) => {
   await purgeUserData(user.uid);
 });
+
+// ---------------------------------------------------------- place discovery
+
+/**
+ * Live events nearby, for the moment before a plan exists.
+ *
+ * Places are **not** here: `MKLocalSearch` answers those on the device, free and without sending
+ * a coordinate anywhere. Only events need an upstream that knows what is on tonight.
+ *
+ * The project's first callable function — everything else here is a trigger or a schedule. It is
+ * callable rather than an HTTP endpoint because callable functions carry the caller's identity,
+ * which is what the rate limit counts and what stops this being an open proxy to a metered API.
+ *
+ * The keys stay here. A key shipped in an iOS binary is a key anybody can extract, and the whole
+ * reason this function exists rather than the app calling Yelp directly.
+ *
+ * Errors are deliberately vague to the client and specific in the log: "Yelp 429" tells an
+ * attacker which quota to exhaust, and tells the person searching nothing they can act on.
+ */
+exports.discoverPlaces = onCall(
+  { secrets: [TICKETMASTER_API_KEY], enforceAppCheck: false },
+  async (event) => {
+    const uid = event.auth?.uid;
+    if (!uid) {
+      throw new HttpsError('unauthenticated', 'Sign in to search for places.');
+    }
+
+    try {
+      return await discover(event.data || {}, uid, {
+        ticketmaster: TICKETMASTER_API_KEY.value(),
+      });
+    } catch (error) {
+      console.error(`discoverPlaces failed for ${uid}:`, error);
+      if (/Too many searches/.test(error.message)) {
+        throw new HttpsError('resource-exhausted', error.message);
+      }
+      if (/latitude and longitude/.test(error.message)) {
+        throw new HttpsError('invalid-argument', error.message);
+      }
+      throw new HttpsError('unavailable', "Couldn't search for places just now.");
+    }
+  }
+);

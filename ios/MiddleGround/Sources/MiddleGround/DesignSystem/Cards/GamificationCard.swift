@@ -15,8 +15,7 @@ struct GamificationCard: View {
             // Previously the value sat above an unlabelled caption, and the unit was painted
             // in the accent colour, which made "days" read as a tappable link.
             Text(title)
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
@@ -27,12 +26,10 @@ struct GamificationCard: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
-                    .mgFont(.h2)
-                    .foregroundStyle(MGColors.slate)
+                    .mgFont(.h2, color: MGColors.slate)
                 if let subtitle {
                     Text(subtitle)
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                 }
             }
             .lineLimit(1)

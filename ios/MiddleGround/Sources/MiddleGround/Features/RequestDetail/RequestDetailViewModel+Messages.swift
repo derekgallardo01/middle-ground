@@ -65,7 +65,7 @@ extension RequestDetailViewModel {
         do {
             try await planMessages.delete(messageID: message.id, forRequest: request.id)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = UserFacingError.message(for: error)
         }
     }
 }

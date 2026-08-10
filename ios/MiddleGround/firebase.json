@@ -4,9 +4,9 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
-    "_comment": "Publishes docs/legal/. A reachable Privacy Policy, Terms and Support page are required for submission, and the URLs the app links to (AppConfiguration.swift) resolved to a 'Coming Soon' catch-all. Hosting is available on the free Spark plan, so this needs no billing and no DNS — to move to middleground.app later, add the custom domain in the Firebase console and change the one constant in AppConfiguration.",
+    "_comment": "Publishes docs/legal/. A reachable Privacy Policy, Terms and Support page are required for submission, and the URLs the app links to (AppConfiguration.swift) resolved to a 'Coming Soon' catch-all. Hosting is available on the free Spark plan, so this needs no billing and no DNS \u2014 to move to middleground.app later, add the custom domain in the Firebase console and change the one constant in AppConfiguration.",
     "_comment_public": "Hosting refuses a public directory outside the project root (where this file lives), and the pages are authored at repo-root docs/legal. The predeploy step stages them here; `public/` is generated and gitignored, so docs/legal stays the single source.",
-    "_comment_resource_dir": "$RESOURCE_DIR is the public directory itself, not the project root — copying into \"$RESOURCE_DIR/public\" silently nests it one level and every path 404s.",
+    "_comment_resource_dir": "$RESOURCE_DIR is the public directory itself, not the project root \u2014 copying into \"$RESOURCE_DIR/public\" silently nests it one level and every path 404s.",
     "predeploy": [
       "rm -rf \"$RESOURCE_DIR\"",
       "mkdir -p \"$RESOURCE_DIR\"",
@@ -14,15 +14,30 @@
     ],
     "public": "public",
     "cleanUrls": true,
-    "ignore": ["**/.*", "**/*.md", "**/build.py"],
+    "ignore": [
+      "**/.*",
+      "**/*.md",
+      "**/build.py"
+    ],
     "rewrites": [
-      { "source": "/privacy", "destination": "/privacy-policy.html" },
-      { "source": "/terms", "destination": "/terms-of-service.html" }
+      {
+        "source": "/privacy",
+        "destination": "/privacy-policy.html"
+      },
+      {
+        "source": "/terms",
+        "destination": "/terms-of-service.html"
+      }
     ],
     "headers": [
       {
         "source": "**/*.html",
-        "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }]
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600"
+          }
+        ]
       }
     ]
   },
@@ -38,5 +53,18 @@
         "firebase-debug.*.log"
       ]
     }
-  ]
+  ],
+  "emulators": {
+    "_comment": "Ports are pinned because the app hardcodes them in AppConfiguration (emulatorHost, firestoreEmulatorPort, authEmulatorPort). Leaving them to the CLI defaults means a version bump can move a port and the -MGUseEmulator run silently talks to nothing.",
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  }
 }

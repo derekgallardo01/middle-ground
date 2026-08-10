@@ -11,8 +11,7 @@ struct ActivityFeedView: View {
             LazyVStack(spacing: 10) {
                 if activities.isEmpty {
                 Text("Respond to a request and your activity shows up here.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
             }
@@ -45,22 +44,19 @@ struct ActivityRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(activity.title)
-                    .mgFont(.body)
+                    .mgFont(.body, color: MGColors.slate)
                     .fontWeight(.semibold)
-                    .foregroundStyle(MGColors.slate)
 
                 if let subtitle = activity.subtitle {
                     Text(subtitle)
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                 }
             }
 
             Spacer()
 
             Text(activity.timestamp, style: .time)
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
         }
         .padding(14)
         .background(MGColors.surface)

@@ -49,54 +49,6 @@ struct NegotiationMessage: Identifiable, Hashable, Codable {
 
 }
 
-enum RequestError: LocalizedError, Equatable {
-    case notAllowedToRespond
-    case notAllowedToCancel
-    case notAllowedToConfirm
-    case notAllowedToStake
-    case notAllowedToInvite
-    case inviteNotFound
-
-    var errorDescription: String? {
-        switch self {
-        case .notAllowedToRespond:
-            return "Only the person this was sent to can respond."
-        case .notAllowedToCancel:
-            return "Only the person who sent this can cancel it."
-        case .notAllowedToConfirm:
-            return "This plan isn't ready to confirm yet."
-        case .notAllowedToStake:
-            return "You can't put points on this plan."
-        case .notAllowedToInvite:
-            return "Only the person who created this plan can invite someone to it."
-        case .inviteNotFound:
-            return "That invite code doesn't match a plan."
-        }
-    }
-}
-
-/// Caps on anything a user types.
-///
-/// Only "not empty" was ever checked, so a long paste sailed through to Firestore and failed
-/// against the 1 MB document limit — surfacing as a generic "Failed to send" with the text
-/// lost. The negotiation chain makes that worse: every message is appended to the *same*
-/// document, so the ceiling is shared across the whole conversation.
-enum RequestLimits {
-    static let title = 120
-    static let details = 1_000
-    static let message = 1_000
-    static let reportNote = 500
-    /// Group names sit in pickers and single-line rows, so they are capped far shorter.
-    static let groupName = 40
-    /// A place name, not an address essay.
-    static let location = 120
-
-    /// Trims to `limit` without splitting a grapheme cluster (an emoji stays whole).
-    static func clamp(_ text: String, to limit: Int) -> String {
-        text.count <= limit ? text : String(text.prefix(limit))
-    }
-}
-
 struct Request: Identifiable, Hashable, Codable {
     let id: String
     var creatorID: String
@@ -105,11 +57,44 @@ struct Request: Identifiable, Hashable, Codable {
     var title: String
     var details: String?
     var proposedTime: Date?
+    /// When a plan that spans days finishes.
+    ///
+    /// `proposedTime` is the start and has always been the only moment a plan had, which is why a
+    /// trip could not be expressed: "Barcelona, 12–16 May" is not a time, it is a range. Optional,
+    /// and absent on every plan that exists, so a dinner stays exactly what it was — one moment,
+    /// with `isMultiDay` false and every existing behaviour untouched.
+    ///
+    /// Deliberately an end rather than a duration. A duration invites arithmetic at every read and
+    /// gets it wrong across a daylight-saving boundary, which a five-day trip is quite likely to
+    /// cross.
+    var endTime: Date?
+    /// The IANA zone the plan happens in — "Europe/Madrid" — when it is somewhere else.
+    ///
+    /// Every date in this app renders in the *reader's* zone, which is right for a dinner across
+    /// town and wrong for a trip: "dinner at 8" in Barcelona reads as 8pm to somebody sitting in
+    /// Chicago, seven hours from when anybody is actually eating. Set from the place that was
+    /// chosen (`MKMapItem.timeZone`), so it describes the venue rather than whoever composed it.
+    ///
+    /// Nil means the old behaviour, unchanged: render in the reader's zone. That is correct for
+    /// every plan that exists and for every plan made near home, and it is why nothing had to be
+    /// backfilled.
+    var timeZoneID: String?
     var location: String?
     var status: RequestStatus
     var negotiationChain: [NegotiationMessage]
     /// What each participant said about whether the plan happened, keyed by user ID.
     var confirmations: [String: ConfirmationOutcome]
+    /// When each participant last said they are still coming, keyed by user ID.
+    ///
+    /// Distinct from `confirmations`, which is about afterwards. This is the answer to the
+    /// question the app has been asking since `remindBeforePlan` shipped — its push is titled
+    /// "Still on?" — and could not record, because nothing anywhere meant "yes, I'm still in".
+    ///
+    /// A map on the document rather than a subcollection, deliberately. `availability` is keyed by
+    /// uid under its parent, which puts it beyond a collection-group query and makes it outlive
+    /// the parent, so it needs its own line in `purge.js`. This rides the read that already
+    /// happens and is deleted with the request.
+    var stillOn: [String: Date]
     /// Why this was called off, when it was.
     var cancellationReason: CancellationReason?
     /// Points both people have riding on this actually happening.
@@ -135,10 +120,13 @@ struct Request: Identifiable, Hashable, Codable {
          title: String,
          details: String? = nil,
          proposedTime: Date? = nil,
+         endTime: Date? = nil,
+         timeZoneID: String? = nil,
          location: String? = nil,
          status: RequestStatus = .pending,
          negotiationChain: [NegotiationMessage] = [],
          confirmations: [String: ConfirmationOutcome] = [:],
+         stillOn: [String: Date] = [:],
          cancellationReason: CancellationReason? = nil,
          stake: Stake? = nil,
          planInviteCode: String? = nil,
@@ -152,10 +140,13 @@ struct Request: Identifiable, Hashable, Codable {
         self.title = title
         self.details = details
         self.proposedTime = proposedTime
+        self.endTime = endTime
+        self.timeZoneID = timeZoneID
         self.location = location
         self.status = status
         self.negotiationChain = negotiationChain
         self.confirmations = confirmations
+        self.stillOn = stillOn
         self.cancellationReason = cancellationReason
         self.stake = stake
         self.planInviteCode = planInviteCode
@@ -174,6 +165,9 @@ struct Request: Identifiable, Hashable, Codable {
         title = try container.decode(String.self, forKey: .title)
         details = try container.decodeIfPresent(String.self, forKey: .details)
         proposedTime = try container.decodeIfPresent(Date.self, forKey: .proposedTime)
+        // Absent on every plan written before trips existed, which is all of them.
+        endTime = try container.decodeIfPresent(Date.self, forKey: .endTime)
+        timeZoneID = try container.decodeIfPresent(String.self, forKey: .timeZoneID)
         location = try container.decodeIfPresent(String.self, forKey: .location)
         status = try container.decode(RequestStatus.self, forKey: .status)
         negotiationChain = try container.decodeIfPresent(
@@ -182,6 +176,8 @@ struct Request: Identifiable, Hashable, Codable {
         confirmations = try container.decodeIfPresent(
             [String: ConfirmationOutcome].self, forKey: .confirmations
         ) ?? [:]
+        // Every request written before this shipped has no `stillOn` at all.
+        stillOn = try container.decodeIfPresent([String: Date].self, forKey: .stillOn) ?? [:]
         cancellationReason = try container.decodeIfPresent(
             CancellationReason.self, forKey: .cancellationReason
         )
@@ -359,9 +355,26 @@ struct Request: Identifiable, Hashable, Codable {
     // in firestore.rules — the client must not offer an answer the backend will refuse.
 
     /// Only a dated plan can be asked about: "split the grocery run" has no moment to confirm.
+    ///
+    /// Measured from the *finish*, not the start. Anchored to the start, a five-night holiday was
+    /// asked "did it happen?" on its first morning — while everybody was still there, with four
+    /// days left to go. `promptForAttendance` was moved to the end when trips shipped; this is the
+    /// screen, which was still asking early, and `isConfirmingAttendance()` in firestore.rules is
+    /// the third copy of the same rule.
     var isAwaitingAttendance: Bool {
-        guard status == .accepted, let time = proposedTime else { return false }
-        return time < Date()
+        guard status == .accepted, let finish = effectiveEndTime else { return false }
+        return finish < Date()
+    }
+
+    /// Whether this person can say they are still coming.
+    ///
+    /// Mirrors `isSayingStillOn()` in firestore.rules — the client must not offer a button the
+    /// backend will refuse. Only an agreed, dated, still-future plan, and only somebody on it.
+    func canSayStillOn(as userID: String, at now: Date = Date()) -> Bool {
+        guard status == .accepted, isParticipant(userID), let time = proposedTime else {
+            return false
+        }
+        return time > now
     }
 
     /// Whether this person still owes an answer about whether it happened.

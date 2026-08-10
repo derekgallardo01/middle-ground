@@ -14,6 +14,17 @@ enum AppConfiguration {
     static var useMockRepositories: Bool =
         ProcessInfo.processInfo.arguments.contains(mockModeLaunchArgument)
 
+    /// Starts compose addressed to a group rather than the first relationship.
+    ///
+    /// For recordings and screenshots that need to show a group plan. Driving the recipient picker
+    /// through its menu proved unreliable enough to lose three takes — the tap lands, the sheet
+    /// goes away, and what the video shows is a bug in the tour rather than the feature.
+    ///
+    /// Same family as `-MGTestUser` and `-MGSeedTyping`: it changes which fixture is selected, not
+    /// what the app does with it.
+    static var prefersGroupRecipient: Bool =
+        ProcessInfo.processInfo.arguments.contains("-MGComposeGroup")
+
     /// Seeds a live "typing" flag in mock mode, for the tests that assert the indicator.
     ///
     /// Off by default: typing is momentary, and a permanent indicator in a screenshot claims
@@ -64,6 +75,27 @@ enum AppConfiguration {
     /// Everything that touches Firebase must check this first; in mock mode there is no
     /// `GoogleService-Info.plist` and `FirebaseApp.configure()` would abort the process.
     static var isBackendEnabled: Bool { !useMockRepositories }
+
+    /// Points Firestore and Auth at the local emulators instead of the real project.
+    ///
+    /// The gap this closes: the UI tests all run in mock mode, which swaps in in-memory
+    /// repositories and so never reaches Firestore, the security rules, or a Cloud Function. An
+    /// audit found five features — plan chat, location sharing, shared availability, typing
+    /// presence, read receipts — with passing UI tests and **zero documents ever written in
+    /// production**. A green suite and an unused feature looked identical.
+    ///
+    /// Real repositories, real rules, disposable data, no network. The rules are already tested
+    /// directly against hand-authored documents; this tests them against the documents the app
+    /// itself writes, which is the half that can silently diverge.
+    ///
+    ///   `xcodebuild ... -MGUseEmulator`, with `firebase emulators:start` running.
+    static var usesEmulator: Bool =
+        ProcessInfo.processInfo.arguments.contains("-MGUseEmulator")
+
+    /// Where the emulators listen. Matches the defaults in `firebase.json`.
+    static let emulatorHost = "127.0.0.1"
+    static let firestoreEmulatorPort = 8080
+    static let authEmulatorPort = 9099
 
     // MARK: - Legal & support destinations
     //

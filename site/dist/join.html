@@ -177,6 +177,10 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
 }
 .btn-primary { background:var(--indigo); color:#fff; box-shadow:0 6px 18px -6px var(--indigo); }
 .btn-primary:hover { filter:brightness(1.06); }
+.code {
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:34px; font-weight:700;
+  letter-spacing:6px; color:var(--indigo); margin:12px 0; text-align:center;
+}
 .btn-secondary { background:var(--surface); color:var(--slate); border-color:var(--warm-200); }
 .btn-secondary:hover { border-color:var(--warm-400); }
 
@@ -326,8 +330,10 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
 <div class="cards">
 <div class="card">
 <span class="ico">🎟️</span>
-<h3>It's in the link you tapped</h3>
-<p>The code is the last part of the address in your browser bar — six characters, like <strong>MG24KT</strong>. Keep this page open; you'll need it in a moment.</p>
+<h3 id="code-heading">It's in the link you tapped</h3>
+<p id="code-fallback">The code is the last part of the address in your browser bar — six characters, like <strong>MG24KT</strong>. Keep this page open; you'll need it in a moment.</p>
+<p id="code-value" class="code" hidden></p>
+<button id="code-copy" class="btn btn-secondary" type="button" hidden>Copy code</button>
 </div>
 <div class="card">
 <span class="ico">📲</span>
@@ -373,10 +379,32 @@ th { font-weight:650; color:var(--warm-600); font-size:13px; text-transform:uppe
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>
       <a href="/support">Support</a>
-      <!--email_off--><a href="mailto:support@middleground.app">Contact</a><!--/email_off-->
+      <!--email_off--><a href="mailto:support@seekmiddleground.com">Contact</a><!--/email_off-->
     </nav>
     <p class="copyright">© 2026 Middle Ground. Made with care. · <a href="https://kinetichelix.io" target="_blank" rel="noopener">Built by Kinetic Helix</a></p>
   </div>
 </footer>
+<script>(function () {
+  var match = /^\/join\/([A-Za-z0-9]{6})\/?$/.exec(location.pathname);
+  if (!match) { return; }
+  var code = match[1].toUpperCase();
+  var value = document.getElementById('code-value');
+  var fallback = document.getElementById('code-fallback');
+  var heading = document.getElementById('code-heading');
+  var copy = document.getElementById('code-copy');
+  if (!value || !fallback) { return; }
+  value.textContent = code;
+  value.hidden = false;
+  if (heading) { heading.textContent = 'Your invite code'; }
+  fallback.textContent = 'Six characters. You will need it when you open the app.';
+  if (copy && navigator.clipboard) {
+    copy.hidden = false;
+    copy.addEventListener('click', function () {
+      navigator.clipboard.writeText(code).then(function () {
+        copy.textContent = 'Copied';
+      });
+    });
+  }
+})();</script>
 </body>
 </html>

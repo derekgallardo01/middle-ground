@@ -128,6 +128,17 @@ extension Container {
         }
     }
 
+    var itineraryRepository: Factory<ItineraryRepository> {
+        Factory(self) {
+            #if DEBUG
+            if AppConfiguration.useMockRepositories {
+                return MockItineraryRepository()
+            }
+            #endif
+            return FirestoreItineraryRepository()
+        }
+    }
+
     var disputeRepository: Factory<DisputeRepository> {
         Factory(self) {
             #if DEBUG
@@ -200,6 +211,44 @@ extension Container {
 
     /// The one line a booking partnership changes. Everything above this reads the protocol, so
     /// swapping the implementation is the whole integration — see `ReservationProvider`.
+    /// Places near you, found on the device.
+    ///
+    /// Registered beside the reservation provider so the two moments stay separate: this one is
+    /// before a plan exists, that one is after. Swapping in Google Places later is a change here
+    /// and nowhere else.
+    var timeZoneLookup: Factory<TimeZoneLookup> {
+        // Real geocoding even in mock mode, for the same reason as `placeDiscoveryProvider`: a
+        // fixture zone would be a fourth invented fact about a place, and the whole point of the
+        // field is that it agrees with where the plan actually is.
+        Factory(self) { CoreLocationTimeZoneLookup() }
+    }
+
+    var placeDiscoveryProvider: Factory<PlaceDiscoveryProvider> {
+        // Real places, even in mock mode — like `placeImageProvider`, and for the same reason.
+        //
+        // The fixtures invented a name, an address, a phone number and a website, then sat them on
+        // a coordinate chosen separately. So a place captioned "88 Dean Street, Brooklyn" stood in
+        // Manhattan, under a photograph of the actual building there, next to a number nobody can
+        // ring. Three sources of truth about one place, none of them agreeing.
+        //
+        // Asking Apple gives one: the name, the address, the number, the site and the picture all
+        // describe the same building. Mock mode still fixes *where* the phone is, so a screenshot
+        // does not depend on which city this machine is in.
+        Factory(self) { MapKitPlaceDiscoveryProvider() }
+    }
+
+    /// Pictures of the places discovery found. Apple's own imagery in both tiers, so this stays a
+    /// keyless feature — see `PlaceImageProvider` for why a photo API was not worth the trade.
+    var placeImageProvider: Factory<PlaceImageProviding> {
+        // Not switched on mock mode, unlike everything around it. The fixture places sit on real
+        // Manhattan coordinates, so Apple has actual imagery for them — and a screenshot or a
+        // recording of this screen is worth nothing if the picture in it is a flat rectangle.
+        // Both tiers are read-only lookups against Apple, so there is no fixture to protect.
+        //
+        // Tests that must not touch the network inject `MockPlaceImageProvider` themselves.
+        Factory(self) { MapKitPlaceImageProvider() }
+    }
+
     var reservationProvider: Factory<ReservationProvider> {
         Factory(self) { CuratedVenueReservationProvider(venues: self.venueRepository()) }
     }

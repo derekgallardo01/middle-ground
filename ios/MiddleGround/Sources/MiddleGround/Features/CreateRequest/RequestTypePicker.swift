@@ -32,6 +32,11 @@ struct RequestTypePicker: View {
                     .mgShadow(MGShadow.sm)
                 }
                 .buttonStyle(ScaleButtonStyle())
+                // Which one is chosen was carried by colour alone. VoiceOver read eight
+                // identical buttons and never said which was selected, and no test could ask —
+                // which is why "a group plan opens as a Relationship request" survived until
+                // somebody watched a video of it.
+                .accessibilityAddTraits(selected == category ? [.isSelected] : [])
             }
         }
     }

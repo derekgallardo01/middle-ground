@@ -58,9 +58,8 @@ struct GhostButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .mgFont(.body)
+                .mgFont(.body, color: MGColors.slate)
                 .fontWeight(.semibold)
-                .foregroundStyle(MGColors.slate)
                 .padding(.vertical, 14)
                 .padding(.horizontal, 20)
                 .background(MGColors.warm100)

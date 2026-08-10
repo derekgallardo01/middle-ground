@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import Factory
 
@@ -40,6 +41,11 @@ final class CreateRequestViewModel {
     }
 
     var category: RequestCategory
+    /// Whether a person picked the category, as opposed to it being suggested from the recipient.
+    ///
+    /// Once somebody has chosen, changing who the plan is for must not quietly change what kind of
+    /// plan it is underneath them.
+    private(set) var categoryWasChosenByHand = false
 
     // Clamped on assignment rather than checked at submit time, so the cap applies no matter
     // which view binds to it and the user sees the limit as they type instead of losing a
@@ -70,6 +76,25 @@ final class CreateRequestViewModel {
     var proposedTime: Date = Date() {
         didSet { scheduleAvailabilityCheck() }
     }
+    /// Whether this plan runs over several days.
+    ///
+    /// Off by default and separate from `includeTime`, because a trip is a rarer thing than a
+    /// dinner and the compose sheet should not grow a second date picker for everybody in order
+    /// to serve it.
+    var isTrip: Bool = false
+    /// When a trip finishes. Only read when `isTrip` and a time is included.
+    ///
+    /// Seeded a day after the start rather than at the same instant, so the first thing a person
+    /// sees is a valid range instead of one the app will refuse.
+    var endTime: Date = Date().addingTimeInterval(86_400)
+
+    /// Whether the range currently makes sense, for the button and the warning.
+    ///
+    /// `Request.isMultiDay` refuses an end that is not after the start, so a backwards range would
+    /// silently save as an ordinary single-moment plan — the trip quietly not being a trip. Better
+    /// to say so than to accept it and drop half of what somebody typed.
+    var tripRangeIsValid: Bool { !isTrip || endTime > proposedTime }
+
     var includeTime: Bool = false {
         didSet { scheduleAvailabilityCheck() }
     }
@@ -119,12 +144,14 @@ final class CreateRequestViewModel {
     ///
     /// Best-effort throughout: a failure here costs the warning, never the ability to make a plan.
     func loadGroupAvailability() async {
-        guard let viewerID = currentUser?.id, !recipientID.isEmpty else {
+        guard let viewerID = currentUser?.id, !selectedRelationshipID.isEmpty else {
             groupAvailability = []
             groupMembers = []
             return
         }
-        guard let group = relationships.first(where: { $0.participantIDs.contains(recipientID) }) else {
+        // Looked up by id rather than by "which group contains this person", which was ambiguous
+        // the moment somebody was in both a couple and a group with the same partner.
+        guard let group = relationships.first(where: { $0.id == selectedRelationshipID }) else {
             groupAvailability = []
             groupMembers = []
             return
@@ -139,7 +166,28 @@ final class CreateRequestViewModel {
         groupNames = names
     }
 
-    var recipientID: String = ""
+    /// Which relationship the plan is being sent to — a couple or a group.
+    ///
+    /// Was `recipientID`, a single person, and the picker tagged each row with "the first
+    /// participant who is not me". With a couple of [me, Sam] and a group of [me, Sam, Priya] that
+    /// is `Sam` twice: two rows, one tag, and SwiftUI keeping whichever it saw last. The group was
+    /// unselectable, and had it been selectable the plan would have gone to Sam alone under the
+    /// group's name.
+    ///
+    /// Keyed by relationship, because that is what the person is actually choosing.
+    var selectedRelationshipID: String = ""
+
+    /// Everybody on the chosen relationship except the person composing.
+    ///
+    /// One name for a couple, everyone else for a group. `Request.recipientIDs` has always been a
+    /// list and the security rules have always worked in `allParticipantIDs`; only compose was
+    /// sending to one person.
+    var recipients: [String] {
+        guard let viewerID = currentUser?.id,
+              let relationship = relationships.first(where: { $0.id == selectedRelationshipID })
+        else { return [] }
+        return relationship.participantIDs.filter { $0 != viewerID }
+    }
 
     var isLoading = false
     var isLoadingPartners = false
@@ -152,7 +200,31 @@ final class CreateRequestViewModel {
     }
 
     var canSubmit: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty && !recipientID.isEmpty
+        !title.trimmingCharacters(in: .whitespaces).isEmpty
+            && !recipients.isEmpty
+            // A backwards range would save as an ordinary plan and drop the end silently.
+            && tripRangeIsValid
+    }
+
+    /// A deliberate choice, which outranks anything suggested from here on.
+    func chooseCategory(_ chosen: RequestCategory) {
+        // Choosing what is already chosen is not a decision. SwiftUI writes a binding back with
+        // its current value often enough that treating every write as a choice would lock the
+        // suggestion out before it ever ran.
+        guard chosen != category else { return }
+        category = chosen
+        categoryWasChosenByHand = true
+    }
+
+    /// Seeds the category from whoever the plan is addressed to.
+    ///
+    /// Called when the sheet opens and whenever the recipient changes, because "who" is the best
+    /// evidence of "what kind" the app has before anybody types anything.
+    func suggestCategoryFromRecipient() {
+        guard !categoryWasChosenByHand,
+              let relationship = relationships.first(where: { $0.id == selectedRelationshipID })
+        else { return }
+        category = relationship.type.suggestedRequestCategory
     }
 
     func loadCurrentUserAndPartners() async {
@@ -160,10 +232,33 @@ final class CreateRequestViewModel {
         currentUser = await authService.currentUser()
         if let userID = currentUser?.id {
             do {
+                // Ordered, because the repository's order is not one. It returned the group
+                // before the couple here and could return either first tomorrow, which makes
+                // "who is this addressed to when the sheet opens" unpredictable — and made a
+                // recording of the couple show the group instead.
+                //
+                // Pairs first, then groups, each alphabetically: the common case leads, and a
+                // list of names does not reshuffle itself between launches.
                 relationships = try await relationshipService.relationships(for: userID)
+                    .sorted { first, second in
+                        if first.participantIDs.count != second.participantIDs.count {
+                            return first.participantIDs.count < second.participantIDs.count
+                        }
+                        return first.id < second.id
+                    }
                 displayLabels = await relationshipService.displayLabels(for: relationships, currentUserID: userID)
-                if let firstPartner = relationships.compactMap({ $0.partnerID(excluding: userID) }).first {
-                    recipientID = firstPartner
+                // The first relationship with somebody else in it. A group counts.
+                let usable = relationships.filter { relationship in
+                    relationship.participantIDs.contains { $0 != userID }
+                }
+                // A recording that needs to show a group starts on one; see
+                // `AppConfiguration.prefersGroupRecipient`.
+                let preferred = AppConfiguration.prefersGroupRecipient
+                    ? usable.first { $0.participantIDs.count > 2 } ?? usable.first
+                    : usable.first
+                if let preferred {
+                    selectedRelationshipID = preferred.id
+                    suggestCategoryFromRecipient()
                 }
             } catch {
                 errorMessage = "Couldn't load partners."
@@ -181,6 +276,39 @@ final class CreateRequestViewModel {
     /// failed or slow read costs a nicety rather than the ability to say where you're going.
     private(set) var venues: [Venue] = []
 
+    // MARK: - Nearby, see CreateRequestViewModel+Nearby
+
+    let placeDiscovery: PlaceDiscoveryProvider = Container.shared.placeDiscoveryProvider()
+    let locationService = Container.shared.locationService()
+
+    var nearbyPlaces: [DiscoveredPlace] = []
+    var nearbyKind: PlaceKind = .restaurant
+    var nearbyRadiusMiles: Double = CreateRequestViewModel.defaultRadiusMiles
+    var isSearchingNearby = false
+    /// Why there is nothing to show — no location, nothing within the radius, a failed search.
+    /// Distinct from an empty list, which on its own looks like a bug.
+    var nearbyMessage: String?
+    /// Set once a search has actually run, so moving the radius does not ask for location on its
+    /// own. The tap is what asks.
+    var hasSearchedNearby = false
+    /// The place taken from the list, kept so a booking link can use its coordinate later.
+    var chosenPlace: DiscoveredPlace?
+    /// The zone of a place somebody typed rather than picked. See `lookUpTypedTimeZone`.
+    var typedPlaceTimeZoneID: String?
+    @ObservationIgnored var typedZoneTask: Task<Void, Never>?
+    let timeZoneLookup = Container.shared.timeZoneLookup()
+    /// Where the first search was made from, reused by every later one in this sheet.
+    ///
+    /// Each search asked iOS for a fresh fix, so changing category or nudging the radius by a mile
+    /// took another one. That is slower, and it is more location-taking than the feature needs:
+    /// nobody moves far enough between two taps of a segmented control to matter.
+    var nearbyOrigin: CLLocationCoordinate2D?
+    /// The pending re-search, cancelled by whatever changes next.
+    ///
+    /// The radius is a stepped slider, so dragging it from 1 to 25 fired twenty-four separate
+    /// searches — each with its own location request — and the list flickered through every one.
+    var nearbySearchTask: Task<Void, Never>?
+
     /// The ones worth offering for what is being planned right now.
     var suggestedVenues: [Venue] {
         venues.filter { $0.suits(category) }
@@ -197,11 +325,15 @@ final class CreateRequestViewModel {
 
         let request = Request(
             creatorID: currentUser.id,
-            recipientIDs: [recipientID],
+            recipientIDs: recipients,
             category: category,
             title: title.trimmingCharacters(in: .whitespaces),
             details: details.isEmpty ? nil : details,
             proposedTime: includeTime ? proposedTime : nil,
+            // Only a dated trip has an end. Sending one on an undated plan would make
+            // `isMultiDay` false anyway and leave a field nothing reads.
+            endTime: (includeTime && isTrip) ? endTime : nil,
+            timeZoneID: placeTimeZoneID,
             location: {
                 let trimmed = location.trimmingCharacters(in: .whitespacesAndNewlines)
                 return trimmed.isEmpty ? nil : trimmed

@@ -60,8 +60,7 @@ struct StakeRow: View {
             Text("Put points on it?")
                 .mgFont(.h3)
             Text("You both stake the same. Turn up and you each get it back as a bonus.")
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
 
             HStack(spacing: MGSpacing.sm) {
                 ForEach(Stake.options, id: \.self) { points in
@@ -89,8 +88,7 @@ struct StakeRow: View {
             Text("\(partnerName) put \(points) points on this")
                 .mgFont(.body)
             Text("Match it and you both have something riding on turning up.")
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
 
             Button {
                 onAccept()
@@ -112,8 +110,7 @@ struct StakeRow: View {
             Image(systemName: icon)
                 .foregroundStyle(tint)
             Text(text)
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
             Spacer()
         }
         .accessibilityElement(children: .combine)

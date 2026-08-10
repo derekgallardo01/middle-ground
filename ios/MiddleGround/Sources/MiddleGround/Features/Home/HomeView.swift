@@ -26,6 +26,22 @@ struct HomeView: View {
                         // visibly rewrites itself a beat after opening.
                         header
                             .redacted(reason: viewModel.hasLoaded ? [] : .placeholder)
+
+                        // Above the feed, because the whole problem is that nobody goes back to
+                        // look at the plan itself. Only ever one — see `quietestPlan`.
+                        if let quiet = viewModel.quietestPlan,
+                           let momentum = viewModel.quietestPlanMomentum {
+                            QuietPlanCard(
+                                title: quiet.title,
+                                reason: momentum.reason,
+                                isSending: viewModel.isResponding(to: quiet),
+                                onOpen: { open(quiet) },
+                                onSayStillOn: { Task { await viewModel.sayStillOn(to: quiet) } },
+                                onDismiss: { viewModel.leaveQuietPlanAlone(quiet) }
+                            )
+                            .mgTransition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
                         feedSection
                     }
                     .padding(.horizontal, 16)
@@ -65,6 +81,14 @@ struct HomeView: View {
                 SpontaneousRequestView { _ in
                     Task { await viewModel.loadRequests() }
                 }
+            }
+            // A response that failed leaves the feed intact, so it cannot use the error state
+            // above — that one is gated on an empty feed and would never appear. Without this,
+            // the card just snapped back to where it was and nothing explained why.
+            .alert("Oops", isPresented: .constant(viewModel.responseErrorMessage != nil)) {
+                Button("OK") { viewModel.responseErrorMessage = nil }
+            } message: {
+                Text(viewModel.responseErrorMessage ?? "")
             }
         }
         .task {
@@ -154,8 +178,7 @@ struct HomeView: View {
             Text("Hello, \(viewModel.currentUser?.name ?? "there")")
                 .mgFont(.h1)
             Text(activeRequestsSummary)
-                .mgFont(.body)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.body, color: MGColors.warm600)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -188,8 +211,7 @@ struct HomeView: View {
             }
         } label: {
             Label(viewModel.filter.rawValue, systemImage: "line.3.horizontal.decrease.circle")
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.indigo)
+                .mgFont(.bodySmall, color: MGColors.indigo)
         }
         .accessibilityLabel("Filter requests, currently \(viewModel.filter.rawValue)")
     }

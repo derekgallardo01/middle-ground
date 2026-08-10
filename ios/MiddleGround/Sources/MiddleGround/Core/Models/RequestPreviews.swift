@@ -6,6 +6,27 @@ import Foundation
 // marketing screenshots were added. They are sample data rather than model behaviour, and
 // reading the model is easier without two hundred lines of them underneath it.
 
+/// Fixture times that are an hour of the day rather than an offset from whenever the app was
+/// launched.
+///
+/// `Date().addingTimeInterval(86_400 * 26 + 3_600 * 11)` is eleven hours after *now*, which is a
+/// different clock time every run — so the Barcelona trip's dinner rendered at 10:38 AM in one
+/// screenshot and 4:38 AM in another. The tests passed either way, because a time is a time. Only
+/// looking at the picture caught it.
+enum PreviewClock {
+
+    /// Barcelona, so the fixture trip's hours read correctly in the zone it is actually in.
+    static let tripZone = TimeZone(identifier: "Europe/Madrid") ?? .current
+
+    /// `hour` o'clock, `daysFromNow` days out, on the trip's own clock.
+    static func trip(daysFromNow: Int, hour: Int, minute: Int = 0) -> Date {
+        var calendar = Calendar.current
+        calendar.timeZone = tripZone
+        let day = calendar.startOfDay(for: Date().addingTimeInterval(Double(daysFromNow) * 86_400))
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+    }
+}
+
 extension Request {
     static let preview = Request(
         id: "req_1",
@@ -229,6 +250,65 @@ extension Request {
         ],
         createdAt: Date().addingTimeInterval(-50_000),
         updatedAt: Date().addingTimeInterval(-20_000)
+    )
+
+    /// A group plan that everybody agreed to a fortnight ago and nobody has mentioned since.
+    ///
+    /// The state the whole "still on?" feature exists for, and **no other fixture reaches it** —
+    /// every plan here was agreed minutes ago in fixture time, so `PlanMomentum` reported them all
+    /// healthy and the card appeared in no screenshot, no UI test and no recording. A feature that
+    /// only ever renders on a plan nothing generates is a feature nobody would have seen fail.
+    static let previewGoneQuiet = Request(
+        id: "req_7",
+        creatorID: User.preview.id,
+        recipientIDs: [User.preview2.id, User.preview3.id],
+        category: .friends,
+        title: "Climbing on the 20th?",
+        details: "The one out past the reservoir.",
+        proposedTime: Date().addingTimeInterval(86_400 * 8),
+        location: "Fen Wall",
+        status: .accepted,
+        negotiationChain: [
+            NegotiationMessage(
+                senderID: User.preview2.id,
+                responseType: .accept,
+                text: "Yes! Been meaning to go back.",
+                timestamp: Date().addingTimeInterval(-86_400 * 12)
+            )
+        ],
+        createdAt: Date().addingTimeInterval(-86_400 * 13),
+        updatedAt: Date().addingTimeInterval(-86_400 * 12)
+    )
+
+    /// A trip, so the range renders in every screenshot and recording rather than only in a test.
+    ///
+    /// Every other fixture is a single moment, so nothing reached the state the feature is for —
+    /// the same gap that made the quiet-plan card invisible until a fixture was added for it.
+    static let previewTrip = Request(
+        id: "req_8",
+        creatorID: User.preview.id,
+        recipientIDs: [User.preview2.id, User.preview3.id],
+        category: .travel,
+        title: "Barcelona in May?",
+        details: "Four nights, flights not booked yet.",
+        proposedTime: PreviewClock.trip(daysFromNow: 26, hour: 14),
+        endTime: PreviewClock.trip(daysFromNow: 30, hour: 11),
+        // The zone Apple reports for Barcelona. Set here so the "8:00 PM Spain Time" line reaches
+        // a screenshot rather than only a unit test — the same gap that made the quiet-plan card
+        // and the trip range invisible until a fixture reached the state they are for.
+        timeZoneID: "Europe/Madrid",
+        location: "Barcelona",
+        status: .accepted,
+        negotiationChain: [
+            NegotiationMessage(
+                senderID: User.preview2.id,
+                responseType: .accept,
+                text: "Yes — I'll look at flights.",
+                timestamp: Date().addingTimeInterval(-86_400 * 2)
+            )
+        ],
+        createdAt: Date().addingTimeInterval(-86_400 * 3),
+        updatedAt: Date().addingTimeInterval(-86_400 * 2)
     )
 
     static let previewAccepted = Request(

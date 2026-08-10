@@ -1,6 +1,6 @@
 # Middle Ground — Support
 
-Need a hand? Email **support@middleground.app** and we'll get back to you.
+Need a hand? Email **support@seekmiddleground.com** and we'll get back to you.
 
 When you write in, it helps to include your iOS version, your device, and what you were doing
 when it went wrong.
@@ -40,20 +40,22 @@ choose **Cancel request**.
 
 ### How do streaks and XP work?
 You earn XP whenever you respond to a request, and your streak grows on each day you respond.
-Responding twice in one day still counts as one day. Progress is stored on your device.
+Responding twice in one day still counts as one day. Progress is stored on your device and mirrored
+to your own account so it survives changing phone.
 
 ### How do I delete my account?
 **Profile → Delete Account**, then confirm. This is permanent: your account, your progress, and
 your requests are removed. See the [Privacy Policy](privacy-policy.md) for exactly what's erased.
 
 ### Where's my data stored?
-On Google Firebase, and readable only by you and the person you paired with — enforced on the
-server, not just in the app. Your XP and streak never leave your device. Full detail is in the
-[Privacy Policy](privacy-policy.md).
+On Google Firebase, and readable only by you and the people you paired with — enforced on the
+server, not just in the app. Your XP, streak and achievements are stored on your device **and
+mirrored to your own account**, so your progress survives changing phone; nobody else can read
+them. Full detail is in the [Privacy Policy](privacy-policy.md).
 
 ## Reporting a security issue
 
-Please email **support@middleground.app** with "Security" in the subject rather than filing it
+Please email **support@seekmiddleground.com** with "Security" in the subject rather than filing it
 publicly. We'll acknowledge and work with you on a fix.
 
 ## Legal

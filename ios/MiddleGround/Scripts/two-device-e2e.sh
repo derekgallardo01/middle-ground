@@ -19,11 +19,20 @@ export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Develope
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../App" && pwd)"
 OUT="${MG_E2E_OUT:-$(mktemp -d)}"
+# mktemp -d creates the directory; an MG_E2E_OUT handed in from outside may not exist,
+# and every step below redirects into it — so the first run died before the first test.
+mkdir -p "$OUT"
 DEVICE_A="${MG_DEVICE_A:-iPhone 17}"
 DEVICE_B="${MG_DEVICE_B:-iPhone 17 Pro}"
 
 cd "$APP_DIR"
 echo "Results -> $OUT"
+
+# The project is generated from project.yml, and XcodeGen picks files up by directory glob
+# at generation time. A test file added since the last generate is simply absent: the run
+# reports '** TEST SUCCEEDED **' having executed nothing, which is the most misleading green
+# there is. Regenerating here costs a second and removes the trap.
+xcodegen generate >/dev/null
 
 udid_for() {
   xcrun simctl list devices available -j | python3 -c "

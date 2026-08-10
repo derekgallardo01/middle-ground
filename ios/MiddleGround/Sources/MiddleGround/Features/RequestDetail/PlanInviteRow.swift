@@ -20,8 +20,7 @@ struct PlanInviteRow: View {
         VStack(alignment: .leading, spacing: MGSpacing.sm) {
             if let code {
                 Text("The next person to use this code joins the plan. It then stops working.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
 
                 HStack(spacing: MGSpacing.md) {
                     Text(code)
@@ -41,14 +40,14 @@ struct PlanInviteRow: View {
                         Label("Share", systemImage: "square.and.arrow.up")
                             .mgFont(.bodySmall)
                     }
+                    .tracksInviteShare(kind: "plan")
                     Spacer()
 
                     Button(role: .destructive) {
                         onRevoke()
                     } label: {
                         Text("Cancel")
-                            .mgFont(.bodySmall)
-                            .foregroundStyle(MGColors.coral)
+                            .mgFont(.bodySmall, color: MGColors.coralText)
                     }
                     .disabled(isBusy)
                     .accessibilityLabel("Cancel this plan code")
@@ -62,8 +61,7 @@ struct PlanInviteRow: View {
                 Text("Inviting someone who isn't in your groups?")
                     .mgFont(.h3)
                 Text("They'll get a code for this plan only — nothing else you've shared.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
 
                 Button {
                     onCreate()

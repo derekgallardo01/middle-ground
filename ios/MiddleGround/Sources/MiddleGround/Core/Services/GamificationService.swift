@@ -1,5 +1,22 @@
 import Foundation
 
+/// What a restore attempt established about this device's progress.
+///
+/// The screen renders from a local store, so a device with nothing in it draws Level 1, 0 XP and
+/// a 0-day streak — which is correct for a new person and a lie to everyone else. Distinguishing
+/// "you have no progress" from "we couldn't find out" is the whole point of this type: only one
+/// of them is safe to show as numbers.
+enum MirrorRestore: Sendable, Equatable {
+    /// Progress was already on this device; nothing was fetched and nothing is in doubt.
+    case notNeeded
+    /// Pulled back from the server. The numbers are real.
+    case restored
+    /// The server holds no progress for this account either — a genuinely new user.
+    case nothingStored
+    /// The server could not be reached. Anything shown after this is a default, not a fact.
+    case unavailable
+}
+
 protocol GamificationServiceProtocol: Sendable {
     func stats(for userID: String) async -> GamificationStats
     func achievements(for userID: String) async -> [Achievement]
@@ -10,7 +27,11 @@ protocol GamificationServiceProtocol: Sendable {
     /// Call this before the first `stats(for:)` of a session. It was missing from the
     /// protocol, which is why the implementation had no call sites and progress still did not
     /// survive a reinstall despite being mirrored on every save.
-    func restoreFromMirrorIfNeeded(for userID: String) async
+    ///
+    /// Returns what it managed to establish, so a caller that is about to render numbers can tell
+    /// whether they are the user's or a default.
+    @discardableResult
+    func restoreFromMirrorIfNeeded(for userID: String) async -> MirrorRestore
 
     /// Awards XP, extends the streak, and unlocks achievements for a response the user just sent.
     /// This is the write path that turns the Activities tab from decoration into a real reward loop.
@@ -162,10 +183,12 @@ enum GamificationRules {
 }
 
 actor GamificationService: GamificationServiceProtocol {
-    private let store: UserDefaults
-    private let mirror: GamificationRepository?
+    // Not private: the restore lives in its own file, and `private` is file-scoped. Same
+    // reasoning as `appendActivities` below.
+    let store: UserDefaults
+    let mirror: GamificationRepository?
     /// Users whose mirror has already been consulted this session.
-    private var restoreAttempted: Set<String> = []
+    var restoreAttempted: Set<String> = []
 
     /// Pass a dedicated suite in tests so runs don't leak state into each other.
     ///
@@ -228,46 +251,6 @@ actor GamificationService: GamificationServiceProtocol {
         }
         // Local store stays the fast path; the mirror is the durable copy.
         await mirror?.save(stats, for: userID)
-    }
-
-    /// Restores progress from the server when the device has none — the case that used to lose
-    /// a user's entire history on reinstall or device change.
-    ///
-    /// Restores the stats *and* the history: XP, level, streak and growth score, plus the
-    /// achievements earned and the activity feed. Stats alone left a new device showing the
-    /// numbers with nothing behind them — a level with no badges and no record of how it was
-    /// reached.
-    ///
-    /// Callers invoke this on every load, so the attempt is recorded per user. Without that,
-    /// a user who genuinely has no progress anywhere never populates the local store and would
-    /// re-read the mirror on every single load.
-    func restoreFromMirrorIfNeeded(for userID: String) async {
-        guard !restoreAttempted.contains(userID) else { return }
-        restoreAttempted.insert(userID)
-        guard let mirror, store.data(forKey: statsKey(for: userID)) == nil else { return }
-
-        // Both of these read the *same* document, `gamification/{userID}`, and awaiting them in
-        // sequence paid for that round trip twice — on the one screen whose whole job is to be
-        // there when you open the tab.
-        async let remoteStats = try? mirror.stats(for: userID)
-        async let remoteHistory = try? mirror.history(for: userID)
-        let (stats, history) = await (remoteStats, remoteHistory)
-
-        if let stats, let data = try? JSONEncoder().encode(stats) {
-            store.set(data, forKey: statsKey(for: userID))
-        }
-
-        // Written directly rather than through `save(achievements:)`, which would mirror
-        // straight back to the server the values just read from it.
-        guard let history else { return }
-        if !history.achievements.isEmpty,
-           let data = try? JSONEncoder().encode(history.achievements) {
-            store.set(data, forKey: achievementsKey(for: userID))
-        }
-        if !history.activities.isEmpty,
-           let data = try? JSONEncoder().encode(history.activities) {
-            store.set(data, forKey: activitiesKey(for: userID))
-        }
     }
 
     func save(achievements: [Achievement], for userID: String) async {
@@ -490,9 +473,9 @@ actor GamificationService: GamificationServiceProtocol {
         await save(activities: Array(trimmed), for: userID)
     }
 
-    private func statsKey(for userID: String) -> String { "gamification_stats_\(userID)" }
-    private func achievementsKey(for userID: String) -> String { "gamification_achievements_\(userID)" }
-    private func activitiesKey(for userID: String) -> String { "gamification_activities_\(userID)" }
+    func statsKey(for userID: String) -> String { "gamification_stats_\(userID)" }
+    func achievementsKey(for userID: String) -> String { "gamification_achievements_\(userID)" }
+    func activitiesKey(for userID: String) -> String { "gamification_activities_\(userID)" }
 
     private var defaultStats: GamificationStats {
         GamificationStats(streakDays: 0, relationshipXP: 0, level: 1, growthScore: 0, nextLevelXP: 500)

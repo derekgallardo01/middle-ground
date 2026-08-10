@@ -95,6 +95,73 @@ jobs:
           path: ios/MiddleGround/TestResults.xcresult
           retention-days: 7
 
+  # UI tests get their own job because they are slow — 63 of them take about eleven minutes on
+  # this Mac and roughly three times that on a GitHub runner. Bolted onto "Build & Test" they took
+  # the whole job from twenty minutes to fifty-eight, in series, for no reason: nothing here
+  # depends on the Release build finishing. Run alongside it, the wall clock is the slower of the
+  # two rather than their sum.
+  #
+  # Worth the minutes even so. `xcodebuild -scheme MiddleGround test` is the Swift package — unit
+  # tests only — and the app shell was built and never tested, so every UI test was local-only.
+  # That is the wrong half to skip: several defects this month were visible only on a screen, and
+  # no unit test can fail on a blank one.
+  uitest:
+    name: UI tests
+    runs-on: macos-15
+    env:
+      DESTINATION: platform=iOS Simulator,name=iPhone 17
+    steps:
+      - uses: actions/checkout@v4
+      # Newest installed, not a hardcoded path — the comment on the job above explains why:
+      # a pinned `Xcode_26.app` 404s the day the runner image moves, and the failure reads as a
+      # broken build rather than a missing toolchain.
+      - name: Select Xcode
+        run: |
+          latest=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Selecting $latest"
+          sudo xcode-select -s "$latest"
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-ui-${{ hashFiles('ios/MiddleGround/Package.resolved') }}
+          restore-keys: spm-ui-
+
+      # The screenshot, tour and video harnesses are excluded: they exist to produce artefacts,
+      # take minutes each and assert almost nothing. The real-backend suites are excluded because
+      # they need Firebase credentials CI does not have and skip themselves without them — a green
+      # run that proved nothing would be worse than not running them at all.
+      - name: Run the hermetic UI tests
+        run: |
+          brew install xcodegen
+          cd ios/MiddleGround/App
+          xcodegen generate
+          set -o pipefail
+          xcodebuild \
+            -project MiddleGround.xcodeproj \
+            -scheme MiddleGroundApp \
+            -destination "$DESTINATION" \
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/.spm" \
+            -resultBundlePath UITestResults.xcresult \
+            -only-testing:MiddleGroundUITests/TripPlanTests \
+            -only-testing:MiddleGroundUITests/QuietPlanTests \
+            -only-testing:MiddleGroundUITests/ActionCoverageUITests \
+            -only-testing:MiddleGroundUITests/FeatureCoverageUITests \
+            -only-testing:MiddleGroundUITests/E2EActionsUITests \
+            CODE_SIGNING_ALLOWED=NO \
+            test | xcbeautify
+
+      # The screenshots are the point of keeping these: five defects this month were found by
+      # looking at one, and none of them failed a test.
+      - name: Upload UI test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-results
+          path: ios/MiddleGround/App/UITestResults.xcresult
+          retention-days: 7
+
   lint:
     name: SwiftLint
     runs-on: macos-15
@@ -135,3 +202,47 @@ jobs:
       - name: Test security rules and push delivery
         working-directory: ios/MiddleGround
         run: npx --yes firebase-tools emulators:exec --only firestore "cd CloudFunctions && npm test"
+
+  # The website had no CI at all, and it is half of acquisition: the invite link lands there, the
+  # legal pages Apple checks are served from there, and `site/dist` is committed — so a change to
+  # `site/content` that nobody rebuilt would deploy the old page and look fine in review.
+  site:
+    name: Website
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The join page's script is permitted by hash. Change the script without updating the
+      # Caddyfile and the browser silently refuses to run it: the page still renders, the
+      # fallback copy is still there, and the only symptom is that the invite code quietly
+      # stops appearing. There is no error anywhere. This is the error.
+      - name: Verify the join page against its CSP
+        run: python3 site/verify-join-page.py
+
+      - name: The built site matches its sources
+        run: |
+          python3 site/build.py
+          python3 docs/legal/build.py
+          git diff --exit-code -- site/dist docs/legal \
+            || { echo "::error::site/dist is stale — run site/build.py and commit the result"; exit 1; }
+
+      # Every published support address has to be one that can receive mail. `middleground.app`
+      # was named in eleven places — the privacy policy, the terms, the App Review notes — and is
+      # somebody else's domain with no MX records at all, so every one of those promises pointed
+      # at a mailbox that does not exist.
+      #
+      # Scoped to the places that *publish* it. The engineering log has to be able to name the
+      # address to explain why it was wrong — the first version of this check failed on the very
+      # entry describing the fix, which is a good demonstration that a grep over a whole repo is
+      # not the same as a grep over what people read.
+      - name: No dead support addresses
+        run: |
+          if grep -rn "support@middleground.app" \
+               --include="*.md" --include="*.html" --include="*.py" \
+               docs/legal site docs/APP_REVIEW_NOTES.md ; then
+            echo "::error::support@middleground.app cannot receive mail — use support@seekmiddleground.com"
+            exit 1
+          fi

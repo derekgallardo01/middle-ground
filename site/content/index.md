@@ -104,5 +104,5 @@ We ship constantly. The [changelog](/changelog) is the full record, and the [tim
 
 <div class="actions">
 <a class="btn btn-primary" href="/changelog">See what's new</a>
-<a class="btn btn-secondary" href="mailto:support@middleground.app">Get in touch</a>
+<a class="btn btn-secondary" href="mailto:support@seekmiddleground.com">Get in touch</a>
 </div>

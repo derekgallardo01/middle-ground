@@ -1,6 +1,8 @@
 import UIKit
 import FirebaseAppCheck
+import FirebaseAuth
 import FirebaseCore
+import FirebaseFirestore
 import FirebaseCrashlytics
 import FirebaseMessaging
 import UserNotifications
@@ -30,6 +32,24 @@ public final class AppDelegate: NSObject, UIApplicationDelegate {
         AppCheck.setAppCheckProviderFactory(MGAppCheckProviderFactory())
 
         FirebaseApp.configure()
+
+        // Emulators must be selected immediately after configure() and before any read or write —
+        // Firestore latches its settings the first time it is used, and changing the host after
+        // that traps. Nothing else in the launch sequence touches it, which is why this sits here
+        // rather than anywhere more obvious.
+        if AppConfiguration.usesEmulator {
+            let settings = Firestore.firestore().settings
+            settings.host = "\(AppConfiguration.emulatorHost):\(AppConfiguration.firestoreEmulatorPort)"
+            settings.isSSLEnabled = false
+            settings.cacheSettings = MemoryCacheSettings()
+            Firestore.firestore().settings = settings
+            Auth.auth().useEmulator(
+                withHost: AppConfiguration.emulatorHost,
+                port: AppConfiguration.authEmulatorPort
+            )
+            MGLog.storage.info("Using the local Firebase emulators.")
+        }
+
         // Only now is it safe to touch anything Firebase-backed.
         NotificationService.shared.start()
 
@@ -39,6 +59,37 @@ public final class AppDelegate: NSObject, UIApplicationDelegate {
         // Re-register for remote notifications only if the user already granted it.
         Task { await NotificationService.shared.registerIfAlreadyAuthorized() }
         return true
+    }
+
+    /// Hands the APNs device token to Firebase Messaging.
+    ///
+    /// This is the line the whole notification system rests on, and it lived in the wrong class:
+    /// it was declared on `MGAppCheckProviderFactory`, which is not an app delegate, so UIKit
+    /// never called it. `FirebaseAppDelegateProxyEnabled` is `false` in project.yml — set there
+    /// *because a comment said this delegate handled the token* — so nothing swizzled it either.
+    ///
+    /// FCM therefore never had an APNs token, could not mint a usable registration token, and no
+    /// push has ever reached a device. Zero rows in `user_tokens` was the symptom; this was the
+    /// cause, and it looked correct from every angle except being asked which class it was on.
+    ///
+    /// The proxy stays disabled. Doing this explicitly is the right choice — it simply has to be
+    /// true.
+    public func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        guard AppConfiguration.isBackendEnabled else { return }
+        Messaging.messaging().apnsToken = deviceToken
+        MGLog.notifications.info("APNs device token registered with Messaging.")
+    }
+
+    public func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        MGLog.notifications.error(
+            "Failed to register for remote notifications: \(error.localizedDescription, privacy: .public)"
+        )
     }
 }
 
@@ -60,22 +111,5 @@ final class MGAppCheckProviderFactory: NSObject, AppCheckProviderFactory {
         // App Attest needs iOS 14+; the deployment target is 17.
         return AppAttestProvider(app: app)
         #endif
-    }
-
-    public func application(
-        _ application: UIApplication,
-        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
-    ) {
-        guard AppConfiguration.isBackendEnabled else { return }
-        Messaging.messaging().apnsToken = deviceToken
-    }
-
-    public func application(
-        _ application: UIApplication,
-        didFailToRegisterForRemoteNotificationsWithError error: Error
-    ) {
-        MGLog.notifications.error(
-            "Failed to register for remote notifications: \(error.localizedDescription, privacy: .public)"
-        )
     }
 }

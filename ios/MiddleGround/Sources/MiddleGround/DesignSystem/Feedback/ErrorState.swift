@@ -8,15 +8,13 @@ struct ErrorState: View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 44))
-                .foregroundStyle(MGColors.sunshine)
+                .foregroundStyle(MGColors.sunshineText)
 
             Text("Something went wrong")
-                .mgFont(.h2)
-                .foregroundStyle(MGColors.slate)
+                .mgFont(.h2, color: MGColors.slate)
 
             Text(message)
-                .mgFont(.body)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.body, color: MGColors.warm600)
                 .multilineTextAlignment(.center)
 
             if let onRetry {

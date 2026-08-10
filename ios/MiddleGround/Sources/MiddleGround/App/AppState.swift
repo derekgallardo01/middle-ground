@@ -64,9 +64,17 @@ final class AppState {
         await LoadTimer.measure("startup.user") {
             currentUser = await authService.currentUser()
         }
-        // Corrects the optimistic answer in the one case it can be wrong: a session that still
-        // exists on the device but whose account has since been deleted server-side.
-        isOnboarded = currentUser != nil
+        // Corrects the optimistic answer in the two cases it can be wrong: a session that still
+        // exists on the device but whose account has since been deleted server-side, and an
+        // account that never finished onboarding.
+        //
+        // Having a user is not the same as having been through the flow. `signInWithApple` saves
+        // the document at the *welcome* step, so quitting before the profile step left somebody
+        // signed in with no name — and Apple supplies a name only on the very first sign-in, so
+        // it could never be recovered. Onboarding requires a name to continue, so an empty one
+        // means the flow was abandoned; sending them back resumes it rather than stranding them.
+        isOnboarded = currentUser.map { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
+            ?? false
         MGLog.setCrashReportingUser(currentUser?.id)
         if currentUser != nil {
             isAdmin = await authService.isAdmin()

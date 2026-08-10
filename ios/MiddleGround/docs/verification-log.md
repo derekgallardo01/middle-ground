@@ -516,6 +516,40 @@ rules tests and by a live MapKit probe, but no plan has been created by a person
 in another zone and read back with its own clock.
 
 
+## 2026-08-10 — the recordings, brought up to the build in review
+
+An audit of all eight capture suites found **zero** hits for "Barcelona", "trip", "itinerary" or
+"energy". The newest full tour was six days old, the newest nearby tour three, the site shots nine,
+and the App Store screenshot set did not exist on this machine at all. So the answer to "do we have
+video of every action on the latest version" was no, and not marginally.
+
+Re-recorded against the build now in review:
+
+- **Full tour** — 66 screenshots, 8m22s. Eight new scenes: the trip range on the feed, nights and
+  the time-zone line, the itinerary day by day, adding an item, "Over several days" in compose and
+  the end-date picker, the group energy card, the join-by-code field, and the report menu and sheet.
+  The last two long predate this week; the tour had only ever shown *issuing* a plan code, never
+  redeeming one, and had never shown the report flow at all — which Guideline 1.2 requires.
+- **Nearby tour** — 619s, 18,572 frames, all eight walkthrough clips split correctly (72–80s each).
+  A previous run produced seven of eight, and an earlier one a 262-byte clip of nothing, so both
+  were checked: clip sizes, per-clip durations, and a sampled frame showing the app rather than the
+  home screen.
+
+**Four harness faults, three of them found only by running it.** The one worth remembering:
+`full-tour.sh` printed "the tour reported failures" and then **exited 0**. The first attempt aborted
+eight scenes early — no report flow, no admin panel — and returned success. A tour that files a
+truncated recording as evidence is worse than no tour. It now exits with its own verdict.
+
+The others: the invite field was queried by its placeholder when its accessibility label differs,
+so `typeText` threw and ended the run; the group energy section searched for the word "energy",
+which appears nowhere on that card; and `record-tour.sh` printed the duration before computing it,
+so every run ever recorded reported an empty value in its summary line.
+
+**Not fixed, and worth stating:** there is still no coverage measurement anywhere in this repo —
+no `-enableCodeCoverage`, no xccov, no percentage in any document. The substitute remains what it
+has been: evidence that a path has actually run.
+
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.

@@ -9,10 +9,16 @@ import Foundation
 extension RequestDetailViewModel {
 
     /// Everyone on the plan except you — the people a report could be about.
+    ///
+    /// Keyed off `currentUserID`, not `currentUser`. The view model already carries a comment
+    /// explaining why: `currentUser` waits on a Firestore fetch of the display name, and for that
+    /// half second the view believes it is nobody. The response row was fixed for this; the report
+    /// control was not, so the one thing App Review guideline 1.2 requires was **missing from the
+    /// toolbar** for the first moments of every plan opened on a slow connection.
     var reportableParticipants: [(id: String, name: String)] {
-        guard let currentUser else { return [] }
+        guard let currentUserID else { return [] }
         return request.allParticipantIDs
-            .filter { $0 != currentUser.id }
+            .filter { $0 != currentUserID }
             .map { (id: $0, name: participantNames[$0] ?? "Someone") }
             .sorted { $0.name < $1.name }
     }
@@ -25,6 +31,11 @@ extension RequestDetailViewModel {
     /// With two people the question has one answer and asking it is noise. With three or more it
     /// is the whole point, and guessing is how a report lands on the wrong person.
     func beginReport() {
+        // Cleared first. `Cancel` only dismisses the sheet, so a choice made and abandoned
+        // survived — reopen it and somebody was already selected, with Submit enabled, chosen
+        // during a different sitting. This function's own note says guessing is how a report
+        // lands on the wrong person; a stale selection is a guess made by the last visit.
+        reportedUserID = nil
         if reportableParticipants.count == 1 {
             reportedUserID = reportableParticipants[0].id
         }

@@ -588,9 +588,38 @@ non-view file with 40+ lines that no unit test has ever executed. **Deliberately
 A percentage that must not fall is a percentage people write tests to protect rather than to find
 anything — and this repo has already been bitten by tests that passed for the wrong reason.
 
-Still 0% and worth knowing: `RequestDetailViewModel+Reporting.swift` (92 lines), which is the
-Guideline 1.2 reporting path. The Firestore repositories are also 0% by design — they are only
+`RequestDetailViewModel+Reporting.swift` was the next 0% file, and it held two more — see below. The Firestore repositories are also 0% by design — they are only
 exercised against the real backend, which is what `verify-live-features.mjs` is for.
+
+
+## 2026-08-10 — the reporting path, and two more the same method found
+
+`RequestDetailViewModel+Reporting.swift` was the largest non-view file still at 0%: 92 lines,
+never executed, implementing the thing App Review guideline 1.2 is about. It held two defects.
+
+**The report control was missing while the profile loaded.** `reportableParticipants` guarded on
+`currentUser`, which waits on a Firestore fetch of the display name — while everything else on that
+screen uses `currentUserID`, which is in memory. The view model already carries a comment
+explaining this exact trap and why the response row was moved off `currentUser`:
+
+> "for that half second the view believed it was nobody, so the response row was missing"
+
+The report control was never moved. So on any slow connection, the one control guideline 1.2
+requires was absent from the toolbar for the first moments of every plan.
+
+**An abandoned choice survived into the next report.** `Cancel` on the sheet only dismisses it —
+`reportedUserID` was never cleared — so opening the sheet again showed somebody already selected,
+with Submit enabled, chosen during a different sitting. `beginReport()`'s own note says "guessing
+is how a report lands on the wrong person"; a stale selection is a guess made by the last visit.
+This one is not cosmetic: a report names a person, and filing one against somebody who was not
+chosen is an accusation nobody made.
+
+Both fixed, both mutation-checked — restoring either fails five tests between them.
+
+Coverage after: non-view logic **45.1%** (was 44.2%), everything 19.5%. 556 unit tests.
+
+That is four real bugs in two days from one method: measure, find a file nothing has executed,
+read it, and check what it does against what its own comments say it should.
 
 
 ## Still open

@@ -96,8 +96,7 @@ struct CalendarView: View {
             HStack {
                 ForEach(Calendar.current.shortWeekdaySymbols, id: \.self) { day in
                     Text(day)
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -157,15 +156,13 @@ struct CalendarView: View {
                     youAreBusy ? "I'm free again this day" : "I'm not free this day",
                     systemImage: youAreBusy ? "arrow.uturn.backward" : "nosign"
                 )
-                .mgFont(.bodySmall)
-                .foregroundStyle(youAreBusy ? MGColors.warm600 : MGColors.indigo)
+                .mgFont(.bodySmall, color: youAreBusy ? MGColors.warm600 : MGColors.indigo)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("toggleUnavailable")
 
             Text("Only the days you block out are shared. Your calendar is never uploaded.")
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm400)
+                .mgFont(.caption, color: MGColors.warm400)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .mgSurfaceCard()
@@ -202,8 +199,7 @@ struct CalendarView: View {
                                 .fontWeight(.semibold)
                             if let time = request.proposedTime {
                                 Text(time, style: .date)
-                                    .mgFont(.caption)
-                                    .foregroundStyle(MGColors.warm600)
+                                    .mgFont(.caption, color: MGColors.warm600)
                             }
                         }
                         Spacer()

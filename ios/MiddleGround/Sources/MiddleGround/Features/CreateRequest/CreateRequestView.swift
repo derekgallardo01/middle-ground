@@ -282,8 +282,7 @@ struct CreateRequestView: View {
 
                 HStack(spacing: MGSpacing.sm) {
                     Text("Within")
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                     Slider(
                         value: $viewModel.nearbyRadiusMiles,
                         in: 1...CreateRequestViewModel.maxRadiusMiles,
@@ -292,8 +291,7 @@ struct CreateRequestView: View {
                     .accessibilityLabel("Search radius")
                     .accessibilityValue("\(Int(viewModel.nearbyRadiusMiles)) miles")
                     Text("\(Int(viewModel.nearbyRadiusMiles)) mi")
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.slate)
+                        .mgFont(.caption, color: MGColors.slate)
                         .frame(width: 44, alignment: .trailing)
                         .monospacedDigit()
                 }
@@ -305,8 +303,7 @@ struct CreateRequestView: View {
             if let message = viewModel.nearbyMessage {
                 // Said out loud rather than left as an empty row, which reads as a broken feature.
                 Text(message)
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
             }
 
             if !viewModel.nearbyPlaces.isEmpty {
@@ -375,8 +372,7 @@ struct CreateRequestView: View {
             HStack(spacing: MGSpacing.xs) {
                 Text(emoji)
                 Text(label)
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.slate)
+                    .mgFont(.caption, color: MGColors.slate)
             }
             .padding(.vertical, MGSpacing.xs)
             .padding(.horizontal, MGSpacing.md)
@@ -403,8 +399,7 @@ struct CreateRequestView: View {
                         HStack(spacing: MGSpacing.xs) {
                             Text(template.emoji)
                             Text(template.title)
-                                .mgFont(.bodySmall)
-                                .foregroundStyle(MGColors.slate)
+                                .mgFont(.bodySmall, color: MGColors.slate)
                         }
                         .lineLimit(1)
                         .padding(.vertical, MGSpacing.sm)

@@ -84,6 +84,17 @@ force_try: error
 force_unwrapping: warning
 
 custom_rules:
+  mg_font_discards_colour:
+    name: "mgFont then foregroundStyle"
+    # `MGScaledFont` applies its own `foregroundStyle`, and SwiftUI resolves the *innermost* one —
+    # so a `.foregroundStyle` written after `.mgFont` is silently discarded and the text renders
+    # slate. It reads perfectly naturally, which is why 161 sites had it: the calendar's selected
+    # day shipped at 2.32:1 and the streak pill at 1.81:1 in dark mode, both of them a colour the
+    # code plainly asked for. `mgFont(_:color:)` applies the colour first and works.
+    regex: '\.mgFont\([^)]*\)(\s*\n\s*\.(fontWeight|monospaced|monospacedDigit|tracking|lineLimit|multilineTextAlignment|textCase|italic|bold|kerning)\([^)]*\))*\s*\n\s*\.foregroundStyle\('
+    message: "This colour is discarded — mgFont sets its own foreground style and SwiftUI takes the innermost. Use mgFont(_:color:)."
+    severity: error
+
   no_fatal_error:
     name: "No fatalError in shipping code"
     regex: "fatalError\\("

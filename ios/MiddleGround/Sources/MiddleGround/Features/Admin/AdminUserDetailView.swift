@@ -32,8 +32,7 @@ struct AdminUserDetailView: View {
                             Text(event.type.displayName).mgFont(.bodySmall)
                             Spacer()
                             Text(event.at.formatted(date: .abbreviated, time: .shortened))
-                                .mgFont(.caption)
-                                .foregroundStyle(MGColors.warm600)
+                                .mgFont(.caption, color: MGColors.warm600)
                         }
                     }
                 }
@@ -50,16 +49,13 @@ struct AdminUserDetailView: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(user.name).mgFont(.h2)
                 Text(user.id)
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
                 if let stats = viewModel.statsByUser[user.id] {
                     Text("Level \(stats.level) · \(stats.relationshipXP) XP · \(stats.streakDays)-day streak")
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                 }
                 Label("This view was recorded in the audit log", systemImage: "checkmark.shield")
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
                     .padding(.top, 4)
             }
         }

@@ -31,8 +31,7 @@ struct CalendarClashRow: View {
 
         case .free:
             Label("Your calendar is free then", systemImage: "checkmark.circle")
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
 
         case .unknown where !accessGranted:
             Button(action: onRequestAccess) {

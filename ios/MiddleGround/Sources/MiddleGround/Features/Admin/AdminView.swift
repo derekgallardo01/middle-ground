@@ -119,8 +119,7 @@ struct AdminView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(user.name).mgFont(.body)
                                 Text(user.id)
-                                    .mgFont(.caption)
-                                    .foregroundStyle(MGColors.warm600)
+                                    .mgFont(.caption, color: MGColors.warm600)
                                     .lineLimit(1)
                             }
                             Spacer()
@@ -128,8 +127,7 @@ struct AdminView: View {
                                 VStack(alignment: .trailing, spacing: 2) {
                                     Text("L\(stats.level)").mgFont(.caption)
                                     Text("\(stats.relationshipXP) XP")
-                                        .mgFont(.caption)
-                                        .foregroundStyle(MGColors.warm600)
+                                        .mgFont(.caption, color: MGColors.warm600)
                                 }
                             }
                             Image(systemName: "chevron.right")
@@ -165,8 +163,7 @@ struct AdminView: View {
     private var reportsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Reported content. Newest first — review within 24 hours. Mark each one done.")
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
 
             if viewModel.reports.isEmpty {
                 emptyNote("Nothing reported.")
@@ -176,17 +173,14 @@ struct AdminView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Label(report.reason.displayName, systemImage: "flag.fill")
-                                .mgFont(.bodySmall)
-                                .foregroundStyle(MGColors.coralText)
+                                .mgFont(.bodySmall, color: MGColors.coralText)
                             Spacer()
                             Text(report.at.formatted(date: .abbreviated, time: .shortened))
-                                .mgFont(.caption)
-                                .foregroundStyle(MGColors.warm600)
+                                .mgFont(.caption, color: MGColors.warm600)
                         }
                         if let note = report.note, !note.isEmpty {
                             Text(note)
-                                .mgFont(.bodySmall)
-                                .foregroundStyle(MGColors.slate)
+                                .mgFont(.bodySmall, color: MGColors.slate)
                         }
                         row("Reported user", report.reportedUserID)
                         row("Reported by", report.reporterID)
@@ -253,8 +247,7 @@ struct AdminView: View {
 
                 if viewModel.referrals.inviters.isEmpty {
                     Text("No attributed joins in this window yet.")
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                 } else {
                     ForEach(viewModel.referrals.inviters.prefix(10)) { inviter in
                         HStack {
@@ -275,13 +268,11 @@ struct AdminView: View {
                 if viewModel.referrals.unattributed > 0 {
                     Text("\(viewModel.referrals.unattributed) join(s) with no inviter recorded — "
                          + "plan codes, and group joins from before the edge was kept.")
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                 }
 
                 Text(viewModel.referrals.windowNote)
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
             }
         }
     }
@@ -300,14 +291,12 @@ struct AdminView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(event.type.displayName).mgFont(.bodySmall)
                             Text(event.userID)
-                                .mgFont(.caption)
-                                .foregroundStyle(MGColors.warm600)
+                                .mgFont(.caption, color: MGColors.warm600)
                                 .lineLimit(1)
                         }
                         Spacer()
                         Text(event.at.formatted(date: .abbreviated, time: .shortened))
-                            .mgFont(.caption)
-                            .foregroundStyle(MGColors.warm600)
+                            .mgFont(.caption, color: MGColors.warm600)
                     }
                 }
             }
@@ -319,8 +308,7 @@ struct AdminView: View {
     private var auditSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Every admin view of user data is recorded here. Entries cannot be edited or deleted.")
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
 
             if viewModel.auditEntries.isEmpty {
                 emptyNote("No admin access recorded yet.")
@@ -330,12 +318,10 @@ struct AdminView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(entry.action) · \(entry.targetType)").mgFont(.bodySmall)
                         Text(entry.targetID)
-                            .mgFont(.caption)
-                            .foregroundStyle(MGColors.warm600)
+                            .mgFont(.caption, color: MGColors.warm600)
                             .lineLimit(1)
                         Text(entry.at.formatted(date: .abbreviated, time: .shortened))
-                            .mgFont(.caption)
-                            .foregroundStyle(MGColors.warm600)
+                            .mgFont(.caption, color: MGColors.warm600)
                     }
                 }
             }
@@ -346,8 +332,7 @@ struct AdminView: View {
 
     func emptyNote(_ text: String) -> some View {
         Text(text)
-            .mgFont(.bodySmall)
-            .foregroundStyle(MGColors.warm600)
+            .mgFont(.bodySmall, color: MGColors.warm600)
             .padding(.vertical, 8)
     }
 
@@ -373,15 +358,12 @@ struct AdminRequestRow: View {
             }
             if let details = request.details, !details.isEmpty {
                 Text(details)
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
             }
             Text("\(request.category.displayName) · \(request.negotiationChain.count) message(s)")
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
             Text(request.id)
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm400)
+                .mgFont(.caption, color: MGColors.warm400)
                 .lineLimit(1)
         }
     }

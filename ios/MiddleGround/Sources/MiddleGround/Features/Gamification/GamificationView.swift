@@ -102,8 +102,7 @@ struct GamificationView: View {
             is showing up for each other, not agreeing with everything. Put points on a plan \
             and you get them back when it happens.
             """)
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
 
             HStack(spacing: 16) {
                 // Turning up leads, because it pays the most and because the sentence above
@@ -111,9 +110,8 @@ struct GamificationView: View {
                 HStack(spacing: 5) {
                     Text("🙌")
                     Text("+\(GamificationRules.attendedXP)")
-                        .mgFont(.caption)
+                        .mgFont(.caption, color: MGColors.warm600)
                         .monospacedDigit()
-                        .foregroundStyle(MGColors.warm600)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("Turning up earns \(GamificationRules.attendedXP) XP")
@@ -126,9 +124,8 @@ struct GamificationView: View {
                     HStack(spacing: 5) {
                         Text(type.emoji)
                         Text("+\(GamificationRules.xp(for: type))")
-                            .mgFont(.caption)
+                            .mgFont(.caption, color: MGColors.warm600)
                             .monospacedDigit()
-                            .foregroundStyle(MGColors.warm600)
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel("\(type.displayName) earns \(GamificationRules.xp(for: type)) XP")
@@ -158,8 +155,7 @@ struct GamificationView: View {
                     Text("Level \(viewModel.stats.level)")
                         .mgFont(.h1)
                     Text("\(viewModel.stats.relationshipXP) / \(viewModel.stats.nextLevelXP) XP")
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.body, color: MGColors.warm600)
                 }
 
                 Spacer()

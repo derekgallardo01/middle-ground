@@ -236,8 +236,7 @@ struct RequestDetailView: View {
             Text("Did this happen?")
                 .mgFont(.h3)
             Text("Your answer is yours alone — the other person is asked separately.")
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
 
             HStack(spacing: MGSpacing.md) {
                 Button {
@@ -257,8 +256,7 @@ struct RequestDetailView: View {
                     Task { await viewModel.confirmAttendance(.didNotHappen) }
                 } label: {
                     Label("No, it didn't", systemImage: "xmark.circle")
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.slate)
+                        .mgFont(.body, color: MGColors.slate)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, MGSpacing.md)
                         .background(MGColors.warm100)
@@ -303,8 +301,7 @@ struct RequestDetailView: View {
                 Image(systemName: icon)
                     .foregroundStyle(tint)
                 Text(message)
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.body, color: MGColors.warm600)
                 Spacer()
             }
             .accessibilityElement(children: .combine)
@@ -335,8 +332,7 @@ struct RequestDetailView: View {
                 Image(systemName: "hourglass")
                     .foregroundStyle(MGColors.warm600)
                 Text(viewModel.waitingMessage)
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.body, color: MGColors.warm600)
                 Spacer()
             }
 
@@ -406,8 +402,7 @@ struct RequestDetailView: View {
                     .mgFont(.body)
                 if let reason = viewModel.request.cancellationReason {
                     Text(reason.displayName)
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                 }
             }
             Spacer()

@@ -29,8 +29,7 @@ struct QuietPlanCard: View {
                         .mgFont(.h3)
                         .lineLimit(2)
                     Text(reason)
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 

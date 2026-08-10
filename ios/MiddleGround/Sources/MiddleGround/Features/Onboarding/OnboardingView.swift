@@ -22,8 +22,7 @@ struct OnboardingView: View {
                             viewModel.retreat()
                         } label: {
                             Label("Back", systemImage: "chevron.left")
-                                .mgFont(.bodySmall)
-                                .foregroundStyle(MGColors.warm600)
+                                .mgFont(.bodySmall, color: MGColors.warm600)
                         }
                         .accessibilityLabel("Go back to the previous step")
                     }
@@ -112,8 +111,7 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
 
                 Text("Middle Ground helps people make decisions together — from date nights to dinner plans.")
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.body, color: MGColors.warm600)
                     .multilineTextAlignment(.center)
             }
 
@@ -139,8 +137,7 @@ struct OnboardingView: View {
             Button("Use a test account") {
                 viewModel.signInAsTestUser()
             }
-            .mgFont(.caption)
-            .foregroundStyle(MGColors.warm600)
+            .mgFont(.caption, color: MGColors.warm600)
             .disabled(viewModel.isLoading)
             #endif
         }
@@ -158,8 +155,7 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
 
                 Text("Get notified when someone sends or responds to a request.")
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.body, color: MGColors.warm600)
                     .multilineTextAlignment(.center)
             }
 
@@ -170,8 +166,7 @@ struct OnboardingView: View {
             Button("Skip for now") {
                 viewModel.advance()
             }
-            .mgFont(.body)
-            .foregroundStyle(MGColors.warm600)
+            .mgFont(.body, color: MGColors.warm600)
         }
     }
 
@@ -242,15 +237,13 @@ struct OnboardingView: View {
                     .accessibilityHint("Enter the six character code shared with you")
             } else {
                 Text("We'll give you a code to share once you're set up.")
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
                     .multilineTextAlignment(.center)
             }
 
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.coralText)
+                    .mgFont(.caption, color: MGColors.coralText)
                     .multilineTextAlignment(.center)
             }
 
@@ -275,8 +268,7 @@ struct OnboardingView: View {
             if let code = viewModel.createdInviteCode {
                 VStack(spacing: 8) {
                     Text("Share this code")
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
 
                     Text(code)
                         .font(.system(size: inviteCodeSize, weight: .bold, design: .monospaced))
@@ -310,13 +302,11 @@ struct OnboardingView: View {
                 .accessibilityLabel("Your invite code is \(code.map(String.init).joined(separator: " "))")
 
                 Text("Once they join, you can send your first request.")
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.body, color: MGColors.warm600)
                     .multilineTextAlignment(.center)
             } else {
                 Text("Start by sending your first request.")
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.body, color: MGColors.warm600)
                     .multilineTextAlignment(.center)
             }
 

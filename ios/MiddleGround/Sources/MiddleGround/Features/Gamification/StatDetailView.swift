@@ -61,8 +61,7 @@ struct StatDetailView: View {
                 Text(streakStatusTitle)
                     .mgFont(.h3)
                 Text(streakStatusDetail)
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
             }
             .mgSurfaceCard()
 
@@ -122,11 +121,9 @@ struct StatDetailView: View {
 
                 VStack(alignment: .leading, spacing: MGSpacing.xs) {
                     Text("out of 100")
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.body, color: MGColors.warm600)
                     Text(growthSummary)
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                 }
 
                 Spacer(minLength: 0)
@@ -183,8 +180,7 @@ struct StatDetailView: View {
 
             if isCapped {
                 Text("Your activity adds up to \(rawTotal). The score stops at 100.")
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -202,9 +198,8 @@ struct StatDetailView: View {
                 .mgFont(.body)
             Spacer()
             Text("\(count) × \(multiplier)")
-                .mgFont(.bodySmall)
+                .mgFont(.bodySmall, color: MGColors.warm600)
                 .monospacedDigit()
-                .foregroundStyle(MGColors.warm600)
             Text("\(count * multiplier)")
                 .mgFont(.body)
                 .monospacedDigit()
@@ -226,8 +221,7 @@ struct StatDetailView: View {
                     Text("•")
                     Text(line)
                 }
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
             }
         }
         .mgSurfaceCard()

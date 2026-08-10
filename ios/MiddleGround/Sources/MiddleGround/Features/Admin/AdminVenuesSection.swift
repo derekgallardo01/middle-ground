@@ -15,8 +15,7 @@ struct AdminVenuesSection: View {
         VStack(alignment: .leading, spacing: MGSpacing.md) {
             HStack {
                 Text("\(viewModel.venues.count) place\(viewModel.venues.count == 1 ? "" : "s")")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                 Spacer()
                 Button {
                     isAdding = true
@@ -28,8 +27,7 @@ struct AdminVenuesSection: View {
 
             if viewModel.venues.isEmpty {
                 Text("No places yet. Anything added here shows up as a suggestion when someone fills in “Where?”.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(MGColors.surface)
@@ -66,13 +64,11 @@ struct AdminVenuesSection: View {
                 Text(venue.name)
                     .mgFont(.body)
                 Text(subtitle(for: venue))
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
             }
             Spacer()
             Image(systemName: "chevron.right")
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm400)
+                .mgFont(.caption, color: MGColors.warm400)
         }
         .padding()
         .background(MGColors.surface)

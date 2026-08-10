@@ -37,8 +37,7 @@ struct LocationRow: View {
                      Share your location with \(partnerName) until this plan is over. \
                      One point, not a trail — and it's deleted afterwards.
                      """)
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
 
                 Button(action: onShare) {
                     Label("Share my location", systemImage: "location.fill")
@@ -63,8 +62,7 @@ struct LocationRow: View {
     private func shared(_ point: SharedLocation) -> some View {
         VStack(alignment: .leading, spacing: MGSpacing.sm) {
             Label("Shared \(point.sharedAt.formatted(.relative(presentation: .named)))", systemImage: "location.fill")
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.teal)
+                .mgFont(.bodySmall, color: MGColors.teal)
 
             HStack(spacing: MGSpacing.sm) {
                 Button(action: onShare) {
@@ -79,8 +77,7 @@ struct LocationRow: View {
 
                 Button(action: onStop) {
                     Text("Stop sharing")
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.coralText)
+                        .mgFont(.bodySmall, color: MGColors.coralText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, MGSpacing.sm)
                         .background(MGColors.warm100)
@@ -103,13 +100,11 @@ struct LocationRow: View {
                     Text("\(partnerName) shared their location")
                         .mgFont(.bodySmall)
                     Text(point.sharedAt.formatted(.relative(presentation: .named)))
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                 }
                 Spacer()
                 Image(systemName: "arrow.up.right")
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
             }
             .contentShape(Rectangle())
         }

@@ -11,12 +11,10 @@ struct ErrorState: View {
                 .foregroundStyle(MGColors.sunshineText)
 
             Text("Something went wrong")
-                .mgFont(.h2)
-                .foregroundStyle(MGColors.slate)
+                .mgFont(.h2, color: MGColors.slate)
 
             Text(message)
-                .mgFont(.body)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.body, color: MGColors.warm600)
                 .multilineTextAlignment(.center)
 
             if let onRetry {

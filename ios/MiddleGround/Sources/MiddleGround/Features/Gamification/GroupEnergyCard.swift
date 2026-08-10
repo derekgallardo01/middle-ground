@@ -34,8 +34,7 @@ struct GroupEnergyCard: View {
     /// having just formed.
     private var notYet: some View {
         Text(energy.reason)
-            .mgFont(.bodySmall)
-            .foregroundStyle(MGColors.warm600)
+            .mgFont(.bodySmall, color: MGColors.warm600)
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -54,8 +53,7 @@ struct GroupEnergyCard: View {
                 Text(label)
                     .mgFont(.body)
                 Text(energy.reason)
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .fixedSize(horizontal: false, vertical: true)
             }
 

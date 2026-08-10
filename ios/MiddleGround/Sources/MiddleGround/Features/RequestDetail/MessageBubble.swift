@@ -44,8 +44,7 @@ struct MessageBubble: View {
             }
 
             Button("Reply", action: onReply)
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.indigo)
+                .mgFont(.caption, color: MGColors.indigo)
                 .buttonStyle(.plain)
                 .accessibilityHint("Replies to \(senderName)'s message")
         }
@@ -55,15 +54,12 @@ struct MessageBubble: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: MGSpacing.xs) {
                 Text(sender)
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.caption, color: MGColors.warm600)
                 Text(date.formatted(date: .omitted, time: .shortened))
-                    .mgFont(.caption)
-                    .foregroundStyle(MGColors.warm400)
+                    .mgFont(.caption, color: MGColors.warm400)
             }
             Text(text)
-                .mgFont(.body)
-                .foregroundStyle(MGColors.slate)
+                .mgFont(.body, color: MGColors.slate)
                 .padding(.vertical, MGSpacing.sm)
                 .padding(.horizontal, MGSpacing.md)
                 .background(mine ? MGColors.warm100 : MGColors.surface)

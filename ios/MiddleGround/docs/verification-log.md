@@ -471,6 +471,20 @@ slow runner it was checking the feed, where a request awaiting you carries its o
 `openPlan` now waits for the detail screen.
 
 
+### The sweep, done
+
+All 159 remaining sites rewritten to `mgFont(_:color:)` across 45 files, and a SwiftLint custom
+rule (`mg_font_discards_colour`) added so the broken spelling cannot return. The rule was checked
+against both shapes — the plain one and the `.fontWeight` interleaved one a naive regex misses —
+by reintroducing each and watching it fail.
+
+What changed on screen is worth stating, because it is the whole point: the status badge is teal
+again rather than slate (the colour *is* the status), and the app has typographic hierarchy where
+every secondary line previously rendered at the same weight as the headings it sat under.
+
+Verified: 534 unit tests, 65 UI tests, 0 lint violations across 251 files.
+
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.
@@ -478,9 +492,6 @@ slow runner it was checking the feed, where a request awaiting you carries its o
 - Report moderation, which needs a real report to work through.
 - Seven moderate transitive dependency advisories, to be fixed away from this Mac.
 - The darker teal is computed but not yet eyeballed on a device.
-- ~158 `.mgFont(...).foregroundStyle(...)` sites rendering slate instead of `warm600`. Mechanical
-  to fix (`mgFont(_:color:)`), but it changes how most screens look, so it wants a look first —
-  and a SwiftLint rule afterwards, or it comes straight back.
 - Deep-link destinations, which need a real plan between two real accounts.
 - **Cloudflare Email Routing for `support@seekmiddleground.com`.** The address is published and
   correct; nothing will arrive until the route exists. Cloudflare → seekmiddleground.com → Email →

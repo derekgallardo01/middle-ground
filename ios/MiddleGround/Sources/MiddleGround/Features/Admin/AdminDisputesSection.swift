@@ -15,13 +15,11 @@ struct AdminDisputesSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Plans people remember differently. Nothing is decided until somebody reads one.")
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
 
             if disputes.isEmpty {
                 Text("Nothing disputed.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .mgSurfaceCard()
             }
@@ -33,14 +31,12 @@ struct AdminDisputesSection: View {
                             .mgFont(.bodySmall, color: MGColors.slate)
                         Spacer()
                         Text(dispute.at.formatted(date: .abbreviated, time: .shortened))
-                            .mgFont(.caption)
-                            .foregroundStyle(MGColors.warm600)
+                            .mgFont(.caption, color: MGColors.warm600)
                     }
 
                     if let note = dispute.note, !note.isEmpty {
                         Text(note)
-                            .mgFont(.bodySmall)
-                            .foregroundStyle(MGColors.slate)
+                            .mgFont(.bodySmall, color: MGColors.slate)
                     }
 
                     row("Raised by", dispute.raisedBy)
@@ -94,12 +90,10 @@ struct AdminDisputesSection: View {
     private func row(_ label: String, _ value: String) -> some View {
         HStack {
             Text(label)
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
             Spacer()
             Text(value)
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
         }
     }
 }

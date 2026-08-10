@@ -36,8 +36,7 @@ struct StillOnRow: View {
             // describes is over and the sentence is about a state that no longer holds.
             if !hasAnswered {
                 Text(reason)
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -90,8 +89,7 @@ struct StillOnRow: View {
                     // "Not heard back from" rather than "waiting on": the second makes somebody
                     // late for something they were never told about.
                     Text("Not heard back from \(notYetNames.formatted(.list(type: .and))) yet")
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
                 } icon: {
                     Image(systemName: "clock")
                         .foregroundStyle(MGColors.warm600)

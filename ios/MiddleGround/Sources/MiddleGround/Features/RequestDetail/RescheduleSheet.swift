@@ -11,8 +11,7 @@ struct RescheduleSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Suggest a different time for \"\(viewModel.request.title)\".")
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.body, color: MGColors.warm600)
 
                 DatePicker(
                     "New time",

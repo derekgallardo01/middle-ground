@@ -10,8 +10,7 @@ struct AchievementsView: View {
 
             if achievements.isEmpty {
                 Text("Achievements unlock as you and your partner keep deciding together.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
             }
@@ -44,8 +43,7 @@ struct AchievementCell: View {
             }
 
             Text(achievement.title)
-                .mgFont(.caption)
-                .foregroundStyle(achievement.isUnlocked ? MGColors.slate : MGColors.warm600)
+                .mgFont(.caption, color: achievement.isUnlocked ? MGColors.slate : MGColors.warm600)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
         }

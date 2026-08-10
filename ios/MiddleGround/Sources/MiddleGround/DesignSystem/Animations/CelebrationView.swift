@@ -21,13 +21,11 @@ struct CelebrationView: View {
                     .font(.system(size: 64))
 
                 Text(title)
-                    .mgFont(.h1)
-                    .foregroundStyle(MGColors.indigo)
+                    .mgFont(.h1, color: MGColors.indigo)
 
                 if !subtitle.isEmpty {
                     Text(subtitle)
-                        .mgFont(.body)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.body, color: MGColors.warm600)
                         .multilineTextAlignment(.center)
                 }
 

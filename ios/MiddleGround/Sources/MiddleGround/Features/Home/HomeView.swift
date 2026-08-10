@@ -178,8 +178,7 @@ struct HomeView: View {
             Text("Hello, \(viewModel.currentUser?.name ?? "there")")
                 .mgFont(.h1)
             Text(activeRequestsSummary)
-                .mgFont(.body)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.body, color: MGColors.warm600)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -212,8 +211,7 @@ struct HomeView: View {
             }
         } label: {
             Label(viewModel.filter.rawValue, systemImage: "line.3.horizontal.decrease.circle")
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.indigo)
+                .mgFont(.bodySmall, color: MGColors.indigo)
         }
         .accessibilityLabel("Filter requests, currently \(viewModel.filter.rawValue)")
     }

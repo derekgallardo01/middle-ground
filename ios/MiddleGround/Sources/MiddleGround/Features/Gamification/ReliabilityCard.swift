@@ -57,8 +57,7 @@ struct ReliabilityCard: View {
             Once you've been through a few plans together, this will show how often they \
             actually happen. \(ReliabilityScore.minimumSample - score.settledCount) to go.
             """)
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
         }
         .mgSurfaceCard()
     }
@@ -100,8 +99,7 @@ struct ReliabilityCard: View {
             Image(systemName: icon)
                 .foregroundStyle(MGColors.warm600)
             Text(text)
-                .mgFont(.bodySmall)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.bodySmall, color: MGColors.warm600)
         }
     }
 }

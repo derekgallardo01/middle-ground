@@ -18,8 +18,7 @@ extension ProfileView {
                     You're not connected with anyone yet. Start a group and share the code, \
                     or join with a code you were given.
                     """)
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.bodySmall, color: MGColors.warm600)
 
                     Picker("Group type", selection: $viewModel.selectedRelationshipType) {
                         ForEach(RelationshipType.allCases) { type in
@@ -87,8 +86,7 @@ extension ProfileView {
 
             VStack(alignment: .leading, spacing: 14) {
                 Text("Somebody sent you an invite? Enter it here.")
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
 
                 TextField("Enter invite code", text: $viewModel.joinCodeInput)
                     .mgFont(.body)

@@ -48,8 +48,7 @@ struct GroupRow: View {
                     Text(relationship.label)
                         .mgFont(.body)
                     Text(membership)
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                 }
 
                 Spacer()
@@ -79,8 +78,7 @@ struct GroupRow: View {
                     Image(systemName: "figure.wave")
                         .foregroundStyle(MGColors.warm600)
                     Text("Plans with you happen \(percentage)% of the time")
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                     Spacer()
                 }
                 .accessibilityElement(children: .combine)

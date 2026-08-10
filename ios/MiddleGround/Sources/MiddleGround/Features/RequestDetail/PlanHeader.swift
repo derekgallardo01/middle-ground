@@ -27,8 +27,7 @@ struct PlanHeader: View {
 
             if let details = request.details, !details.isEmpty {
                 Text(details)
-                    .mgFont(.body)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.body, color: MGColors.warm600)
             }
 
             if let dates = request.dateSummary {

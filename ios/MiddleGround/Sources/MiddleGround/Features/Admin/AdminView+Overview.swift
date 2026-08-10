@@ -46,8 +46,7 @@ extension AdminView {
 
             Text("Activated is the share of people in at least one paired group — with nobody to "
                  + "plan with, every screen is an empty state.")
-                .mgFont(.caption)
-                .foregroundStyle(MGColors.warm600)
+                .mgFont(.caption, color: MGColors.warm600)
 
             funnelCard
 
@@ -78,16 +77,14 @@ extension AdminView {
                     Text("Funnel").mgFont(.h3)
                     // Said plainly rather than left to be inferred from a bar that goes back up.
                     Text("Events, not people — one person can count more than once.")
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
 
                     let top = max(viewModel.overview.funnel.first?.count ?? 0, 1)
                     ForEach(viewModel.overview.funnel) { step in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
                                 Text(step.label)
-                                    .mgFont(.bodySmall)
-                                    .foregroundStyle(MGColors.warm600)
+                                    .mgFont(.bodySmall, color: MGColors.warm600)
                                 Spacer()
                                 Text("\(step.count)").mgFont(.bodySmall).monospacedDigit()
                             }
@@ -119,8 +116,7 @@ extension AdminView {
                 HStack(spacing: 6) {
                     Image(systemName: icon).foregroundStyle(color)
                     Text(title)
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                 }
                 Text(value).mgFont(.h1)
             }

@@ -41,14 +41,12 @@ struct ItineraryRow: View {
                             .mgFont(.bodySmall)
                             .fontWeight(.semibold)
                         Text(dayLabel(day))
-                            .mgFont(.caption)
-                            .foregroundStyle(MGColors.warm600)
+                            .mgFont(.caption, color: MGColors.warm600)
                     }
 
                     if day.items.isEmpty {
                         Text("Nothing yet")
-                            .mgFont(.caption)
-                            .foregroundStyle(MGColors.warm600)
+                            .mgFont(.caption, color: MGColors.warm600)
                     } else {
                         ForEach(day.items) { item in
                             entry(item)
@@ -67,8 +65,7 @@ struct ItineraryRow: View {
                 // morning.
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Outside the trip dates", systemImage: "exclamationmark.triangle")
-                        .mgFont(.bodySmall)
-                        .foregroundStyle(MGColors.sunshineText)
+                        .mgFont(.bodySmall, color: MGColors.sunshineText)
                     ForEach(stranded) { item in
                         entry(item)
                     }
@@ -93,9 +90,8 @@ struct ItineraryRow: View {
     private func entry(_ item: ItineraryItem) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(timeLabel(item))
-                .mgFont(.caption)
+                .mgFont(.caption, color: MGColors.warm600)
                 .monospacedDigit()
-                .foregroundStyle(MGColors.warm600)
                 // A fixed width so the titles line up into a column somebody can scan down,
                 // rather than a ragged edge that moves with every time.
                 .frame(width: 68, alignment: .leading)
@@ -105,8 +101,7 @@ struct ItineraryRow: View {
                     .mgFont(.bodySmall)
                 if let location = item.location, !location.isEmpty {
                     Text(location)
-                        .mgFont(.caption)
-                        .foregroundStyle(MGColors.warm600)
+                        .mgFont(.caption, color: MGColors.warm600)
                 }
             }
 

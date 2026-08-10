@@ -21,13 +21,11 @@ struct RequestCard: View {
             }
 
             Text(request.title)
-                .mgFont(.h3)
-                .foregroundStyle(MGColors.slate)
+                .mgFont(.h3, color: MGColors.slate)
 
             if let details = request.details, !details.isEmpty {
                 Text(details)
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .lineLimit(2)
             }
 

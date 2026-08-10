@@ -35,17 +35,15 @@ struct InvitePrompt: View {
                 Middle Ground works with two people. Share your code — once they join, you can \
                 start sending each other requests.
                 """)
-                    .mgFont(.bodySmall)
-                    .foregroundStyle(MGColors.warm600)
+                    .mgFont(.bodySmall, color: MGColors.warm600)
                     .multilineTextAlignment(.center)
             }
 
             if let code {
                 Text(code)
-                    .mgFont(compact ? .h3 : .h2)
+                    .mgFont(compact ? .h3 : .h2, color: MGColors.indigo)
                     .monospaced()
                     .tracking(4)
-                    .foregroundStyle(MGColors.indigo)
                     // Read out character by character; "5SM5QX" is otherwise announced as an
                     // unintelligible word, and this is a string people have to transcribe.
                     .accessibilityLabel(

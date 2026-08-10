@@ -485,14 +485,43 @@ every secondary line previously rendered at the same weight as the headings it s
 Verified: 534 unit tests, 65 UI tests, 0 lint violations across 251 files.
 
 
+## 2026-08-10 — Sign in with Apple, proven on hardware
+
+Confirmed working on a physical device by Derek. It is the **only** production sign-in path —
+`signInAsTestUser` is `#if DEBUG` and compiles out of Release — so until now the one thing every
+real user must do first had never been done on real hardware by anyone.
+
+Worth one more look on `202608101337`, and only because the gate around it moved today:
+`AppState.checkAuthState` no longer treats "has a user" as onboarded, so an account with no name
+now resumes the flow rather than landing on Home. That changes what happens *after* a first
+sign-in, not the sign-in itself, and it is covered by `OnboardingRecoveryTests` in the simulator.
+
+
+## 2026-08-10 — a device pass on `202608101337`
+
+Confirmed by Derek on a physical device, on the build now in review:
+
+- **Push arrives.** The important one. Push was proven on hardware on 6 August, but the build
+  sitting in the review queue until today was `202608021918`, whose entitlement is
+  `aps-environment: development` — push could not have worked in it for anybody. This is the first
+  build carrying `production` that has been installed and had a notification land on it.
+- **Deep links open where they should.** An invite link opens to joining with the code already
+  filled in, which is the path the whole `/join/{code}` page exists to feed.
+- **The darker teal reads correctly on a real screen**, not only as a computed ratio. That closes
+  the last of the colour work — teal-700 was chosen to clear 3:1 on sand and 4.5:1 under white,
+  and the numbers are now backed by somebody looking at it.
+
+Not yet done on hardware: **a plan abroad**. The time zone is proven in the simulator, in the
+rules tests and by a live MapKit probe, but no plan has been created by a person choosing a place
+in another zone and read back with its own clock.
+
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.
 - App Attest has never produced a verified request. Enforcement stays off until it does.
 - Report moderation, which needs a real report to work through.
 - Seven moderate transitive dependency advisories, to be fixed away from this Mac.
-- The darker teal is computed but not yet eyeballed on a device.
-- Deep-link destinations, which need a real plan between two real accounts.
 - **Cloudflare Email Routing for `support@seekmiddleground.com`.** The address is published and
   correct; nothing will arrive until the route exists. Cloudflare → seekmiddleground.com → Email →
   Email Routing → enable, add `support` as a custom address, forward to a real inbox, accept the

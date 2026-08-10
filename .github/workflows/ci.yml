@@ -83,7 +83,14 @@ jobs:
 
       - name: Generate and build the app shell
         run: |
-          brew install xcodegen
+          # Homebrew began requiring explicit tap trust mid-flight: the same command succeeded in
+          # the Build & Test job and failed here, in the same run, ten minutes apart. Left alone it
+          # prints "Would install 1 formula" and exits without installing, so `xcodegen generate`
+          # then fails with something that looks nothing like the cause.
+          #
+          # Skipped entirely when the runner image already ships it, which is both faster and one
+          # fewer thing that can change underneath us.
+          command -v xcodegen >/dev/null || HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install xcodegen
           cd ios/MiddleGround/App
           xcodegen generate
           set -o pipefail
@@ -159,7 +166,14 @@ jobs:
       # run that proved nothing would be worse than not running them at all.
       - name: Run the hermetic UI tests
         run: |
-          brew install xcodegen
+          # Homebrew began requiring explicit tap trust mid-flight: the same command succeeded in
+          # the Build & Test job and failed here, in the same run, ten minutes apart. Left alone it
+          # prints "Would install 1 formula" and exits without installing, so `xcodegen generate`
+          # then fails with something that looks nothing like the cause.
+          #
+          # Skipped entirely when the runner image already ships it, which is both faster and one
+          # fewer thing that can change underneath us.
+          command -v xcodegen >/dev/null || HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install xcodegen
           cd ios/MiddleGround/App
           xcodegen generate
           set -o pipefail

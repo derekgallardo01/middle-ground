@@ -9,6 +9,11 @@
 #
 # Usage:
 #   ./Scripts/screenshots.sh [output-dir]
+#   MG_SHOT_CLASS=NearbyTourScreenshots ./Scripts/screenshots.sh /tmp/nearby-shots
+#
+# `MG_SHOT_CLASS` exists because `NearbyTourScreenshots` was orphaned: it captures six frames of
+# the place-discovery flow and **no script ran it**, so those frames existed only if somebody
+# invoked xcodebuild by hand. A capture suite nothing invokes is a capture suite nobody looks at.
 #
 # Then upload with Scripts/upload-screenshots.mjs.
 #
@@ -20,17 +25,18 @@ export PATH="$DEVELOPER_DIR/usr/bin:$PATH"
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../App" && pwd)"
 OUT="${1:-$HOME/Desktop/MiddleGround-Screenshots}"
 DEVICE="${MG_SHOT_DEVICE:-iPhone 17 Pro Max}"
+SHOT_CLASS="${MG_SHOT_CLASS:-ScreenshotTests}"
 WORK="$(mktemp -d)"
 
 cd "$APP_DIR"
 xcodegen generate >/dev/null
 
-echo "==> capturing on $DEVICE"
+echo "==> capturing $SHOT_CLASS on $DEVICE"
 xcodebuild \
   -project MiddleGround.xcodeproj \
   -scheme MiddleGroundApp \
   -destination "platform=iOS Simulator,name=$DEVICE" \
-  -only-testing:MiddleGroundUITests/ScreenshotTests \
+  -only-testing:"MiddleGroundUITests/$SHOT_CLASS" \
   -resultBundlePath "$WORK/shots.xcresult" \
   CODE_SIGNING_ALLOWED=NO \
   test >"$WORK/build.log" 2>&1 \

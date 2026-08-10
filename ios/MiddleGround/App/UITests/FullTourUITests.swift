@@ -181,6 +181,14 @@ class FullTourUITests: XCTestCase {
         tourFollowThrough()
         tourNotificationSettings()
         tourFeedFilter()
+        // The week's work. Added after an audit found that no recording anywhere showed trips,
+        // time zones, the itinerary or group energy — and that the tour had never covered
+        // joining by a code or reporting somebody either, both of which long predate them.
+        tourTrip()
+        tourComposeATrip()
+        tourGroupEnergy()
+        tourJoinByCode()
+        tourReportSomeone()
         tourAdminPanel()
     }
 
@@ -428,73 +436,4 @@ class FullTourUITests: XCTestCase {
         shoot("feed-with-the-new-request")
     }
 
-    /// A spontaneous invite, all the way through to it appearing in the feed.
-    ///
-    /// The first version stopped at the sheet, so the video showed the screen and never which
-    /// idea was chosen, how long it lasted, or that anything was sent.
-    private func tourSpontaneous() {
-        tab("Requests").tap()
-        let fab = app.buttons["Create new request or spontaneous invite"]
-        guard fab.waitForExistence(timeout: 8) else { return }
-        fab.tap()
-        settle(0.7)
-        let spontaneous = app.buttons["Spontaneous"]
-        guard spontaneous.waitForExistence(timeout: 4) else { return }
-        spontaneous.tap()
-        settle(1.2)
-        shoot("spontaneous-sheet")
-
-        // Pick one of the quick ideas, so the recording shows *which* invite is being sent.
-        //
-        // `matching`, not `containing`: the idea buttons carry an accessibilityLabel, which
-        // collapses each one into a single element and hides the Text inside it — and
-        // `containing` matches *descendants*, so it found nothing at all. The frame was
-        // byte-identical to the one before it, which is how this was caught.
-        let idea = app.buttons.matching(
-            NSPredicate(format: "label BEGINSWITH[c] 'Use idea:'")
-        ).firstMatch
-        if idea.waitForExistence(timeout: 5), idea.isHittable {
-            idea.tap()
-            settle(0.9)
-            shoot("spontaneous-idea-chosen")
-        }
-
-        // Expiry and recipient are both segmented pickers, so their options are segment buttons
-        // rather than plain ones. The recipient starts unselected, and Send Now stays disabled
-        // until it is chosen — which is why the send silently never happened.
-        let hour = app.segmentedControls.buttons["1 hour"].exists
-            ? app.segmentedControls.buttons["1 hour"]
-            : app.buttons["1 hour"]
-        if hour.exists && hour.isHittable {
-            hour.tap()
-            settle(0.5)
-        }
-        if app.segmentedControls.count > 1 {
-            let recipients = app.segmentedControls.element(boundBy: 1)
-            let first = recipients.buttons.element(boundBy: 0)
-            if first.exists && first.isHittable {
-                first.tap()
-                settle(0.5)
-            }
-        }
-        _ = bringIntoView(text("Expires in"))
-        shoot("spontaneous-expiry-and-who")
-
-        let send = app.buttons["Send spontaneous request"]
-        XCTAssertTrue(bringIntoView(send), "Send Now should be reachable")
-        XCTAssertTrue(
-            send.isEnabled,
-            "Send Now is disabled — an idea and a recipient must both be chosen, and the tour has to choose them"
-        )
-        send.tap()
-        settle(2.2)
-        // No frame here: the sheet dismisses itself, so this and the feed shot were identical.
-        dismissCelebration()
-
-        dismissAnySheet()
-
-        tab("Requests").tap()
-        settle(1.2)
-        shoot("feed-with-the-spontaneous-invite")
-    }
 }

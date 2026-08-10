@@ -235,3 +235,14 @@ else
 fi
 echo
 echo "Done: $OUT"
+
+# Exit with the tour's own verdict, not the extractor's.
+#
+# The failure was reported on screen and then thrown away: a run whose test aborted half way
+# still ended `exit 0`, so anything driving this script — a person reading the last line, or CI —
+# was told a truncated recording had succeeded. That is exactly how a tour missing its last eight
+# scenes gets filed as evidence.
+if [ "$STATUS" -ne 0 ]; then
+  echo "!! exiting non-zero: the tour did not complete (see $WORK/test.log)"
+  exit "$STATUS"
+fi

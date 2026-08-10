@@ -170,9 +170,12 @@ rm -f "$ALLFRAMES"
 SIZE=$(du -h "$TRIMMED" | cut -f1)
 FRAMES=$(ffprobe -v error -select_streams v -count_frames \
   -show_entries stream=nb_read_frames -of default=nw=1:nk=1 "$TRIMMED")
-echo "Video: $TRIMMED  ($SIZE, ${LENGTH}s, ${FRAMES} frames, app on screen ${ASTART}s–${AEND}s)"
-
+# Measured before it is printed. It used to be assigned on the line *after* the echo, so every
+# run reported "(19M, s, 570 frames …)" — an empty duration, in the one line anybody reads to
+# decide whether the recording worked.
 LENGTH=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$TRIMMED")
+
+echo "Video: $TRIMMED  ($SIZE, ${LENGTH}s, ${FRAMES} frames, app on screen ${ASTART}s–${AEND}s)"
 
 # One clip per walkthrough.
 #

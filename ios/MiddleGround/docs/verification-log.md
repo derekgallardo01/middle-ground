@@ -485,6 +485,18 @@ every secondary line previously rendered at the same weight as the headings it s
 Verified: 534 unit tests, 65 UI tests, 0 lint violations across 251 files.
 
 
+## 2026-08-10 — Sign in with Apple, proven on hardware
+
+Confirmed working on a physical device by Derek. It is the **only** production sign-in path —
+`signInAsTestUser` is `#if DEBUG` and compiles out of Release — so until now the one thing every
+real user must do first had never been done on real hardware by anyone.
+
+Worth one more look on `202608101337`, and only because the gate around it moved today:
+`AppState.checkAuthState` no longer treats "has a user" as onboarded, so an account with no name
+now resumes the flow rather than landing on Home. That changes what happens *after* a first
+sign-in, not the sign-in itself, and it is covered by `OnboardingRecoveryTests` in the simulator.
+
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.

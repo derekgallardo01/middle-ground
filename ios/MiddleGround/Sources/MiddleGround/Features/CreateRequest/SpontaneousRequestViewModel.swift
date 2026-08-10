@@ -7,19 +7,29 @@ final class SpontaneousRequestViewModel {
     private let requestService = Container.shared.requestService()
     private let authService = Container.shared.authService()
     private let relationshipService = Container.shared.relationshipService()
+    private let userRepository = Container.shared.userRepository()
 
     var currentUser: User?
     var relationships: [Relationship] = []
     /// relationship.id -> partner display name.
     var displayLabels: [String: String] = [:]
+    /// userID -> that person's own name. Distinct from `displayLabels`, which is keyed by
+    /// *relationship* and describes the whole group.
+    private(set) var memberNames: [String: String] = [:]
 
     /// True when the user has groups but nobody has joined any of them yet.
     var needsPartner: Bool { relationships.awaitingSomebody }
 
     /// The code to share when nobody has joined yet, so the empty state can offer the share
     /// sheet inline instead of naming the Profile tab it cannot open.
+    ///
+    /// Nil when several groups are unpaired. `first { !$0.isPaired }` picked an arbitrary one, so
+    /// this screen could show the code for a different group than the person believed they were
+    /// inviting to — and the invitee lands somewhere nobody chose. Profile and Compose were both
+    /// fixed for this; this third copy was missed, and had no test to notice.
     var inviteCode: String? {
-        relationships.first { !$0.isPaired }?.inviteCode
+        let unpaired = relationships.filter { !$0.isPaired }
+        return unpaired.count == 1 ? unpaired.first?.inviteCode : nil
     }
 
     func label(for relationship: Relationship) -> String {
@@ -62,6 +72,11 @@ final class SpontaneousRequestViewModel {
     }
 
     /// Everyone the user could ask, across all their groups, de-duplicated.
+    ///
+    /// Named per person, not per group. `displayLabels` is keyed by relationship and describes the
+    /// whole thing — "Sam and Priya" for a group of three — so labelling each member with it gave
+    /// two rows both reading "Sam and Priya". A picker whose entire job is saying who you are
+    /// asking cannot show the same name twice.
     var everyone: [(id: String, name: String)] {
         guard let currentUserID = currentUser?.id else { return [] }
         var seen: Set<String> = []
@@ -69,7 +84,12 @@ final class SpontaneousRequestViewModel {
         for relationship in relationships {
             for id in relationship.participantIDs where id != currentUserID && !seen.contains(id) {
                 seen.insert(id)
-                people.append((id, displayLabels[relationship.id] ?? relationship.type.displayName))
+                // Their own name; the group's label only as a last resort, which is still better
+                // than nothing when a profile could not be read.
+                let name = memberNames[id]
+                    ?? displayLabels[relationship.id]
+                    ?? relationship.type.displayName
+                people.append((id, name))
             }
         }
         return people
@@ -94,6 +114,7 @@ final class SpontaneousRequestViewModel {
                 displayLabels = await relationshipService.displayLabels(
                     for: relationships, currentUserID: userID
                 )
+                await loadMemberNames(excluding: userID)
                 // Preselect the first person so the common case is one tap, without preventing
                 // the user from adding more.
                 if let firstPartner = relationships.compactMap({ $0.partnerID(excluding: userID) }).first {
@@ -104,6 +125,23 @@ final class SpontaneousRequestViewModel {
             }
         }
         isLoadingPartners = false
+    }
+
+    /// One profile read per distinct person, so the picker can name them individually.
+    ///
+    /// Best effort: somebody whose profile cannot be read falls back to the group label rather
+    /// than dropping out of the list, because being unable to name a person is not a reason to
+    /// make them unaskable.
+    private func loadMemberNames(excluding currentUserID: String) async {
+        var names: [String: String] = [:]
+        for relationship in relationships {
+            for id in relationship.participantIDs where id != currentUserID && names[id] == nil {
+                if let user = try? await userRepository.user(id: id), !user.name.isEmpty {
+                    names[id] = user.name
+                }
+            }
+        }
+        memberNames = names
     }
 
     func sendRequest() async -> Request? {

@@ -550,6 +550,49 @@ no `-enableCodeCoverage`, no xccov, no percentage in any document. The substitut
 has been: evidence that a path has actually run.
 
 
+## 2026-08-10 — coverage, measured for the first time, and the two bugs it found
+
+Coverage had never been measured in this repo: no `-enableCodeCoverage`, no xccov, no percentage
+in any document. That was a deliberate position — "coverage would not have caught one bug found
+this week" — and it is right about coverage as a *target*. It was wrong as a reason not to look.
+
+The numbers:
+
+| | |
+|---|---|
+| iOS, everything | **19.1%** |
+| iOS, non-view logic | **44.2%** (132 files) |
+| iOS, views | 0.3% (47 files — exercised by UI tests, which do not run in this measurement) |
+| Cloud Functions | **94.9% line, 71.0% branch** |
+
+The contrast is the finding. The backend logic is thoroughly tested; the iOS side is under half on
+logic, and the gap is not evenly spread — it is concentrated in files nothing has ever executed.
+
+**`SpontaneousRequestViewModel` came back at 0%: 111 lines of a user-facing feature no test had
+ever run. It held two live bugs.**
+
+1. **An arbitrary group's invite code.** `relationships.first { !$0.isPaired }?.inviteCode` — the
+   exact line both `ProfileViewModel` and `CreateRequestViewModel` carry a comment explaining they
+   fixed. With more than one unpaired group this screen offered a code for a group the person was
+   not thinking about, and whoever redeemed it landed somewhere nobody chose. The third copy was
+   simply missed, and nothing was watching it.
+2. **A recipient picker that named people after their group.** `displayLabels` is keyed by
+   *relationship* and describes the whole thing — "Sam and Priya" for a group of three — and each
+   member was labelled with it. Two rows, the same name, in the picker whose only job is saying who
+   you are asking. `displayLabels`' own comment warns about the mirror image of this mistake.
+
+Both fixed, both mutation-checked: restoring either fails exactly the test written for it.
+
+Coverage is now reported by CI as a notice and by `Scripts/coverage.sh` locally, which names every
+non-view file with 40+ lines that no unit test has ever executed. **Deliberately not a threshold.**
+A percentage that must not fall is a percentage people write tests to protect rather than to find
+anything — and this repo has already been bitten by tests that passed for the wrong reason.
+
+Still 0% and worth knowing: `RequestDetailViewModel+Reporting.swift` (92 lines), which is the
+Guideline 1.2 reporting path. The Firestore repositories are also 0% by design — they are only
+exercised against the real backend, which is what `verify-live-features.mjs` is for.
+
+
 ## Still open
 
 - One `alertOnSignup` error from 2026-07-30 with no surviving log at any severity.

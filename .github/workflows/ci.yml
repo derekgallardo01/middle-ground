@@ -54,11 +54,43 @@ jobs:
             -destination "$DESTINATION" \
             -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/.spm" \
             -resultBundlePath TestResults.xcresult \
+            -enableCodeCoverage YES \
             test | xcbeautify
+
+      # Printed, not gated. Coverage was never measured here at all until a 0% file turned out to
+      # hold two live bugs — so it earns a number in the log as a pointer to where nobody has
+      # looked. It is deliberately not a threshold: a percentage that must not fall is a
+      # percentage people write tests to protect rather than to find anything.
+      - name: Coverage
+        working-directory: ios/MiddleGround
+        run: |
+          xcrun xccov view --report --files-for-target MiddleGround --json TestResults.xcresult \
+            > /tmp/cov.json
+          python3 - <<'PYEOF'
+          import json
+          groups = json.load(open('/tmp/cov.json'))
+          files = [f for g in groups for f in g.get('files', [])]
+          S = ('View.swift','Card.swift','Row.swift','Sheet.swift','Bubble.swift','Indicator.swift',
+               'Prompt.swift','Badge.swift','Button.swift','Skeleton.swift','State.swift',
+               'Strip.swift','Mark.swift')
+          rows = [(f.get('name',''), f.get('executableLines',0), f.get('coveredLines',0))
+                  for f in files if f.get('executableLines',0)]
+          logic = [r for r in rows if not (r[0].endswith(S) or '+Overview' in r[0])]
+          def pct(rs):
+              return sum(r[2] for r in rs) / (sum(r[1] for r in rs) or 1) * 100
+          print(f"::notice::non-view logic coverage {pct(logic):.1f}% · all files {pct(rows):.1f}%")
+          PYEOF
 
       - name: Generate and build the app shell
         run: |
-          brew install xcodegen
+          # Homebrew began requiring explicit tap trust mid-flight: the same command succeeded in
+          # the Build & Test job and failed here, in the same run, ten minutes apart. Left alone it
+          # prints "Would install 1 formula" and exits without installing, so `xcodegen generate`
+          # then fails with something that looks nothing like the cause.
+          #
+          # Skipped entirely when the runner image already ships it, which is both faster and one
+          # fewer thing that can change underneath us.
+          command -v xcodegen >/dev/null || HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install xcodegen
           cd ios/MiddleGround/App
           xcodegen generate
           set -o pipefail
@@ -134,7 +166,14 @@ jobs:
       # run that proved nothing would be worse than not running them at all.
       - name: Run the hermetic UI tests
         run: |
-          brew install xcodegen
+          # Homebrew began requiring explicit tap trust mid-flight: the same command succeeded in
+          # the Build & Test job and failed here, in the same run, ten minutes apart. Left alone it
+          # prints "Would install 1 formula" and exits without installing, so `xcodegen generate`
+          # then fails with something that looks nothing like the cause.
+          #
+          # Skipped entirely when the runner image already ships it, which is both faster and one
+          # fewer thing that can change underneath us.
+          command -v xcodegen >/dev/null || HOMEBREW_NO_REQUIRE_TAP_TRUST=1 brew install xcodegen
           cd ios/MiddleGround/App
           xcodegen generate
           set -o pipefail

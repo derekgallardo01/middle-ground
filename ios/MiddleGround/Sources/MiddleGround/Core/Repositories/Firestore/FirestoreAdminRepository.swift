@@ -219,12 +219,12 @@ actor FirestoreAdminRepository: AdminRepository {
         ceiling: Int = 2_000
     ) async throws -> (count: Int, exact: Bool) {
         let snapshot = try await db.collection("events")
-            .whereField("name", isEqualTo: EventType.appOpened.rawValue)
-            .whereField("at", isGreaterThanOrEqualTo: Timestamp(date: since))
+            .whereField(EventField.type, isEqualTo: EventType.appOpened.rawValue)
+            .whereField(EventField.at, isGreaterThanOrEqualTo: Timestamp(date: since))
             .limit(to: ceiling)
             .getDocuments()
 
-        let people = Set(snapshot.documents.compactMap { $0.data()["userID"] as? String })
+        let people = Set(snapshot.documents.compactMap { $0.data()[EventField.userID] as? String })
         return (people.count, snapshot.documents.count < ceiling)
     }
 

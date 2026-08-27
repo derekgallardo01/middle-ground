@@ -144,10 +144,29 @@ final class AdminViewModel {
                 auditEntries = try await eventRepository.recentAudit(limit: 200)
             }
         } catch {
-            // The most likely cause by far is a missing admin claim, so say that rather than
-            // showing a raw Firestore permission error.
-            errorMessage = "Couldn't load. This account may not have admin access.\n\n\(error.localizedDescription)"
+            errorMessage = Self.loadFailureMessage(for: error)
         }
+    }
+
+    /// What to say when a section fails to load.
+    ///
+    /// This used to say "This account may not have admin access" for *every* failure, on the
+    /// reasoning that a missing claim was the likeliest cause. It was a confident diagnosis with
+    /// nothing behind it, and the first time it was wrong it cost real time: the overview was
+    /// failing because a query wanted a composite index nobody had deployed, and the screen
+    /// spent that whole time insisting the signed-in admin was not an admin.
+    ///
+    /// Only permission-denied gets the access sentence now, because only permission-denied is
+    /// evidence of it. Everything else defers to `UserFacingError`, which says what it knows and
+    /// no more. The underlying description stays appended either way — this panel is for people
+    /// who can act on it.
+    static func loadFailureMessage(for error: Error) -> String {
+        let nsError = error as NSError
+        let isPermissionDenied = nsError.domain == "FIRFirestoreErrorDomain" && nsError.code == 7
+        let lead = isPermissionDenied
+            ? "Couldn't load. This account may not have admin access."
+            : UserFacingError.message(for: error) ?? "Couldn't load."
+        return "\(lead)\n\n\(error.localizedDescription)"
     }
 
     // MARK: - Curating the venue list

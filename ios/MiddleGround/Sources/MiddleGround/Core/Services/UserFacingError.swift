@@ -64,6 +64,12 @@ enum UserFacingError {
                 return "Couldn't reach the server. Check your connection and try again."
             case 5:
                 return "That's no longer there — it may have been deleted."
+            case 9:
+                // failed-precondition. From a client query this has exactly one cause in
+                // practice: the query needs a composite index that has not been deployed.
+                // Nothing the person looking at the screen did is at fault, and the previous
+                // wording sent them off to check their own permissions.
+                return "This screen needs a database index that hasn't been deployed yet."
             case 8:
                 return "Too many attempts just now. Try again in a moment."
             default:

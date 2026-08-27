@@ -132,17 +132,27 @@ final class TripPlanTests: XCTestCase {
             NSPredicate(format: "label CONTAINS '–'")
         ).firstMatch
         XCTAssertTrue(range.waitForExistence(timeout: 20), "no trip in the feed to follow")
-        // "Sep 4 – 8, 2026" → the first two numbers are the days, the third the year.
+        // "Tue, Sep 22 – Sat, Sep 26" → the first two numbers are the days.
         let numbers = range.label.components(separatedBy: CharacterSet.decimalDigits.inverted)
             .compactMap(Int.init)
         let months = Calendar.current.monthSymbols
-        guard numbers.count >= 3, let month = months.first(where: {
+        guard numbers.count >= 2, let month = months.first(where: {
             range.label.contains($0.prefix(3))
         }) else {
-            // A range spanning two months reads differently and this test cannot parse it. Skipped
+            // A range spanning two months reads differently and this test cannot parse it. Failed
             // out loud rather than passed quietly — the fixture is dated relative to the run.
             return XCTFail("could not read the trip's dates from \"\(range.label)\"")
         }
+        // The year is only printed when the plan is not in the current one, so it cannot be read
+        // off the label. This required a third number and broke the moment the card stopped
+        // spending four characters telling the reader what year it is.
+        //
+        // Taken from the clock instead, which is where the fixture's own dates come from — it is
+        // seeded relative to the run. Wrong only for a trip whose range crosses New Year, which
+        // the two-month guard above has already turned away.
+        let year = numbers.count >= 3
+            ? numbers[2]
+            : Calendar.current.component(.year, from: Date())
         let middleDay = (numbers[0] + numbers[1]) / 2
         XCTAssertGreaterThan(numbers[1], numbers[0], "the range is not a range: \(range.label)")
 
@@ -150,7 +160,7 @@ final class TripPlanTests: XCTestCase {
         // says "September 6" and the first attempt at this asked for "6 September", which found
         // nothing and read as the feature being broken.
         var parts = DateComponents()
-        parts.year = numbers[2]
+        parts.year = year
         parts.month = (months.firstIndex(of: month) ?? 0) + 1
         parts.day = middleDay
         guard let midDate = Calendar.current.date(from: parts) else {

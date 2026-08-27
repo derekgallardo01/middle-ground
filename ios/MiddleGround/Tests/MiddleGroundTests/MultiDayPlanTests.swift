@@ -154,7 +154,14 @@ final class MultiDayPlanTests: XCTestCase {
             tripDates.contains("19"),
             "the end of the trip is missing from \(tripDates)"
         )
-        XCTAssertFalse(dinnerDates.contains("19"))
+        // A range separator rather than `!contains("19")`, which this used to be. That worked
+        // only while a single date carried no time: a dinner at 7:19 PM contains "19" and the
+        // test would have failed on correct output. What is actually being asserted is that a
+        // dinner is one moment, and a range is the thing a range has.
+        XCTAssertFalse(
+            dinnerDates.contains("–"),
+            "a single-moment plan rendered as a range: \(dinnerDates)"
+        )
     }
 
     func testAPlanWithNoTimeHasNothingToShow() {

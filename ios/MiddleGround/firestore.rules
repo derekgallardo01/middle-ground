@@ -244,6 +244,9 @@ service cloud.firestore {
         // another zone and every date on it would shift for everybody without a message,
         // an edit or anything in the chain to say so.
         && immutable('timeZoneID')
+        // The face the composer chose. Pinned for the same reason `title` is: a plan should
+        // not change what it looks like under people who have already answered it.
+        && immutable('emoji')
         && immutable('status')
         && immutable('negotiationChain')
         && immutable('confirmations')
@@ -275,6 +278,7 @@ service cloud.firestore {
         // another zone and every date on it would shift for everybody without a message,
         // an edit or anything in the chain to say so.
         && immutable('timeZoneID')
+        && immutable('emoji')
         && immutable('status')
         && immutable('negotiationChain')
         && immutable('confirmations')
@@ -323,6 +327,7 @@ service cloud.firestore {
         // another zone and every date on it would shift for everybody without a message,
         // an edit or anything in the chain to say so.
         && immutable('timeZoneID')
+        && immutable('emoji')
         && immutable('negotiationChain')
         && immutable('confirmations')
         && immutable('createdAt');
@@ -363,6 +368,7 @@ service cloud.firestore {
         // another zone and every date on it would shift for everybody without a message,
         // an edit or anything in the chain to say so.
         && immutable('timeZoneID')
+        && immutable('emoji')
         && immutable('negotiationChain')
         && immutable('stake')
         && immutable('planInviteCode')
@@ -425,6 +431,7 @@ service cloud.firestore {
         // another zone and every date on it would shift for everybody without a message,
         // an edit or anything in the chain to say so.
         && immutable('timeZoneID')
+        && immutable('emoji')
         && immutable('title')
         && immutable('negotiationChain')
         // The stake settles by derivation from these confirmations, so nothing writes it here.
@@ -468,6 +475,7 @@ service cloud.firestore {
         // another zone and every date on it would shift for everybody without a message,
         // an edit or anything in the chain to say so.
         && immutable('timeZoneID')
+        && immutable('emoji')
         && immutable('title')
         && immutable('status')
         && immutable('negotiationChain')

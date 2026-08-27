@@ -19,6 +19,9 @@ final class RequestEntity {
     /// reader's zone the moment the app is opened offline.
     var timeZoneID: String?
     var location: String?
+    /// The plan's face. Lost here, and every card in a cold-launched offline feed falls back to
+    /// the category — which is the flat, identical-hearts feed this field exists to end.
+    var emoji: String?
     var statusRaw: String
     var negotiationChainData: Data?
     /// Optional so SwiftData stores created before attendance existed still load.
@@ -49,6 +52,7 @@ final class RequestEntity {
         self.endTime = request.endTime
         self.timeZoneID = request.timeZoneID
         self.location = request.location
+        self.emoji = request.emoji
         self.statusRaw = request.status.rawValue
         self.createdAt = request.createdAt
         self.updatedAt = request.updatedAt
@@ -72,6 +76,7 @@ final class RequestEntity {
         self.endTime = request.endTime
         self.timeZoneID = request.timeZoneID
         self.location = request.location
+        self.emoji = request.emoji
         self.statusRaw = request.status.rawValue
         self.createdAt = request.createdAt
         self.updatedAt = request.updatedAt
@@ -127,6 +132,7 @@ final class RequestEntity {
             endTime: endTime,
             timeZoneID: timeZoneID,
             location: location,
+            emoji: emoji,
             status: status,
             negotiationChain: negotiationChain,
             confirmations: confirmations,

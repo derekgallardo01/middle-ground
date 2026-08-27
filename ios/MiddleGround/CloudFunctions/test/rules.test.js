@@ -619,6 +619,39 @@ describe('confirming attendance', () => {
     );
   });
 
+  // The face a plan wears in the feed. Pinned for the same reason `title` is: a plan should not
+  // change what it looks like under people who have already answered it. Left open, responding
+  // to somebody else's plan would be a way to relabel it — turning a "🏨 Weekend away" into
+  // whatever the responder felt like, on the card everybody else sees.
+  test('responding cannot repaint someone else\'s plan', async () => {
+    await seed((db) =>
+      setDoc(doc(db, 'requests/r_faced'), accepted({ emoji: '🍸' })),
+    );
+
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_faced'), {
+        confirmations: { [BOB]: 'happened' },
+        emoji: '💀',
+      }),
+    );
+  });
+
+  // The absent case `immutable()` exists for: every plan composed before the picker shipped has
+  // no emoji at all, and must not be given one on the way past.
+  test('responding cannot give a plan a face it never had', async () => {
+    await assertFails(
+      updateDoc(doc(asBob(), 'requests/r_past'), {
+        confirmations: { [BOB]: 'happened' },
+        emoji: '💀',
+      }),
+    );
+  });
+
+  // The ordinary write still has to work — a pin that denied every confirmation on every plan
+  // written before the field existed would be far worse than what it prevents, and that is every
+  // plan in production today. Covered by "a participant can record their own answer" above, which
+  // uses the same `r_past` fixture and has no emoji on it.
+
   // Anchored to the start, a five-night holiday could be marked as having happened on its first
   // morning, while everybody was still there with four days to go.
   test('a trip in progress cannot be confirmed yet', async () => {

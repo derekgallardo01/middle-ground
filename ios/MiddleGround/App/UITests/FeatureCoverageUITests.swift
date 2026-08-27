@@ -16,51 +16,13 @@ import XCTest
 /// | "Date night this Friday?" (`req_1`) | pending · creator is me | waiting row, cancel, plan invite |
 /// | "Split the chores this week?" (`req_0`) | pending · recipient is me | the four responses |
 final class FeatureCoverageUITests: XCTestCase {
-    private var app: XCUIApplication!
+    var app: XCUIApplication!
 
     /// Set by a test before `launchApp()` when it needs the typing indicator seeded.
-    private var extraLaunchArguments: [String] = []
+    var extraLaunchArguments: [String] = []
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-    }
-
-    private func launchApp() {
-        app = XCUIApplication()
-        app.launchArguments = ["-MGMockMode"] + extraLaunchArguments
-        app.launch()
-    }
-
-    // MARK: - Helpers
-
-    private func tab(_ name: String) -> XCUIElement { app.tabBars.buttons[name] }
-
-    @discardableResult
-    private func openPlan(_ title: String, file: StaticString = #filePath, line: UInt = #line) -> Bool {
-        tab("Requests").tap()
-        let cell = app.staticTexts[title]
-        guard cell.waitForExistence(timeout: 12) else {
-            XCTFail("no plan titled \(title)", file: file, line: line)
-            return false
-        }
-        cell.tap()
-        return true
-    }
-
-    /// Scrolls until `element` is on screen, or gives up. Most of these rows sit below the fold.
-    @discardableResult
-    private func scrollTo(_ element: XCUIElement, swipes: Int = 5) -> Bool {
-        for _ in 0..<swipes {
-            if element.exists && element.isHittable { return true }
-            app.swipeUp()
-        }
-        return element.exists
-    }
-
-    private func text(containing fragment: String) -> XCUIElement {
-        app.staticTexts.containing(
-            NSPredicate(format: "label CONTAINS[c] %@", fragment)
-        ).firstMatch
     }
 
     // MARK: - Conversation
@@ -260,26 +222,13 @@ final class FeatureCoverageUITests: XCTestCase {
         guard let busyDay = calendar.date(byAdding: .day, value: 2, to: Date()) else {
             return XCTFail("could not build the seeded busy day")
         }
-        // Addressed by the label the cell actually carries — "August 29, someone is not free" —
-        // rather than by the bare number.
-        //
-        // `app.staticTexts["29"]` is ambiguous by construction: the grid always spills the
-        // neighbouring months into its first and last rows, so August also shows July 26–31 and
-        // September 1–5. Any target day in 1–5 or 26–31 matches twice, which is about a third of
-        // the month. This test has been latently broken since it was written and only failed the
-        // day the fixture's `today + 2` landed on one of those numbers — it passed on the 10th
-        // asking for "12", and failed on the 27th asking for "29".
-        //
-        // The month makes it unique, and `.dateTime.day().month(.wide)` is the same format style
-        // `CalendarView.spokenLabel` builds it with, so this cannot drift from the app or read
-        // wrongly in another locale.
+        // By the cell's own label, not the bare number: the grid spills its neighbouring months
+        // into the first and last rows, so `app.staticTexts["29"]` matches July's too and cannot
+        // resolve. Same style `CalendarView.spokenLabel` uses, so it cannot drift from the app.
         let spoken = busyDay.formatted(.dateTime.day().month(.wide))
-        let cell = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label BEGINSWITH %@", spoken)
-        ).firstMatch
-        guard scrollTo(cell) else {
-            return XCTFail("\(spoken) is not on screen")
-        }
+        let cell = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH %@", spoken)).firstMatch
+        guard scrollTo(cell) else { return XCTFail("\(spoken) is not on screen") }
         cell.tap()
 
         let notFree = app.staticTexts.containing(

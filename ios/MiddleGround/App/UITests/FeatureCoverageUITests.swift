@@ -260,10 +260,25 @@ final class FeatureCoverageUITests: XCTestCase {
         guard let busyDay = calendar.date(byAdding: .day, value: 2, to: Date()) else {
             return XCTFail("could not build the seeded busy day")
         }
-        let dayNumber = String(calendar.component(.day, from: busyDay))
-        let cell = app.staticTexts[dayNumber]
-        guard cell.waitForExistence(timeout: 8), cell.isHittable else {
-            return XCTFail("day \(dayNumber) is not on screen")
+        // Addressed by the label the cell actually carries — "August 29, someone is not free" —
+        // rather than by the bare number.
+        //
+        // `app.staticTexts["29"]` is ambiguous by construction: the grid always spills the
+        // neighbouring months into its first and last rows, so August also shows July 26–31 and
+        // September 1–5. Any target day in 1–5 or 26–31 matches twice, which is about a third of
+        // the month. This test has been latently broken since it was written and only failed the
+        // day the fixture's `today + 2` landed on one of those numbers — it passed on the 10th
+        // asking for "12", and failed on the 27th asking for "29".
+        //
+        // The month makes it unique, and `.dateTime.day().month(.wide)` is the same format style
+        // `CalendarView.spokenLabel` builds it with, so this cannot drift from the app or read
+        // wrongly in another locale.
+        let spoken = busyDay.formatted(.dateTime.day().month(.wide))
+        let cell = app.descendants(matching: .any).matching(
+            NSPredicate(format: "label BEGINSWITH %@", spoken)
+        ).firstMatch
+        guard scrollTo(cell) else {
+            return XCTFail("\(spoken) is not on screen")
         }
         cell.tap()
 

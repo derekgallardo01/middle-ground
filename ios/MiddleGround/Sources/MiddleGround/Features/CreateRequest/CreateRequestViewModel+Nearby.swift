@@ -99,6 +99,10 @@ extension CreateRequestViewModel {
     func choose(_ place: DiscoveredPlace) {
         location = place.name
         chosenPlace = place
+        // Apple already classified it, so the plan can wear the right face without anybody
+        // being asked. Unrecognised categories leave the current choice alone rather than
+        // reaching for a generic pin — the category's own emoji is a better answer than 📌.
+        adoptEmoji(fromPlace: PlaceCategoryEmoji.forPointOfInterest(place.category))
     }
 
     /// The zone to record on the plan, if the chosen place is still the plan's place.

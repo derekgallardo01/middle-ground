@@ -8,12 +8,24 @@ struct RequestCard: View {
 
     @State private var showActions = false
 
+    /// Matched to `ResponseButton`'s glyph, so the face of the plan carries the same weight as
+    /// the answers to it rather than sitting under them.
+    @ScaledMetric(relativeTo: .title3) private var emojiSize: CGFloat = 22
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: request.category.iconName)
-                    .foregroundStyle(MGColors.indigo)
-                    .font(.system(size: 14, weight: .semibold))
+                // The plan's own face, not the category's glyph. See `Request+Emoji` for why:
+                // a couple's plans are nearly all one category, so the old 14pt monochrome icon
+                // was the same heart on every card in the feed.
+                //
+                // Hidden from VoiceOver. The row in `HomeView` already announces
+                // "Request: <title>, status <status>", which is the meaning; "red heart" on top
+                // of that is noise, and the emoji is a fallback often enough that reading it
+                // aloud would sometimes be actively wrong about the plan.
+                Text(request.displayEmoji)
+                    .font(.system(size: emojiSize))
+                    .accessibilityHidden(true)
 
                 Spacer()
 

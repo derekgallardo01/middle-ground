@@ -46,20 +46,68 @@ extension Request {
     /// Rendered on the plan's clock when it has one (`Request+TimeZone`). A trip that starts at
     /// 00:30 in Madrid is on the 12th there and the 11th to a reader in Chicago, and the date a
     /// card shows has to be the one on the tickets.
+    ///
+    /// **The hour is here because it was collected and then shown to nobody.** The composer's
+    /// `DatePicker` names no `displayedComponents`, so it defaults to date *and* time and people
+    /// pick 8:00 PM. This formatted with `time: .omitted`, and `PlanHeader` only ever showed an
+    /// hour via `localTimeSummary`, which is gated on the plan being in *another* zone. Every
+    /// domestic plan — which is all of them — therefore recorded a time that appeared on no
+    /// screen. A card reading "Drinks on Wednesday?" over "August 8, 2026" left the one question
+    /// worth answering, what time to turn up, only findable by opening the negotiation thread.
     var dateSummary: String? {
         guard let proposedTime else { return nil }
         let zone = displayTimeZone
         guard isMultiDay, let endTime else {
-            return proposedTime.formatted(
-                Date.FormatStyle(date: .abbreviated, time: .omitted, timeZone: zone)
-            )
+            return "\(dayLabel(for: proposedTime, in: zone)) · \(hour(of: proposedTime, in: zone))"
         }
-        // The year is asked for, because the single-date branch above includes one — a list mixing
-        // "Jan 15 – 19" with "Jan 15, 2027" reads like two different apps. `isMultiDay` guarantees
-        // the end is after the start, so this range can never be malformed.
-        var style = Date.IntervalFormatStyle().day().month(.abbreviated).year()
+        // No time on a range, deliberately: nobody asks what o'clock a week in Barcelona starts,
+        // and `weekday()` on both ends is what makes it read as days rather than as numbers.
+        //
+        // The year appears under the same rule as the single date below, which is the point of
+        // `showsYear` being shared — a list mixing "Wed 12 – Sun 16 Aug" with "Wed 5 Aug 2026"
+        // reads like two different apps, which is what the year was unconditional to avoid.
+        var style = Date.IntervalFormatStyle().weekday(.abbreviated).day().month(.abbreviated)
+        if showsYear(for: proposedTime, in: zone) { style = style.year() }
         style.timeZone = zone
         return (proposedTime..<endTime).formatted(style)
+    }
+
+    /// Whether the year is worth the width.
+    ///
+    /// Off for anything in the current year, which is nearly every plan. "Wed, Aug 5, 2026" on a
+    /// card about next Wednesday spends four characters telling the reader something they have
+    /// not wondered about, on the most-repeated element in the app. It comes back for a plan in
+    /// another year, where it is the whole difference between next month and next February.
+    ///
+    /// Compared on the plan's calendar, like every other date decision here.
+    private func showsYear(for date: Date, in zone: TimeZone) -> Bool {
+        var calendar = Calendar.current
+        calendar.timeZone = zone
+        return calendar.component(.year, from: date) != calendar.component(.year, from: Date())
+    }
+
+    /// "Today", "Tomorrow", or "Wed 8 Aug 2026".
+    ///
+    /// Relative only for today and tomorrow. Past those, a weekday and a date is more use than
+    /// "in 6 days" — the question a plan answers is which evening to keep free, and a countdown
+    /// makes the reader do the conversion themselves.
+    ///
+    /// Counted on the **plan's** calendar rather than `Calendar.current`. A dinner at 00:30 in
+    /// Madrid is tomorrow there and today to a reader in Chicago, and naming the wrong one is
+    /// exactly the failure `timeZoneID` was added to prevent.
+    private func dayLabel(for date: Date, in zone: TimeZone) -> String {
+        var calendar = Calendar.current
+        calendar.timeZone = zone
+        if calendar.isDateInToday(date) { return "Today" }
+        if calendar.isDateInTomorrow(date) { return "Tomorrow" }
+        var style = Date.FormatStyle(timeZone: zone)
+            .weekday(.abbreviated).month(.abbreviated).day()
+        if showsYear(for: date, in: zone) { style = style.year() }
+        return date.formatted(style)
+    }
+
+    private func hour(of date: Date, in zone: TimeZone) -> String {
+        date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, timeZone: zone))
     }
 
     /// Whether this plan occupies a given day.

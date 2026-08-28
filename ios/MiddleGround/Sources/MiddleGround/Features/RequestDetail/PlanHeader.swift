@@ -13,11 +13,17 @@ struct PlanHeader: View {
     /// stays the one place that knows.
     let mapsURL: (String) -> URL
 
+    /// Larger than the card's: this is the plan itself rather than one of several in a list.
+    @ScaledMetric(relativeTo: .title) private var emojiSize: CGFloat = 28
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: request.category.iconName)
-                    .foregroundStyle(MGColors.indigo)
+                // The same face the card showed. Opening a plan that read 🍸 in the feed and
+                // finding a monochrome heart at the top of it would read as a different plan.
+                Text(request.displayEmoji)
+                    .font(.system(size: emojiSize))
+                    .accessibilityHidden(true)
                 Spacer()
                 StatusBadge(status: request.status)
             }

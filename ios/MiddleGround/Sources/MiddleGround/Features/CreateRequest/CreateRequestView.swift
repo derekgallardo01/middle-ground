@@ -74,6 +74,14 @@ struct CreateRequestView: View {
                     if viewModel.location.isEmpty {
                         placeSuggestions
                     }
+
+                    // Below the place, because picking one usually answers this — tapping
+                    // "🍸 That wine bar" sets both, and what this row is then for is
+                    // disagreeing with it.
+                    PlanEmojiPicker(
+                        choices: viewModel.emojiChoices,
+                        selected: viewModel.emoji
+                    ) { viewModel.chooseEmoji($0) }
                 }
 
                 Section("When?") {
@@ -218,6 +226,11 @@ struct CreateRequestView: View {
                     ForEach(places) { venue in
                         chip(emoji: venue.emoji, label: venue.name, tinted: true) {
                             viewModel.location = venue.locationText
+                            // The chip shows 🍝 and the plan should too. This used to set the
+                            // name alone, so the curated emoji — the one thing an operator
+                            // editing a venue can control about how it looks — was discarded
+                            // at the moment of composing and reached nothing.
+                            viewModel.adoptEmoji(fromPlace: venue.emoji)
                         }
                         .accessibilityLabel("Set location to \(venue.name) in \(venue.city)")
                     }
@@ -225,6 +238,7 @@ struct CreateRequestView: View {
                     ForEach(kinds) { place in
                         chip(emoji: place.emoji, label: place.name, tinted: false) {
                             viewModel.location = place.name
+                            viewModel.adoptEmoji(fromPlace: place.emoji)
                         }
                         .accessibilityLabel("Set location to \(place.name)")
                     }

@@ -80,6 +80,10 @@ struct Request: Identifiable, Hashable, Codable {
     /// backfilled.
     var timeZoneID: String?
     var location: String?
+    /// The face of this plan, chosen when it was composed. See `Request+Emoji`.
+    ///
+    /// Nil on everything written before it existed, which falls back to the category's.
+    var emoji: String?
     var status: RequestStatus
     var negotiationChain: [NegotiationMessage]
     /// What each participant said about whether the plan happened, keyed by user ID.
@@ -123,6 +127,7 @@ struct Request: Identifiable, Hashable, Codable {
          endTime: Date? = nil,
          timeZoneID: String? = nil,
          location: String? = nil,
+         emoji: String? = nil,
          status: RequestStatus = .pending,
          negotiationChain: [NegotiationMessage] = [],
          confirmations: [String: ConfirmationOutcome] = [:],
@@ -143,6 +148,7 @@ struct Request: Identifiable, Hashable, Codable {
         self.endTime = endTime
         self.timeZoneID = timeZoneID
         self.location = location
+        self.emoji = emoji
         self.status = status
         self.negotiationChain = negotiationChain
         self.confirmations = confirmations
@@ -169,6 +175,7 @@ struct Request: Identifiable, Hashable, Codable {
         endTime = try container.decodeIfPresent(Date.self, forKey: .endTime)
         timeZoneID = try container.decodeIfPresent(String.self, forKey: .timeZoneID)
         location = try container.decodeIfPresent(String.self, forKey: .location)
+        emoji = try container.decodeIfPresent(String.self, forKey: .emoji)
         status = try container.decode(RequestStatus.self, forKey: .status)
         negotiationChain = try container.decodeIfPresent(
             [NegotiationMessage].self, forKey: .negotiationChain

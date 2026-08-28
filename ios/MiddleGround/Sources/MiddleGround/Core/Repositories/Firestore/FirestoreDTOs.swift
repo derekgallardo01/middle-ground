@@ -16,6 +16,8 @@ struct RequestDTO: Codable, Identifiable {
     /// Optional: only set when the plan is somewhere with a different clock.
     var timeZoneID: String?
     var location: String?
+    /// Optional: absent on every plan composed before the picker existed.
+    var emoji: String?
     var status: String
     var negotiationChain: [NegotiationMessageDTO]
     /// Optional so requests written before attendance was recorded still decode.
@@ -43,6 +45,7 @@ struct RequestDTO: Codable, Identifiable {
         self.endTime = request.endTime.map { Timestamp(date: $0) }
         self.timeZoneID = request.timeZoneID
         self.location = request.location
+        self.emoji = request.emoji
         self.status = request.status.rawValue
         self.negotiationChain = request.negotiationChain.map { NegotiationMessageDTO(from: $0) }
         self.confirmations = request.confirmations.mapValues(\.rawValue)
@@ -79,6 +82,7 @@ struct RequestDTO: Codable, Identifiable {
             endTime: endTime?.dateValue(),
             timeZoneID: timeZoneID,
             location: location,
+            emoji: emoji,
             status: statusEnum,
             negotiationChain: negotiationChain.compactMap { $0.toModel() },
             // An unrecognised outcome is dropped rather than failing the whole request, for the

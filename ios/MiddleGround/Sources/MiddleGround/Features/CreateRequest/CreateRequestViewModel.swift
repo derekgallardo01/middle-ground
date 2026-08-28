@@ -73,6 +73,58 @@ final class CreateRequestViewModel {
         set { locationStorage = RequestLimits.clamp(newValue, to: RequestLimits.location) }
     }
 
+    // MARK: - The face of the plan
+    //
+    // Stored on the request rather than worked out when a card is drawn. A guess made at render
+    // time is a guess nobody can correct; made here it is a suggestion in a picker, in front of
+    // the one person who knows what the evening actually is. See `Request+Emoji`.
+
+    /// What the plan will look like in the feed. Never empty — seeded from the category.
+    private(set) var emoji: String
+
+    /// Whether a person picked it, as opposed to it being suggested.
+    ///
+    /// The same guard `categoryWasChosenByHand` provides, for the same reason: switching category
+    /// after choosing 🍸 must not quietly put the plan back to ❤️.
+    private(set) var emojiWasChosenByHand = false
+
+    /// Records a deliberate pick, from the picker row.
+    func chooseEmoji(_ value: String) {
+        emoji = value
+        emojiWasChosenByHand = true
+    }
+
+    /// Adopts the emoji that came with a place — a venue, a place kind, somewhere nearby.
+    ///
+    /// Counts as a choice, because tapping "🍸 That wine bar" *is* choosing it. Without that,
+    /// changing category afterwards would discard the venue's emoji and the field would go back
+    /// to disagreeing with the location sitting right above it.
+    func adoptEmoji(fromPlace value: String?) {
+        guard let value, !value.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        chooseEmoji(value)
+    }
+
+    /// Re-seeds the suggestion when the category changes, unless somebody has chosen.
+    func refreshSuggestedEmoji() {
+        guard !emojiWasChosenByHand else { return }
+        emoji = category.emoji
+    }
+
+    /// What the picker offers: the kinds of place this category tends to happen at, then the
+    /// category's own. `PlaceSuggestion.forCategory` is already exactly this list, so the picker
+    /// and the "Where?" chips can never drift apart.
+    var emojiChoices: [String] {
+        var seen: [String] = []
+        for candidate in PlaceSuggestion.forCategory(category).map(\.emoji) + [category.emoji]
+        where !seen.contains(candidate) {
+            seen.append(candidate)
+        }
+        // The current pick always appears, even when it came from a venue outside this list —
+        // otherwise the row shows no selection and looks broken.
+        if !seen.contains(emoji) { seen.insert(emoji, at: 0) }
+        return seen
+    }
+
     var proposedTime: Date = Date() {
         didSet { scheduleAvailabilityCheck() }
     }
@@ -195,6 +247,7 @@ final class CreateRequestViewModel {
 
     init(category: RequestCategory = .relationship, title: String = "", details: String = "") {
         self.category = category
+        self.emoji = category.emoji
         self.titleStorage = RequestLimits.clamp(title, to: RequestLimits.title)
         self.detailsStorage = RequestLimits.clamp(details, to: RequestLimits.details)
     }
@@ -214,6 +267,7 @@ final class CreateRequestViewModel {
         guard chosen != category else { return }
         category = chosen
         categoryWasChosenByHand = true
+        refreshSuggestedEmoji()
     }
 
     /// Seeds the category from whoever the plan is addressed to.
@@ -225,6 +279,7 @@ final class CreateRequestViewModel {
               let relationship = relationships.first(where: { $0.id == selectedRelationshipID })
         else { return }
         category = relationship.type.suggestedRequestCategory
+        refreshSuggestedEmoji()
     }
 
     func loadCurrentUserAndPartners() async {
@@ -337,7 +392,8 @@ final class CreateRequestViewModel {
             location: {
                 let trimmed = location.trimmingCharacters(in: .whitespacesAndNewlines)
                 return trimmed.isEmpty ? nil : trimmed
-            }()
+            }(),
+            emoji: emoji
         )
 
         do {

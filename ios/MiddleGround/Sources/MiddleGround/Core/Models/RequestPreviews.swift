@@ -25,6 +25,56 @@ enum PreviewClock {
         let day = calendar.startOfDay(for: Date().addingTimeInterval(Double(daysFromNow) * 86_400))
         return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
     }
+
+    /// The next `weekday`, at `hour` o'clock. 1 is Sunday, matching `Calendar`.
+    ///
+    /// Nine fixtures name a day in their own title — "Drinks on Wednesday?", "Film night
+    /// Saturday?", "Sunday roast?" — and every one of them was dated by a fixed offset from
+    /// launch, so the day in the title and the day on the card agreed only by luck. Nothing
+    /// caught it while cards showed a bare "August 8, 2026": the contradiction became visible
+    /// the moment they started printing the weekday, and the first place it showed up was an
+    /// App Store screenshot reading "Drinks on Wednesday?" over "Sun, Sep 13".
+    ///
+    /// Always in the future and never today, so a plan that has not happened yet cannot be
+    /// dated this morning.
+    static func next(weekday: Int, hour: Int, minute: Int = 0) -> Date {
+        let calendar = Calendar.current
+        let tomorrow = calendar.startOfDay(for: Date().addingTimeInterval(86_400))
+        let day = calendar.nextDate(
+            after: tomorrow,
+            matching: DateComponents(weekday: weekday),
+            matchingPolicy: .nextTime,
+            direction: .forward
+        ) ?? tomorrow
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+    }
+
+    static var sunday: Date { next(weekday: 1, hour: 13) }
+    static var monday: Date { next(weekday: 2, hour: 9) }
+    static var thursday: Date { next(weekday: 5, hour: 19) }
+    static var friday: Date { next(weekday: 6, hour: 20) }
+    static var saturday: Date { next(weekday: 7, hour: 20) }
+    static var wednesday: Date { next(weekday: 4, hour: 20) }
+
+    /// The most recent `weekday`, at `hour` o'clock — for the fixtures whose whole purpose is
+    /// having already happened.
+    ///
+    /// `previewToConfirmHappened` is "agreed, and its time has passed": it is what puts the
+    /// "did it happen?" question on screen. Dating it forward silently removes that question
+    /// from mock mode, the previews and the screenshots, which is a worse bug than the one
+    /// naming the right weekday fixes.
+    static func previous(weekday: Int, hour: Int, minute: Int = 0) -> Date {
+        let calendar = Calendar.current
+        let day = calendar.nextDate(
+            after: calendar.startOfDay(for: Date()),
+            matching: DateComponents(weekday: weekday),
+            matchingPolicy: .nextTime,
+            direction: .backward
+        ) ?? Date().addingTimeInterval(-86_400)
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day) ?? day
+    }
+
+    static var lastMonday: Date { previous(weekday: 2, hour: 9) }
 }
 
 extension Request {
@@ -35,7 +85,7 @@ extension Request {
         category: .relationship,
         title: "Date night this Friday?",
         details: "Want to try that new Italian place?",
-        proposedTime: Date().addingTimeInterval(86400 * 3),
+        proposedTime: PreviewClock.friday,
         status: .pending,
         createdAt: Date().addingTimeInterval(-86_400),
         updatedAt: Date().addingTimeInterval(-86_400)
@@ -78,7 +128,7 @@ extension Request {
         category: .friends,
         title: "Pizza on Thursday?",
         details: "That place by the park.",
-        proposedTime: Date().addingTimeInterval(86_400 * 4),
+        proposedTime: PreviewClock.thursday,
         status: .pending,
         createdAt: Date().addingTimeInterval(-1_700),
         updatedAt: Date().addingTimeInterval(-1_700)
@@ -120,7 +170,7 @@ extension Request {
         category: .chill,
         title: "Film night Saturday?",
         details: "Your pick.",
-        proposedTime: Date().addingTimeInterval(86_400 * 2),
+        proposedTime: PreviewClock.saturday,
         status: .pending,
         createdAt: Date().addingTimeInterval(-1_400),
         updatedAt: Date().addingTimeInterval(-1_400)
@@ -133,7 +183,7 @@ extension Request {
         recipientIDs: [User.preview.id],
         category: .friends,
         title: "Coffee on Monday",
-        proposedTime: Date().addingTimeInterval(-7_200),
+        proposedTime: PreviewClock.lastMonday,
         location: "Prospect Park",
         status: .accepted,
         createdAt: Date().addingTimeInterval(-90_000),
@@ -162,7 +212,7 @@ extension Request {
         category: .dating,
         title: "Drinks on Wednesday?",
         details: "That wine bar.",
-        proposedTime: Date().addingTimeInterval(86_400 * 5),
+        proposedTime: PreviewClock.wednesday,
         status: .pending,
         createdAt: Date().addingTimeInterval(-1_300),
         updatedAt: Date().addingTimeInterval(-1_300)
@@ -201,7 +251,7 @@ extension Request {
         category: .friends,
         title: "Climbing on Saturday",
         details: "Third time we've tried to book this.",
-        proposedTime: Date().addingTimeInterval(86_400 * 2),
+        proposedTime: PreviewClock.saturday,
         location: "The Castle",
         status: .accepted,
         negotiationChain: [
@@ -242,7 +292,7 @@ extension Request {
         category: .friends,
         title: "Sunday roast?",
         details: "The place with the good potatoes.",
-        proposedTime: Date().addingTimeInterval(86_400 * 4),
+        proposedTime: PreviewClock.sunday,
         location: "The Anchor",
         status: .accepted,
         negotiationChain: [

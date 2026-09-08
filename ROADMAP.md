@@ -54,13 +54,21 @@ made it says so; where one is still open it says that too, rather than quietly p
   negotiation in flight: a counter-offer has status `countered`, and the turn after a counter
   usually belongs to the creator, who is in neither.
 
-### ⚠️ Three rules branches are written, unverified and undeployed
+### ✅ Those rules are deployed and verified
 
-`isConfirmingAttendance`, `isCancelling`, and the tightened `allow delete`. Until
-`firestore.rules` is deployed, attendance confirmation and cancellation are both inert: the
-backend refuses the writes, so the reliability score has nothing to count. The emulator needs a
-JDK and firebase-tools, so the rules tests have not been run — the CI "Firestore rules" job is
-the intended verification.
+`isConfirmingAttendance`, `isCancelling` and the tightened `allow delete` went live with the
+1.1 release (ruleset `b6154be5-cf5c-425a-9f4b-f4cf58c4140f`, 8 September 2026; roll back to
+`cdd594c2-5e22-40be-9aba-371a6c73d909`). Attendance confirmation and cancellation are no longer
+inert, so the reliability score has something to count.
+
+The emulator still needs a JDK this machine does not have, so the rules tests are run by the CI
+"Firestore rules" job and nowhere else. That job is the verification — a local run reporting
+success is not possible here, and claiming one would be false.
+
+Firestore indexes were checked against production at the same time: `requests: status + endTime`
+was declared in `firestore.indexes.json` and had never been deployed, so `promptForAttendance`
+would have failed for every multi-day trip. All eight now match. `CloudFunctions/test/indexes.test.js`
+fails if the file and the callers drift again.
 
 ### Open question the scoring work needs answered
 
@@ -71,7 +79,7 @@ the part of that choice still outstanding.
 
 ## Status of the product
 
-v1.0 is in App Store review. The core loop — send a request, negotiate, land on a time — works and
+v1.1 is on the App Store (build `202608280029`, released 8 September 2026). The core loop — send a request, negotiate, land on a time — works and
 is covered by tests. Requests, relationships, and analytics events live in Firestore behind
 turn-based security rules. Gamification (XP, streak, growth score, achievements) is local to the
 device with a Firestore mirror for restore.

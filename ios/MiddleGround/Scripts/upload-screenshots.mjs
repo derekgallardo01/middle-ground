@@ -25,8 +25,17 @@ const KEY_PATH = process.env.MG_ASC_KEY_PATH
 const APP = process.env.MG_ASC_APP_ID || '6796479061';
 const DIR = process.argv[2] || `${homedir()}/Desktop/MiddleGround-Screenshots`;
 
-/** 1320x2868 is the 6.9" iPhone size; App Store Connect accepts it in the 6.7" slot. */
-const DISPLAY_TYPE = 'APP_IPHONE_67';
+/**
+ * Which slot on the listing these images belong in.
+ *
+ * 1320x2868 is the 6.9" iPhone size; App Store Connect accepts it in the 6.7" slot, which is why
+ * that is the default. Overridable because the listing carries an iPad set too — hardcoded, this
+ * script could only ever refresh half of it, and the iPad screenshots quietly stayed a month
+ * older than the app while the iPhone ones looked after themselves.
+ *
+ *   MG_SHOT_DISPLAY_TYPE=APP_IPAD_PRO_3GEN_129 node Scripts/upload-screenshots.mjs <dir>
+ */
+const DISPLAY_TYPE = process.env.MG_SHOT_DISPLAY_TYPE || 'APP_IPHONE_67';
 
 const b64 = (o) => Buffer.from(typeof o === 'string' ? o : JSON.stringify(o)).toString('base64url');
 

@@ -1,5 +1,5 @@
 <div class="hero">
-<span class="eyebrow">Version 1.0 · in App Store review</span>
+<span class="eyebrow">Version 1.1 · on the App Store</span>
 <h1>Making plans <span class="tagline">shouldn't be this hard</span>.</h1>
 <p>Middle Ground is an iPhone app for the plans you make with other people. Dinner. The weekend. Who's actually free on Thursday.</p>
 <div class="actions">

@@ -82,7 +82,10 @@ struct PlaceDetailView: View {
             if let picture {
                 Image(uiImage: picture.image)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    // `scaledToFill()`, not `aspectRatio(contentMode: .fill)`: identical
+                    // behaviour, and SwiftLint's `legacy_swiftui_aspect_ratio` refuses the
+                    // older spelling. Nothing about the picture changes.
+                    .scaledToFill()
             } else if isLoadingPicture {
                 MGColors.warm100
                     .overlay(ProgressView())

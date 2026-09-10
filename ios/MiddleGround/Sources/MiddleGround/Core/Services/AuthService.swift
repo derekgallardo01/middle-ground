@@ -103,8 +103,14 @@ actor AuthService: AuthServiceProtocol {
 
             try await userRepository.saveUser(user)
 
+            // Both halves, not just the first. `signedUp` fires once per account ever, so a
+            // returning user — a reinstall, a second device, a sign-in after signing out —
+            // produced no event at all, and `appOpened` cannot stand in for it: it is debounced
+            // to one every thirty minutes and fires for an install somebody already had.
             if isNewAccount {
                 await analytics.track(.signedUp, userID: user.id)
+            } else {
+                await analytics.track(.signedIn, userID: user.id)
             }
             return user
         } catch {

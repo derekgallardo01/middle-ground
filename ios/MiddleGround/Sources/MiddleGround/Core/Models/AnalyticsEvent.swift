@@ -38,6 +38,15 @@ struct AnalyticsEvent: Identifiable, Hashable, Codable, Sendable {
 
 enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
     case signedUp = "signed_up"
+    /// A *returning* user authenticated — a reinstall, a second device, or a fresh sign-in after
+    /// signing out.
+    ///
+    /// Distinct from `signedUp`, which fires once per account, ever. Without this the only signal
+    /// that somebody came back was `appOpened`, which is debounced to once every thirty minutes
+    /// and fires for the same install every day — so a person setting the app up on a new phone
+    /// was indistinguishable from a person opening the one they already had. The two questions
+    /// are different: one is retention, the other is reach.
+    case signedIn = "signed_in"
     case onboardingCompleted = "onboarding_completed"
     case relationshipCreated = "relationship_created"
     case relationshipLeft = "relationship_left"
@@ -73,6 +82,7 @@ enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
     var displayName: String {
         switch self {
         case .signedUp: return "Signed up"
+        case .signedIn: return "Signed in"
         case .onboardingCompleted: return "Finished onboarding"
         case .relationshipCreated: return "Created a group"
         case .relationshipLeft: return "Left a group"
@@ -92,6 +102,7 @@ enum EventType: String, Codable, CaseIterable, Identifiable, Sendable {
     var iconName: String {
         switch self {
         case .signedUp: return "person.badge.plus"
+        case .signedIn: return "person.crop.circle.badge.checkmark"
         case .onboardingCompleted: return "checkmark.seal"
         case .relationshipCreated: return "person.2.badge.plus"
         case .relationshipLeft: return "person.2.slash"
